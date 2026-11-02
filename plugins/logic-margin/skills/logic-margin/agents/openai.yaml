@@ -1,0 +1,4 @@
+interface:
+  display_name: "LogicMargin 逻辑评审"
+  short_description: "将业务逻辑整理为可批注流程图，等待人工意见并完成修改与复核"
+  default_prompt: "使用 $logic-margin:logic-margin 将当前需求整理为有源码依据的流程图，发起评审并等待我的意见。"

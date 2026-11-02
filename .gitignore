@@ -1,0 +1,10 @@
+node_modules/
+dist/
+test-results/
+.scratch/
+playwright-report/
+.DS_Store
+.logic-margin/
+artifacts/
+plugins/logic-margin/skills/logic-margin/scripts/logic-margin
+plugins/logic-margin/skills/logic-margin/scripts/logic-margin.exe

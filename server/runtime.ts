@@ -1,0 +1,97 @@
+import { createServer } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createSessionApi } from './api.ts'
+
+export type EmbeddedAssets = Record<string, { body: string; type: string }>
+
+function json(response: ServerResponse, status: number, value: unknown) {
+  const body = Buffer.from(JSON.stringify(value))
+  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': body.length,
+    'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+  response.end(body)
+}
+
+function pathname(request: IncomingMessage) {
+  const path = decodeURIComponent((request.url ?? '').split('?')[0])
+  if (!path.startsWith('/') || path.startsWith('//') || /[\\\x00-\x1f\x7f]/.test(path) || path.split('/').some(part => part === '.' || part === '..')) {
+    throw new Error('请求路径无效')
+  }
+  return path
+}
+
+function sameOrigin(request: IncomingMessage) {
+  if (request.headers['sec-fetch-site'] === 'cross-site') return false
+  const origin = request.headers.origin
+  if (!origin) return true
+  try {
+    const parsed = new URL(origin)
+    return ['http:', 'https:'].includes(parsed.protocol) && parsed.host === request.headers.host
+  } catch { return false }
+}
+
+export async function createReviewServer(options: {
+  assets: EmbeddedAssets
+  dataDir: string
+  host?: string
+  port?: number
+  instanceId: string
+  version: string
+  shutdownToken: string
+}): Promise<{ url: string; close(): Promise<void>; closed: Promise<void> }> {
+  if (!options.shutdownToken || !options.instanceId || !options.version) throw new Error('服务身份与关闭令牌不能为空')
+  const assets = new Map(Object.entries(options.assets).map(([path, asset]) => [path, { body: Buffer.from(asset.body, 'base64'), type: asset.type }]))
+  if (!assets.has('/index.html')) throw new Error('程序未包含网页入口，请重新打包')
+  const api = createSessionApi({ dataDir: options.dataDir })
+  const polls = new Set<ServerResponse>()
+  let closing: Promise<void> | undefined
+  const server = createServer((request, response) => {
+    let path: string
+    try { path = pathname(request) }
+    catch { json(response, 400, { error: '请求路径无效' }); return }
+    if (path === '/api/health') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') { response.setHeader('Allow', 'GET, HEAD'); json(response, 405, { error: '此接口仅支持读取' }); return }
+      json(response, 200, { service: 'logic-margin', apiVersion: 1, version: options.version, instanceId: options.instanceId, pid: process.pid, managed: true })
+      return
+    }
+    if (path === '/api/shutdown') {
+      if (request.method !== 'POST') { response.setHeader('Allow', 'POST'); json(response, 405, { error: '关闭服务需要 POST' }); return }
+      if (!sameOrigin(request) || request.headers['x-logic-margin-token'] !== options.shutdownToken) { json(response, 403, { error: '关闭服务未获授权' }); return }
+      request.resume()
+      response.setHeader('Connection', 'close')
+      response.once('finish', () => { void close() })
+      json(response, 200, { stopped: true })
+      return
+    }
+    if (path === '/api' || path.startsWith('/api/')) {
+      if (request.method === 'GET' && new URL(request.url!, 'http://localhost').searchParams.has('afterVersion')) {
+        polls.add(response)
+        response.once('close', () => polls.delete(response))
+      }
+      api(request, response, () => json(response, 404, { error: '找不到此审查接口' }))
+      return
+    }
+    if (request.method !== 'GET' && request.method !== 'HEAD') { response.setHeader('Allow', 'GET, HEAD'); json(response, 405, { error: '网页仅支持 GET 或 HEAD' }); return }
+    const asset = assets.get(path === '/' ? '/index.html' : path) ?? (!path.split('/').at(-1)?.includes('.') ? assets.get('/index.html') : undefined)
+    if (!asset) { json(response, 404, { error: '找不到此资源' }); return }
+    response.writeHead(200, { 'Content-Type': asset.type, 'Content-Length': asset.body.length, 'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-store' })
+    response.end(request.method === 'HEAD' ? undefined : asset.body)
+  })
+  const closed = new Promise<void>(resolve => { server.once('close', () => resolve()) })
+  function close() {
+    closing ??= new Promise<void>((resolve, reject) => {
+      for (const response of polls) if (!response.headersSent) json(response, 503, { error: '服务正在停止，请恢复会话后重试' })
+      server.close(error => error ? reject(error) : resolve())
+      server.closeAllConnections()
+    })
+    return closing
+  }
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(options.port ?? 0, options.host ?? '127.0.0.1', () => { server.off('error', reject); resolve() })
+  })
+  const address = server.address()
+  if (!address || typeof address === 'string') { await close(); throw new Error('无法确定服务监听地址') }
+  const host = options.host === '0.0.0.0' || options.host === '::' ? '127.0.0.1' : options.host ?? '127.0.0.1'
+  return { url: `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`, close, closed }
+}

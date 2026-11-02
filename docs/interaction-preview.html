@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LogicMargin 交互优化提案</title>
+<style>
+/* Hallmark · interaction refinement · existing tool palette preserved
+ * pre-emit critique: P4 H5 E4 S5 R5 V4 · proposed interactions, not production
+ */
+:root {
+  color-scheme: light dark;
+  --ux-paper: light-dark(oklch(98% .004 250), oklch(19% .012 250));
+  --ux-surface: light-dark(oklch(99.5% .002 250), oklch(24% .015 250));
+  --ux-soft: light-dark(oklch(96.5% .006 250), oklch(21.5% .014 250));
+  --ux-ink: light-dark(oklch(26% .025 258), oklch(94% .008 250));
+  --ux-muted: light-dark(oklch(49% .023 258), oklch(74% .018 250));
+  --ux-line: light-dark(oklch(82% .016 250), oklch(45% .022 250));
+  --ux-blue: light-dark(oklch(49% .19 262), oklch(78% .12 262));
+  --ux-blue-soft: light-dark(oklch(95% .026 262), oklch(31% .065 262));
+  --ux-blue-ink: light-dark(oklch(99% .005 262), oklch(19% .025 262));
+  --ux-green: light-dark(oklch(39% .09 160), oklch(77% .11 160));
+  --ux-error: light-dark(oklch(45% .145 29), oklch(77% .13 29));
+  --ux-clear: transparent;
+  --ux-font: var(--font-sans, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);
+  --ux-radius: 6px;
+}
+html, body { margin: 0; background: transparent; font-family: var(--ux-font); color: var(--ux-ink); }
+#ux-review { min-width: 0; }
+#ux-review * { box-sizing: border-box; }
+#ux-review [hidden] { display: none !important; }
+#ux-review button, #ux-review textarea { font: inherit; }
+#ux-review button { touch-action: manipulation; white-space: nowrap; }
+#ux-review p, #ux-review h2, #ux-review h3 { margin: 0; }
+#ux-review .examples { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 90px 12px 0; }
+#ux-review .examples span { color: var(--ux-muted); font-size: 12px; }
+#ux-review .demo-tab { border: 0; border-bottom: 2px solid var(--ux-clear); padding: 8px; min-height: 40px; background: var(--ux-clear); color: var(--ux-muted); }
+#ux-review .demo-tab[aria-pressed="true"] { color: var(--ux-blue); border-bottom-color: var(--ux-blue); }
+#ux-review .app-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px; background: var(--ux-surface); border-bottom: 1px solid var(--ux-line); }
+#ux-review .brand { display: flex; flex-direction: column; gap: 4px; }
+#ux-review .brand strong { font-weight: 500; font-size: 16px; }
+#ux-review .brand small { color: var(--ux-muted); font-size: 12px; }
+#ux-review .head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#ux-review .save-state { font-size: 12px; color: var(--ux-muted); }
+#ux-review .control { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 8px 10px; border: 1px solid var(--ux-line); border-radius: var(--ux-radius); color: var(--ux-ink); background: var(--ux-surface); }
+#ux-review .control.primary { border-color: var(--ux-blue); background: var(--ux-blue); color: var(--ux-blue-ink); }
+#ux-review .control.ghost { border-color: var(--ux-clear); background: var(--ux-clear); }
+#ux-review .control[aria-pressed="true"] { background: var(--ux-blue-soft); border-color: var(--ux-blue); color: var(--ux-blue); }
+#ux-review .control:disabled { opacity: .5; cursor: not-allowed; }
+#ux-review .control:active:not(:disabled) { transform: translateY(1px); }
+#ux-review .workspace { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--ux-paper); }
+#ux-review .workspace.docked { grid-template-columns: minmax(0, 1fr) 280px; }
+#ux-review .canvas { min-width: 0; padding: 16px; }
+#ux-review .graph-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+#ux-review h2 { font-size: 16px; font-weight: 500; }
+#ux-review .graph-head p { color: var(--ux-muted); margin-top: 4px; font-size: 12px; }
+#ux-review .tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+#ux-review .selected-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 46px; margin-bottom: 12px; }
+#ux-review .selected-tools > span { font-size: 12px; color: var(--ux-blue); }
+#ux-review .canvas-space { position: relative; min-height: 470px; padding: 8px 8px 16px; }
+#ux-review .canvas-space.box-mode { touch-action: none; }
+#ux-review .graph-stack { display: flex; flex-direction: column; align-items: flex-start; max-width: 260px; }
+#ux-review .node { position: relative; width: 100%; }
+#ux-review .node-hit { width: 100%; min-height: 86px; text-align: left; white-space: normal; padding: 12px; border: 1px solid var(--ux-line); border-radius: var(--ux-radius); background: var(--ux-surface); color: var(--ux-ink); }
+#ux-review .node-hit[aria-pressed="true"] { outline: 2px solid var(--ux-blue); outline-offset: 2px; background: var(--ux-blue-soft); }
+#ux-review .node-hit small { display: block; color: var(--ux-muted); font-size: 12px; margin-bottom: 4px; }
+#ux-review .node-hit strong { display: block; padding-right: 24px; font-size: 14px; font-weight: 500; }
+#ux-review .node-hit .node-detail { display: block; margin-top: 6px; font-size: 12px; color: var(--ux-muted); }
+#ux-review .pin { position: absolute; right: -10px; top: -12px; min-width: 36px; min-height: 32px; border-radius: var(--ux-radius); border: 1px solid var(--ux-blue); background: var(--ux-surface); color: var(--ux-blue); font-size: 12px; }
+#ux-review .edge { display: block; align-self: center; min-height: 42px; padding: 6px 12px; border: 0; border-radius: var(--ux-radius); background: var(--ux-clear); color: var(--ux-muted); font-size: 12px; }
+#ux-review .edge[aria-pressed="true"] { background: var(--ux-blue-soft); color: var(--ux-blue); outline: 1px solid var(--ux-blue); }
+#ux-review .change { display: block; margin-top: 6px; color: var(--ux-green); font-size: 12px; }
+#ux-review .inline-slot { position: absolute; left: 306px; width: min(344px, calc(100% - 314px)); top: 90px; }
+#ux-review .saved-pins { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+#ux-review .editor { padding: 14px; border: 1px solid var(--ux-line); border-radius: var(--ux-radius); background: var(--ux-surface); color: var(--ux-ink); }
+#ux-review .editor-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+#ux-review h3 { font-size: 14px; font-weight: 500; }
+#ux-review .editor-targets { font-size: 12px; color: var(--ux-muted); margin-bottom: 12px; overflow-wrap: anywhere; }
+#ux-review .editor label { display: block; font-size: 13px; margin-bottom: 6px; }
+#ux-review textarea { display: block; width: 100%; min-height: 104px; resize: vertical; padding: 10px; border: 1px solid var(--ux-line); border-radius: var(--ux-radius); background: var(--ux-paper); color: var(--ux-ink); }
+#ux-review .editor-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#ux-review .editor-footer small { color: var(--ux-muted); font-size: 12px; }
+#ux-review .editor-error { min-height: 1.5em; font-size: 12px; color: var(--ux-error); margin-top: 6px; }
+#ux-review .side { border-left: 1px solid var(--ux-line); background: var(--ux-surface); padding: 16px; min-width: 0; }
+#ux-review .side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+#ux-review .thread { padding-left: 10px; border-left: 2px solid var(--ux-line); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+#ux-review .thread + .thread { margin-top: 16px; }
+#ux-review .thread .author { color: var(--ux-muted); font-size: 12px; margin-bottom: 6px; }
+#ux-review .thread .text { white-space: pre-wrap; }
+#ux-review .thread-action { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#ux-review .diff { margin: 12px 0; font-size: 13px; }
+#ux-review .diff div { padding: 10px 0; border-bottom: 1px solid var(--ux-line); }
+#ux-review .diff small { display: block; color: var(--ux-muted); font-size: 12px; }
+#ux-review .hint { color: var(--ux-muted); font-size: 12px; margin-top: 14px; }
+#ux-review .status { min-height: 2em; padding: 10px 16px; border-top: 1px solid var(--ux-line); background: var(--ux-soft); color: var(--ux-muted); font-size: 12px; }
+#ux-review .lasso { position: absolute; border: 1px solid var(--ux-blue); background: var(--ux-blue-soft); opacity: .65; pointer-events: none; z-index: 2; }
+#ux-review .notice { padding: 12px 16px; font-size: 13px; background: var(--ux-blue-soft); color: var(--ux-ink); }
+#ux-review details { margin-top: 14px; color: var(--ux-muted); font-size: 12px; }
+#ux-review summary { min-height: 32px; }
+@media (hover: hover) { #ux-review .control:hover:not(:disabled), #ux-review .node-hit:hover, #ux-review .pin:hover, #ux-review .edge:hover { border-color: var(--ux-blue); } }
+@media (max-width: 650px) {
+  #ux-review .workspace.docked { grid-template-columns: minmax(0, 1fr); }
+  #ux-review .side { border-left: 0; border-top: 1px solid var(--ux-line); }
+  #ux-review .inline-slot { position: static; width: auto; margin-top: 20px; }
+  #ux-review .graph-stack { max-width: none; }
+  #ux-review .canvas-space { min-height: 0; }
+  #ux-review .examples { padding-right: 0; }
+  #ux-review .editor-head { flex-wrap: wrap; }
+  #ux-review textarea { font-size: 16px; }
+}
+@media (pointer: coarse) { #ux-review .control, #ux-review .demo-tab, #ux-review .pin, #ux-review .edge { min-height: 44px; min-width: 44px; } }
+@media (prefers-reduced-motion: reduce) { #ux-review *, #ux-review *::before, #ux-review *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div id="ux-review">
+  <nav class="examples" aria-label="体验交互任务"><span>体验：</span><button class="demo-tab cursor-interaction" type="button" data-task="write" aria-pressed="true">写意见</button><button class="demo-tab cursor-interaction" type="button" data-task="read" aria-pressed="false">读长讨论</button><button class="demo-tab cursor-interaction" type="button" data-task="review" aria-pressed="false">复核变化</button></nav>
+  <header class="app-head"><div class="brand"><strong>LogicMargin · 解锁新技能</strong><small id="ux-version">逻辑 v1 · 交互提案 · 示例数据</small></div><div class="head-actions"><span class="save-state" id="ux-save-state">草稿保留中</span><button class="control primary cursor-interaction" id="ux-submit" type="button">提交本轮（1）</button></div></header>
+  <section class="notice" id="ux-submit-notice" hidden aria-live="polite"></section>
+  <div class="workspace" id="ux-workspace">
+    <main class="canvas">
+      <div class="graph-head"><div><h2>解锁只增加资格</h2><p>点击步骤查看，圈选后直接写意见</p></div><div class="tools"><button class="control cursor-interaction" id="ux-box" type="button" aria-pressed="false">框选</button><button class="control ghost cursor-interaction" id="ux-all" type="button">选择这 3 步</button><button class="control ghost cursor-interaction" id="ux-scene" type="button">场景意见</button></div></div>
+      <div class="selected-tools"><span id="ux-selection-label">已选 3 个步骤</span><button class="control cursor-interaction" id="ux-annotate" type="button">批注所选</button><button class="control ghost cursor-interaction" id="ux-clear" type="button">清除选择</button></div>
+      <div class="canvas-space" id="ux-canvas">
+        <div class="graph-stack" id="ux-stack">
+          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="check" aria-pressed="true"><small>判断</small><strong>检查解锁条件与资源</strong><span class="node-detail">不足 → 拒绝；充足 → 继续</span></button></div>
+          <button class="edge cursor-interaction" type="button" data-edge="check-pay" aria-pressed="false" aria-label="选择连线：条件与资源满足">条件与资源满足 ↓</button>
+          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="pay" aria-pressed="true"><small>操作</small><strong>扣除本次解锁费用</strong></button></div>
+          <button class="edge cursor-interaction" type="button" data-edge="pay-grant" aria-pressed="false" aria-label="选择连线：扣费完成">扣费完成 ↓</button>
+          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="grant" aria-pressed="true"><small>状态变化</small><strong>增加解锁资格</strong><span class="node-detail">解锁集合新增一个技能</span><span class="change" id="ux-changed" hidden>本次已补全等级、上阵保持说明</span></button><button type="button" class="pin cursor-interaction" id="ux-pin" aria-label="打开批注 C1">C1</button></div>
+          <div class="saved-pins" id="ux-saved-pins" aria-label="已保存批注"></div>
+        </div>
+        <div id="ux-inline-slot" class="inline-slot"></div>
+        <div id="ux-lasso" class="lasso" hidden></div>
+      </div>
+      <details><summary>源码依据与未展示范围</summary><p>正式界面按需展开源码、验证依据与范围；交互演示未连接仓库。</p></details>
+      <p class="hint">Shift 点选可多选；框选只选择节点，连线独立选择。触控可用“选择这 3 步”。</p>
+    </main>
+    <aside class="side" id="ux-side" aria-label="详情与完整讨论" hidden><div class="side-head"><h3 id="ux-side-title">完整讨论</h3><button type="button" class="control ghost cursor-interaction" id="ux-close-side">收起</button></div><div id="ux-side-content"></div><div id="ux-side-editor"></div></aside>
+  </div>
+  <div class="status" id="ux-status" role="status">快速批注不锁住画布；草稿在演示内保留，刷新重置。</div>
+  <div id="ux-editor-park" hidden>
+    <section class="editor" id="ux-editor" role="dialog" aria-modal="false" aria-labelledby="ux-editor-title">
+      <div class="editor-head"><h3 id="ux-editor-title">图上批注</h3><div><button type="button" class="control ghost cursor-interaction" id="ux-dock">移到侧栏</button><button type="button" class="control ghost cursor-interaction" id="ux-close-editor">收起</button></div></div>
+      <p class="editor-targets" id="ux-editor-targets"></p>
+      <form id="ux-form"><label for="ux-draft">问题与预期行为</label><textarea id="ux-draft" name="logic-comment" rows="4" maxlength="10000" autocomplete="off" aria-describedby="ux-editor-error"></textarea><p class="editor-error" id="ux-editor-error" role="alert"></p><div class="editor-footer"><small>⌘ / Ctrl＋Enter 保存</small><button class="control primary cursor-interaction" type="submit">保存批注</button></div></form>
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('ux-review');
+  const el = id => document.getElementById('ux-' + id);
+  const titles = { check: '检查解锁条件与资源', pay: '扣除解锁费用', grant: '增加解锁资格', 'edge:check-pay': '条件与资源满足', 'edge:pay-grant': '扣费完成', 'scene:unlock': '整个解锁场景' };
+  const example = '这里只增加解锁资格，请保持系统总等级和原上阵选择。';
+  const drafts = new Map([['check|grant|pay', example]]);
+  const records = [{ id: 'C1', targets: ['grant'], body: example }];
+  let selection = ['check', 'pay', 'grant'], anchor = [...selection], location = 'inline', sideMode = null, task = 'write', boxMode = false, submitted = false, resolved = false, opener = el('annotate'), replyTo = null;
+  const key = ids => [...ids].sort().join('|');
+  const draftKey = () => replyTo ? 'reply:' + replyTo.id : key(anchor);
+  const escape = text => text.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  const label = ids => ids.map(id => titles[id] || id).join(' → ');
+  function stash() { if (location) drafts.set(draftKey(), el('draft').value); }
+  function status(text) { el('status').textContent = text; }
+  function paintSelection() {
+    root.querySelectorAll('[data-node]').forEach(button => button.setAttribute('aria-pressed', String(selection.includes(button.dataset.node))));
+    root.querySelectorAll('[data-edge]').forEach(button => button.setAttribute('aria-pressed', String(selection.includes('edge:' + button.dataset.edge))));
+    const nodes = selection.filter(id => !id.includes(':')).length, edges = selection.filter(id => id.startsWith('edge:')).length;
+    el('selection-label').textContent = selection.includes('scene:unlock') ? '当前场景' : selection.length ? '已选 ' + [nodes && nodes + ' 个步骤', edges && edges + ' 条连线'].filter(Boolean).join(' · ') : '选择步骤或连线';
+    el('annotate').disabled = !selection.length;
+  }
+  function paint() {
+    paintSelection();
+    const docked = sideMode !== null || location === 'side';
+    el('workspace').classList.toggle('docked', docked); el('side').hidden = !docked;
+    el('changed').hidden = task !== 'review';
+    el('version').textContent = (task === 'review' ? '逻辑 v2 · 待复核' : '逻辑 v1') + ' · 交互提案 · 示例数据';
+    el('submit').textContent = submitted ? '已提交 · 待接收' : '提交本轮（' + records.length + '）';
+    el('submit').disabled = submitted;
+    el('save-state').textContent = submitted ? '等待代理回执' : [...drafts.values()].some(text => text.trim()) ? '草稿已保留' : '已保存 · 尚未提交';
+    const form = el('editor');
+    const parent = location === 'inline' ? el('inline-slot') : location === 'side' ? el('side-editor') : el('editor-park');
+    if (form.parentElement !== parent) parent.appendChild(form);
+    el('editor-targets').textContent = '批注对象：' + label(anchor);
+    el('editor-title').textContent = replyTo ? replyTo.id + ' · 追加回复' : location === 'side' ? '在侧栏继续编辑' : '图上批注';
+    el('dock').textContent = location === 'side' ? '移回图上' : '移到侧栏';
+    if (location === 'side') el('side-title').textContent = '批注';
+    el('saved-pins').replaceChildren();
+    records.slice(1).forEach(record => {
+      const pin = document.createElement('button'); pin.type = 'button'; pin.className = 'control cursor-interaction';
+      pin.textContent = record.id + ' · ' + record.targets.length + ' 个对象'; pin.setAttribute('aria-label', '打开已保存批注 ' + record.id);
+      pin.addEventListener('click', () => { selection = [...record.targets]; openThread(false, record); });
+      el('saved-pins').appendChild(pin);
+    });
+  }
+  function openEditor(ids, source, record = null) {
+    stash(); anchor = [...ids]; selection = [...ids]; opener = source || el('annotate'); replyTo = record;
+    location = 'inline'; sideMode = null; el('side-content').replaceChildren();
+    el('draft').value = drafts.get(draftKey()) || ''; el('editor-error').textContent = '';
+    paint();
+    if (matchMedia('(pointer: fine)').matches && innerWidth > 650) el('draft').focus({ preventScroll: true });
+    status('草稿绑定上方列出的对象；继续选择其他步骤不会改变这份草稿的对象。');
+  }
+  function closeEditor() { stash(); location = null; paint(); status('草稿已在此演示中保留，重新打开同一对象可继续。'); opener?.focus({ preventScroll: true }); }
+  function openThread(review, record = records[0]) {
+    stash(); location = null; sideMode = review ? 'review' : 'thread';
+    el('side-title').textContent = review ? '复核 ' + record.id + ' · 1 / 1' : record.id + ' · 完整讨论';
+    el('side-content').innerHTML = '<article class="thread"><p class="author">你 · 原意见 · 逻辑 v1</p><p class="text">' + escape(record.body) + '</p></article>' +
+      (record.id === 'C1' ? '<article class="thread"><p class="author">代理 · 示例回应</p><p>已核对并补全两项保持规则：系统总等级不变，上阵选择不变。原有解锁资格保留，只增加本次技能。</p><p>校验失败在扣费前返回；本次验证依据可按需展开。</p></article>' : '') +
+      (record.replies || []).map(body => '<article class="thread"><p class="author">你 · 后续补充</p><p class="text">' + escape(body) + '</p></article>').join('') +
+      (review ? '<div class="diff"><div><small>原说明</small>增加解锁资格，其他状态尚未展开</div><div><small>新版补全</small>总等级保持 · 上阵保持 · 解锁集合新增</div></div>' : '<p class="hint">长讨论在侧栏阅读，图上仍保留 C1 与对应步骤。</p>') +
+      '<div class="thread-action"><button class="control cursor-interaction" type="button" id="ux-reply">补充意见</button>' + (review ? '<button class="control primary cursor-interaction" type="button" id="ux-resolve">确认解决</button>' : '') + '</div><p class="hint" id="ux-thread-state">' + (resolved ? '此意见已解决，本轮仍待确认。' : review ? '代理已回应，等待人工复核。' : '回复保留在原意见下。') + '</p>';
+    el('reply').addEventListener('click', () => { openEditor(record.targets, el('pin'), record); location = 'side'; paint(); });
+    if (review) {
+      el('resolve').textContent = resolved ? '撤销确认' : '确认解决';
+      el('resolve').addEventListener('click', () => { resolved = !resolved; el('thread-state').textContent = resolved ? '此意见已解决，本轮仍待确认。可撤销本次确认。' : '已撤销确认，此意见继续待复核。'; el('resolve').textContent = resolved ? '撤销确认' : '确认解决'; status(resolved ? '已确认 C1；本轮通过仍是独立动作。' : '已恢复待复核状态。'); });
+    }
+    paint();
+  }
+  root.querySelectorAll('[data-node]').forEach(button => button.addEventListener('click', event => {
+    const id = button.dataset.node;
+    selection = event.shiftKey || event.metaKey || event.ctrlKey ? selection.includes(id) ? selection.filter(value => value !== id) : [...selection, id] : [id];
+    paintSelection(); status('已选择：' + label(selection) + (location ? '。当前草稿对象保持不变。' : '。可点“批注所选”。'));
+  }));
+  root.querySelectorAll('[data-edge]').forEach(button => button.addEventListener('click', () => { selection = ['edge:' + button.dataset.edge]; paintSelection(); status('已选中这条流转条件，可点“批注所选”。'); }));
+  el('annotate').addEventListener('click', () => { if (selection.length) openEditor(selection, el('annotate')); });
+  el('all').addEventListener('click', () => { selection = ['check', 'pay', 'grant']; paintSelection(); status('已选 3 个步骤，未自动加入连线。'); });
+  el('clear').addEventListener('click', () => { selection = []; paintSelection(); status('已清除选择，正在写的草稿仍保留。'); });
+  el('scene').addEventListener('click', () => openEditor(['scene:unlock'], el('scene')));
+  el('pin').addEventListener('click', () => { selection = ['grant']; openThread(task === 'review'); });
+  el('close-editor').addEventListener('click', closeEditor);
+  el('close-side').addEventListener('click', () => { if (location === 'side') { stash(); location = null; } sideMode = null; paint(); status('已收起侧栏，草稿保留。'); });
+  el('dock').addEventListener('click', () => {
+    stash(); const start = el('draft').selectionStart, end = el('draft').selectionEnd;
+    location = location === 'side' ? 'inline' : 'side'; sideMode = null; el('side-content').replaceChildren(); paint();
+    if (matchMedia('(pointer: fine)').matches && innerWidth > 650) { el('draft').focus({ preventScroll: true }); el('draft').setSelectionRange(start, end); }
+    status('同一编辑器已移动，正文和批注对象保持不变。');
+  });
+  el('draft').addEventListener('input', () => { drafts.set(draftKey(), el('draft').value); el('save-state').textContent = '草稿保留中'; el('editor-error').textContent = ''; });
+  el('form').addEventListener('submit', event => {
+    event.preventDefault(); const body = el('draft').value.trim();
+    if (!body) { el('editor-error').textContent = '请写下具体问题或预期行为，再保存。'; el('draft').focus(); return; }
+    let savedId;
+    if (replyTo) { (replyTo.replies ||= []).push(body); savedId = replyTo.id; }
+    else { records.push({ id: 'C' + (records.length + 1), targets: [...anchor], body }); savedId = records[records.length - 1].id; }
+    drafts.delete(draftKey()); el('draft').value = ''; location = null; paint();
+    status('已保存 ' + savedId + ' · 尚未提交本轮。'); opener?.focus({ preventScroll: true });
+  });
+  el('draft').addEventListener('keydown', event => { if (!event.isComposing && (event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); el('form').requestSubmit(); } });
+  root.addEventListener('keydown', event => { if (event.key !== 'Escape') return; event.preventDefault(); if (location) closeEditor(); else { selection = []; paintSelection(); status('已清除选择。'); } });
+  root.addEventListener('pointerdown', event => {
+    if (location === 'inline' && !el('editor').contains(event.target) && !event.target.closest('button,input,textarea')) { stash(); location = null; paint(); status('已收起快捷批注，草稿保留。'); }
+  });
+  el('submit').addEventListener('click', () => {
+    stash(); const hasDraft = [...drafts.values()].some(text => text.trim());
+    if (hasDraft) {
+      el('submit-notice').hidden = false;
+      el('submit-notice').innerHTML = '还有未保存草稿。保留草稿，提交已保存的 ' + records.length + ' 条意见？ <button type="button" class="control cursor-interaction" id="ux-submit-saved">仅提交已保存意见</button>';
+      el('submit-saved').addEventListener('click', finishSubmit);
+    } else finishSubmit();
+  });
+  function finishSubmit() {
+    const fixed = JSON.stringify(records.map(record => ({ ...record, targets: [...record.targets] })));
+    root.dataset.submission = fixed; submitted = true; el('submit-notice').hidden = false;
+    el('submit-notice').textContent = '演示：本轮已固定，等待代理接收；未保存草稿仍保留。'; paint(); status('保存意见、提交本轮与代理接收分别记录。');
+  }
+  root.querySelectorAll('[data-task]').forEach(button => button.addEventListener('click', () => {
+    stash(); task = button.dataset.task;
+    root.querySelectorAll('[data-task]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    if (task === 'write') { openEditor(['check', 'pay', 'grant'], el('annotate')); }
+    else { selection = ['grant']; openThread(task === 'review'); }
+  }));
+  el('box').addEventListener('click', () => { boxMode = !boxMode; el('box').setAttribute('aria-pressed', String(boxMode)); el('canvas').classList.toggle('box-mode', boxMode); status(boxMode ? '拖动空白区域可框选；也可 Shift 点选或使用“选择这 3 步”。' : '已退出框选模式。'); });
+  let drag = null;
+  el('canvas').addEventListener('pointerdown', event => {
+    if (!boxMode || event.button !== 0 || event.target.closest('button,textarea,.editor')) return;
+    const bounds = el('canvas').getBoundingClientRect(); drag = { x: event.clientX, y: event.clientY, bounds };
+    el('canvas').setPointerCapture(event.pointerId); el('lasso').hidden = false;
+  });
+  el('canvas').addEventListener('pointermove', event => {
+    if (!drag) return;
+    const left = Math.min(event.clientX, drag.x), top = Math.min(event.clientY, drag.y), right = Math.max(event.clientX, drag.x), bottom = Math.max(event.clientY, drag.y);
+    Object.assign(el('lasso').style, { left: left - drag.bounds.left + 'px', top: top - drag.bounds.top + 'px', width: right - left + 'px', height: bottom - top + 'px' });
+    selection = [...root.querySelectorAll('[data-node]')].filter(button => { const b = button.getBoundingClientRect(); return b.right > left && b.left < right && b.bottom > top && b.top < bottom; }).map(button => button.dataset.node);
+    paintSelection();
+  });
+  const endDrag = () => { if (drag) { drag = null; el('lasso').hidden = true; status('框选完成：' + label(selection) + '。连线未自动加入。'); } };
+  el('canvas').addEventListener('pointerup', endDrag); el('canvas').addEventListener('pointercancel', endDrag);
+  el('draft').value = drafts.get(key(anchor));
+  paint();
+  console.assert(root.querySelectorAll('textarea').length === 1, '同一时刻只有一个编辑器');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "logic-margin-local",
+  "interface": { "displayName": "LogicMargin" },
+  "plugins": [{
+    "name": "logic-margin",
+    "source": { "source": "local", "path": "./plugins/logic-margin" },
+    "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+    "category": "Productivity"
+  }]
+}

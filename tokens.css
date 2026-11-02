@@ -1,0 +1,84 @@
+:root {
+  color-scheme: light;
+  --color-paper: oklch(98% 0.004 250);
+  --color-surface: oklch(99.5% 0.002 250);
+  --color-surface-muted: oklch(96.5% 0.006 250);
+  --color-surface-hover: oklch(94.5% 0.009 250);
+  --color-ink: oklch(26% 0.025 258);
+  --color-body: oklch(37% 0.023 258);
+  --color-muted: oklch(49% 0.023 258);
+  --color-faint: oklch(58% 0.022 258);
+  --color-rule: oklch(89% 0.012 250);
+  --color-rule-strong: oklch(64% 0.025 250);
+  --color-accent: oklch(49% 0.19 262);
+  --color-accent-hover: oklch(43% 0.18 262);
+  --color-accent-paper: oklch(95% 0.026 262);
+  --color-accent-ink: oklch(99% 0.005 262);
+  --color-focus: oklch(49% 0.19 262);
+  --color-success: oklch(39% 0.09 160);
+  --color-success-paper: oklch(96% 0.018 160);
+  --color-warning: oklch(43% 0.1 70);
+  --color-warning-paper: oklch(97% 0.026 80);
+  --color-warning-rule: oklch(67% 0.08 80);
+  --color-error: oklch(45% 0.145 29);
+  --color-error-paper: oklch(97% 0.018 29);
+  --color-edge: oklch(60% 0.035 250);
+  --color-grid: oklch(85% 0.016 250);
+  --color-selection: oklch(65% 0.14 262 / 0.12);
+  --color-clear: oklch(99% 0.002 250 / 0);
+  --font-display: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SFMono-Regular", Menlo, "PingFang SC", monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.5rem;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --rule-width: 1px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-normal: 180ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-paper: oklch(19% 0.012 250);
+    --color-surface: oklch(24% 0.015 250);
+    --color-surface-muted: oklch(21.5% 0.014 250);
+    --color-surface-hover: oklch(29% 0.02 250);
+    --color-ink: oklch(94% 0.008 250);
+    --color-body: oklch(87% 0.012 250);
+    --color-muted: oklch(74% 0.018 250);
+    --color-faint: oklch(65% 0.02 250);
+    --color-rule: oklch(34% 0.02 250);
+    --color-rule-strong: oklch(54% 0.03 250);
+    --color-accent: oklch(78% 0.12 262);
+    --color-accent-hover: oklch(84% 0.1 262);
+    --color-accent-paper: oklch(31% 0.065 262);
+    --color-accent-ink: oklch(19% 0.025 262);
+    --color-focus: oklch(80% 0.13 262);
+    --color-success: oklch(77% 0.11 160);
+    --color-success-paper: oklch(26% 0.04 160);
+    --color-warning: oklch(83% 0.1 80);
+    --color-warning-paper: oklch(28% 0.035 80);
+    --color-warning-rule: oklch(65% 0.07 80);
+    --color-error: oklch(77% 0.13 29);
+    --color-error-paper: oklch(28% 0.045 29);
+    --color-edge: oklch(65% 0.03 250);
+    --color-grid: oklch(37% 0.018 250);
+    --color-selection: oklch(65% 0.14 262 / 0.22);
+  }
+}
