@@ -216,6 +216,8 @@ test('file menu creates a session without changing the local review', async ({ p
   await page.goto('/')
   await openMenu(page, '.file-menu')
   await page.getByRole('button', { name: '建立代理评审会话', exact: true }).click()
+  await page.getByLabel('审查目的', { exact: true }).fill('独立检查样例的升级流程')
+  await page.getByRole('button', { name: '建立独立评审', exact: true }).click()
   await expect(page).toHaveURL(/\?session=[a-f0-9-]+$/)
   await expect(page.locator('.canvas-caption')).toContainText('第 1 轮')
   await openMenu(page, '.file-menu')

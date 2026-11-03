@@ -349,7 +349,7 @@ test('cached sessions detect external edits, same-size corruption and deletion',
   await assert.rejects(store.get(session.id), { status: 404 })
 })
 
-test('a rejected oversized commit leaves both cached state and the persisted file unchanged', async t => {
+test('growing review history crosses the former 32 MiB limit without dropping data', async t => {
   const { store, directory, session } = await setup(t)
   const review = structuredClone(session.review)
   const prototype = commentBatch(session).mutations[0].comment
@@ -373,7 +373,10 @@ test('a rejected oversized commit leaves both cached state and the persisted fil
   const path = join(directory, `${session.id}.json`)
   await writeFile(path, raw)
   const before = await store.get(session.id, 'current')
-  await assert.rejects(store.mutate(session.id, commentBatch(seeded, 'x'.repeat(10000)), 'current'), /会话超过 32 MB/)
-  assert.deepEqual(await store.get(session.id, 'current'), before)
-  assert.equal(createHash('sha256').update(await readFile(path)).digest('hex'), createHash('sha256').update(raw).digest('hex'))
+  const saved = await store.mutate(session.id, commentBatch(seeded, 'x'.repeat(10000)), 'current')
+  assert.equal(saved.version, before.version + 1)
+  assert.equal(saved.review.comments.length, before.review.comments.length + 1)
+  assert.ok((await stat(path)).size > 32 * 1024 * 1024)
+  const restarted = await new SessionStore(directory).get(session.id, 'current')
+  assert.deepEqual(restarted, saved)
 })

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { addComment, addReply, setCommentStatus } from './model.ts'
 import { sampleReview } from './sample.ts'
-import { currentPendingFeedback, parseCurrentSession, parsePendingSession, parseSession, pendingMatchesSession, reviewMutations, sameVisibleReview } from './session-client.ts'
+import { cleanupSession, currentPendingFeedback, currentRequest, listSessions, parseCurrentSession, parsePendingSession, parseSession, parseSessionSummary, pendingMatchesSession, reviewMutations, sameVisibleReview, SessionRequestError } from './session-client.ts'
 import type { CurrentSession, ReviewSession } from './session-types.ts'
 
 const review = () => ({ ...structuredClone(sampleReview), comments: [] })
@@ -11,6 +11,52 @@ const session = (): ReviewSession => ({ schemaVersion: 1, id: 'session-1', versi
 
 const currentSession = (): CurrentSession => ({ ...session(), view: 'current', submittedCommentIds: [], commentOrigins: [],
   snapshots: [{ round: 1, openedAt: '2026-11-03T00:00:00Z' }], history: [] })
+
+test('session views preserve independent purpose and cleanup policy beyond fifty rounds', () => {
+  const full = session()
+  full.scope = { context: 'same-agent-thread', purpose: '只检查成功后的票券扣除' }
+  full.cleanupPolicy = 'archive-on-approval'
+  full.round = 51
+  full.snapshots = Array.from({ length: full.round }, (_, index) => ({ round: index + 1, openedAt: full.createdAt, review: full.review }))
+  assert.deepEqual(parseSession(full), full)
+  const current = { ...full, view: 'current' as const, submittedCommentIds: [], commentOrigins: [],
+    snapshots: full.snapshots.map(({ review: _review, ...item }) => item) }
+  assert.deepEqual(parseCurrentSession(current), current)
+  assert.throws(() => parseCurrentSession({ ...current, scope: { purpose: ' ' } }), /目的/)
+})
+
+test('summary validation keeps archived task identity and rejects malformed lifecycle data', () => {
+  const current = session()
+  const summary = { id: current.id, title: current.review.title, phase: current.phase, version: 3, round: 70,
+    createdAt: current.createdAt, updatedAt: current.updatedAt, archivedAt: current.updatedAt,
+    scope: { context: 'thread-1', purpose: '单独检查边界条件' }, cleanupPolicy: 'manual' as const }
+  assert.deepEqual(parseSessionSummary(summary), summary)
+  assert.throws(() => parseSessionSummary({ ...summary, archivedAt: 'invalid' }), /列表格式/)
+  assert.throws(() => parseSessionSummary({ ...summary, cleanupPolicy: 'delete-everything' }), /清理策略/)
+})
+
+test('removed sessions expose terminal HTTP status while cleanup sends the reviewed version', async t => {
+  t.mock.method(globalThis, 'fetch', async (url: string, options?: RequestInit) => {
+    if (url.includes('/cleanup')) {
+      assert.equal(options?.method, 'POST')
+      assert.deepEqual(JSON.parse(String(options?.body)), { expectedVersion: 8, mode: 'archive' })
+      return Response.json({ id: 'session-1', mode: 'archive', archivedAt: '2026-11-03T00:00:00Z' })
+    }
+    return Response.json({ error: '评审任务已归档' }, { status: 410 })
+  })
+  await assert.rejects(currentRequest('/session-1'), error => error instanceof SessionRequestError && error.status === 410)
+  assert.equal((await cleanupSession('session-1', 8, 'archive')).id, 'session-1')
+})
+
+test('task list keeps healthy reviews available while reporting unreadable items', async t => {
+  const current = session()
+  const summary = { id: current.id, title: current.review.title, phase: current.phase, version: current.version, round: current.round,
+    createdAt: current.createdAt, updatedAt: current.updatedAt }
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ sessions: [summary], warnings: ['损坏任务已保留'] }))
+  let warning = ''
+  assert.deepEqual(await listSessions(undefined, message => { warning = message }), [summary])
+  assert.equal(warning, '损坏任务已保留')
+})
 
 test('current session validates catalogs without fabricating historical documents', () => {
   const current = currentSession()

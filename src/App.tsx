@@ -8,9 +8,9 @@ import type { GraphCanvasHandle } from './GraphCanvas.tsx'
 import CommentComposer from './CommentComposer.tsx'
 import { sampleReview } from './sample.ts'
 import { useReviewSession } from './useReviewSession.ts'
-import type { CurrentSession } from './session-types.ts'
+import type { CurrentSession, SessionSummary } from './session-types.ts'
 import { getRevisionChanges } from './revisions.ts'
-import { currentPendingFeedback, recordRequest, sessionRequest } from './session-client.ts'
+import { cleanupSession, currentPendingFeedback, listSessions, recordRequest, sessionRequest } from './session-client.ts'
 import RevisionControls, { RevisionChangesPanel } from './RevisionControls.tsx'
 import CommentThreads from './CommentThreads.tsx'
 
@@ -102,6 +102,15 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false)
   const [loadingSpiritSanctum, setLoadingSpiritSanctum] = useState(false)
   const [sessionAction, setSessionAction] = useState(false)
+  const [tasksOpen, setTasksOpen] = useState(false)
+  const [tasks, setTasks] = useState<SessionSummary[]>([])
+  const [taskPurpose, setTaskPurpose] = useState('')
+  const [taskContext, setTaskContext] = useState('')
+  const [taskAutoArchive, setTaskAutoArchive] = useState(false)
+  const [taskError, setTaskError] = useState('')
+  const [taskBusy, setTaskBusy] = useState(false)
+  const [deletingTask, setDeletingTask] = useState<string | null>(null)
+  const tasksDialog = useRef<HTMLDialogElement>(null)
   const importSequence = useRef(0)
   const exampleController = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -122,6 +131,11 @@ export default function App() {
     latestReview.current = next.review; setReview(next.review)
   }, [])
   const session = useReviewSession(SESSION_ID, receiveSession)
+  useEffect(() => {
+    const dialog = tasksDialog.current
+    if (tasksOpen && dialog && !dialog.open) dialog.showModal()
+    else if (!tasksOpen && dialog?.open) dialog.close()
+  }, [tasksOpen, session.availability])
   const pending = useMemo(() => session.session ? currentPendingFeedback(review, session.session) : pendingFeedback(review, history), [review, history, session.session])
   const approved = session.session ? session.session.phase === 'approved' && review === session.session.review : localApproved
   const activeRound = session.session && viewRound !== null && session.session.snapshots.some(snapshot => snapshot.round === viewRound) ? viewRound : session.session?.round ?? 1
@@ -144,7 +158,7 @@ export default function App() {
   const selectedNode = selection.length === 1 && selection[0].kind === 'node' ? displayReview.nodes.find(node => node.id === selection[0].id) : undefined
   const selectedEdge = selection.length === 1 && selection[0].kind === 'edge' ? displayReview.edges.find(edge => edge.id === selection[0].id) : undefined
   const displaySaveState = SESSION_ID ? session.saveState : saveState
-  const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction)
+  const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction || session.availability !== 'active')
   const reviewBlocked = sessionBlocked || historical || publicationPending
   const sceneDraftKey = historical ? '' : validDrafts.find(draft => !draft.replyTo && draft.targets.some(target => target.kind === 'review' || targetSceneId(review, target) === scene.id))?.key ?? ''
   // A draft key freezes its anchors, so body edits keep the canvas props stable.
@@ -244,12 +258,62 @@ export default function App() {
   async function startSession() {
     setSessionAction(true)
     try {
-      const next = await session.create(latestReview.current)
+      const purpose = taskPurpose.trim()
+      if (!purpose) throw new Error('请填写本次独立审查的目的。')
+      const next = await session.create({ ...latestReview.current, comments: [] }, {
+        scope: { purpose, ...(taskContext.trim() ? { context: taskContext.trim() } : {}) },
+        cleanupPolicy: taskAutoArchive ? 'archive-on-approval' : 'manual',
+      })
       const url = new URL(window.location.href)
       url.search = ''; url.searchParams.set('session', next.id)
       window.location.assign(url)
-    } catch (error) { setNotice(error instanceof Error ? error.message : '会话创建失败') }
+    } catch (error) { setTaskError(error instanceof Error ? error.message : '评审任务创建失败') }
     finally { setSessionAction(false) }
+  }
+  async function refreshTasks(context = taskContext.trim()) {
+    setTaskBusy(true); setTaskError('')
+    try { setTasks(await listSessions(context || undefined, setTaskError)) }
+    catch (error) { setTaskError(error instanceof Error ? error.message : '评审任务读取失败') }
+    finally { setTaskBusy(false) }
+  }
+  function openTasks() {
+    closeMenus(); closeComposer(false)
+    const context = session.session?.scope?.context ?? ''
+    setTaskContext(context); setTaskPurpose(''); setTaskAutoArchive(false); setDeletingTask(null); setTasksOpen(true)
+    void refreshTasks(context)
+  }
+  function taskHasLocalWork(id: string) {
+    if (id === SESSION_ID && (draftsRef.current.length || session.pendingRecovery || session.busy)) return true
+    const storedDrafts = localStorage.getItem(`logic-margin:session:${id}:drafts`)
+    return !!localStorage.getItem(`logic-margin:session:${id}:pending`) || !!(storedDrafts && parseDrafts(JSON.parse(storedDrafts)).length)
+  }
+  async function downloadTask(task: SessionSummary) {
+    const full = await sessionRequest(`/${encodeURIComponent(task.id)}${task.archivedAt ? '/archive' : ''}`)
+    if (!full) throw new Error('服务未返回完整评审任务。')
+    download(JSON.stringify(full, null, 2), `logic-margin-session-${full.id}.json`)
+    return full
+  }
+  async function cleanTask(task: SessionSummary, mode: 'archive' | 'delete') {
+    setTaskBusy(true); setTaskError('')
+    try {
+      if (taskHasLocalWork(task.id)) throw new Error('此任务仍有本机草稿或未同步意见。请先打开任务，保存意见或导出并移除草稿后再清理。')
+      const full = await downloadTask(task)
+      if (full.version !== task.version) throw new Error('评审任务已有更新，请刷新列表并核对后再清理。')
+      await cleanupSession(task.id, task.version, mode)
+      if (task.id === SESSION_ID) session.stop(mode === 'archive' ? 'archived' : 'deleted')
+      setDeletingTask(null)
+      setTasks(await listSessions(taskContext.trim() || undefined, setTaskError))
+    } catch (error) { setTaskError(error instanceof Error ? error.message : '清理失败，原数据已保留。') }
+    finally { setTaskBusy(false) }
+  }
+  async function restoreTask(task: SessionSummary) {
+    setTaskBusy(true); setTaskError('')
+    try {
+      const restored = await sessionRequest(`/${encodeURIComponent(task.id)}/restore`, { expectedVersion: task.version })
+      if (!restored) throw new Error('服务未返回恢复结果。')
+      window.location.assign(`/?session=${encodeURIComponent(restored.id)}`)
+    } catch (error) { setTaskError(error instanceof Error ? error.message : '恢复失败，归档仍保留。') }
+    finally { setTaskBusy(false) }
   }
   async function backupAndRecoverSession() {
     if (!session.pendingRecovery) return
@@ -309,7 +373,6 @@ export default function App() {
     try {
       const key = draftKey(review, targets, replyTo)
       const existing = draftsRef.current.find(item => item.key === key)
-      if (!existing && draftsRef.current.length >= 200) throw new Error('草稿已达 200 份上限，请先到草稿列表导出并移除已有草稿。')
       const draft = existing ?? makeDraft(review, targets, '', replyTo)
       origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       setPoint(at); setComposer(draft); setDocked(!!replyTo)
@@ -483,7 +546,36 @@ export default function App() {
     finally { setSessionAction(false) }
   }
 
-  if (SESSION_ID && !session.ready) return <main className="session-loading"><h1>LogicMargin</h1><p role={session.error ? 'alert' : 'status'}>{session.error || '正在恢复评审会话…'}</p><button className="button" onClick={session.retry}>重新连接</button>{session.pendingRecovery && <><button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button><button className="button" disabled={session.busy} onClick={() => void backupAndRecoverSession()}>备份未同步意见并恢复服务端版本</button></>}<a href="/">打开本机评审</a></main>
+  const taskManager = <dialog ref={tasksDialog} className="task-manager" aria-labelledby="task-manager-title" onCancel={event => { event.preventDefault(); setTasksOpen(false) }}>
+    <header className="task-manager-heading"><h2 id="task-manager-title">评审任务</h2><button className="button icon-button" aria-label="关闭评审任务" onClick={() => setTasksOpen(false)}><X size={16} /></button></header>
+    <p>每个任务独立保存目的、批注和轮次。更换审查目的时，请建立新任务。</p>
+    {taskError && <p className="task-error" role="alert">{taskError}</p>}
+    {session.session && <section className="detail-section"><h3>当前任务</h3><p>{session.session.scope?.purpose ?? '旧任务未单独记录审查目的'}</p>{session.session.scope?.context && <p className="muted">关联会话：{session.session.scope.context}</p>}<p className="muted">{session.session.cleanupPolicy === 'archive-on-approval' ? 'Agent 收到最终通过结果后自动归档' : '完成后手动清理'}</p></section>}
+    <form className="task-form" onSubmit={event => { event.preventDefault(); void startSession() }}>
+      <h3>基于当前流程建立新任务</h3>
+      <label htmlFor="task-purpose">审查目的</label><textarea id="task-purpose" required maxLength={10000} rows={2} value={taskPurpose} onChange={event => setTaskPurpose(event.target.value)} placeholder="例如：只核对票券扣除时机与失败分支" />
+      <label htmlFor="task-context">关联会话（可选）</label><input id="task-context" maxLength={1000} value={taskContext} onChange={event => setTaskContext(event.target.value)} placeholder="同一段 Agent 对话或工作事项" />
+      <label className="task-check"><input type="checkbox" checked={taskAutoArchive} onChange={event => setTaskAutoArchive(event.target.checked)} />Agent 收到最终通过结果后自动归档</label>
+      <p className="muted">沿用当前流程图，批注与评审历史从空白开始。原任务和草稿保留。</p>
+      <button className="button primary" type="submit" disabled={sessionAction || taskBusy || (!!SESSION_ID && session.availability !== 'active') || !taskPurpose.trim()}>{sessionAction ? '正在建立…' : '建立独立评审'}</button>
+    </form>
+    <section className="task-list" aria-label="独立评审任务列表"><div className="task-manager-heading"><h3>相关任务</h3><button className="button" disabled={taskBusy} onClick={() => void refreshTasks()}>{taskBusy ? '正在读取…' : '刷新任务列表'}</button></div>
+      {!tasks.length && !taskBusy && <p className="muted">尚无相关任务。</p>}
+      {tasks.map(task => <article className="task-entry" key={task.id} aria-label={task.scope?.purpose ?? task.title}>
+        <strong>{task.title}{task.id === SESSION_ID ? ' · 当前任务' : ''}</strong><p>{task.scope?.purpose ?? '旧任务未单独记录审查目的'}</p>
+        <p className="muted">R{task.round} · {task.archivedAt ? '已归档' : phaseLabels[task.phase]}{task.scope?.context ? ` · ${task.scope.context}` : ''}</p>
+        <div className="task-actions">{task.archivedAt ? <button className="button" disabled={taskBusy} onClick={() => void restoreTask(task)}>恢复任务</button> : <a className="button" href={`/?session=${encodeURIComponent(task.id)}`}>打开任务</a>}
+          <button className="button" disabled={taskBusy} onClick={() => { setTaskError(''); void downloadTask(task).catch(error => setTaskError(error instanceof Error ? error.message : '备份失败')) }}>下载完整备份</button>
+          {!task.archivedAt && task.phase === 'approved' && <button className="button" disabled={taskBusy} onClick={() => void cleanTask(task, 'archive')}>备份并归档</button>}
+          {(task.archivedAt || task.phase === 'approved') && <button className="button" disabled={taskBusy} onClick={() => setDeletingTask(task.id)}>永久删除</button>}
+        </div>
+        {deletingTask === task.id && <div className="task-delete-confirm" role="group" aria-label="确认删除评审任务"><p>将永久删除此任务的流程、批注和历史。会先发起完整备份下载；删除后无法从服务端恢复。</p><div className="task-actions"><button className="button" disabled={taskBusy} onClick={() => void cleanTask(task, 'delete')}>确认永久删除</button><button className="button" onClick={() => setDeletingTask(null)}>取消删除</button></div></div>}
+      </article>)}
+    </section>
+  </dialog>
+
+  if (SESSION_ID && session.availability !== 'active') return <main className="session-loading"><h1>{session.availability === 'archived' ? '评审任务已归档' : '评审任务不存在或已删除'}</h1><p>{session.availability === 'archived' ? '活动评审已清理。可以在评审任务中下载备份或恢复归档。' : '这个链接不会重新建立任务。请从评审任务列表打开其他任务。'}</p><button className="button" onClick={openTasks}>管理评审任务</button>{drafts.length > 0 && <button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>导出本机草稿</button>}{session.pendingRecovery && <button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button>}<a href="/">打开本机评审</a>{taskManager}</main>
+  if (SESSION_ID && !session.ready) return <main className="session-loading"><h1>LogicMargin</h1><p role={session.error ? 'alert' : 'status'}>{session.error || '正在恢复评审会话…'}</p><button className="button" onClick={session.retry}>重新连接</button>{session.pendingRecovery && <><button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button><button className="button" disabled={session.busy} onClick={() => void backupAndRecoverSession()}>备份未同步意见并恢复服务端版本</button></>}<a href="/">打开本机评审</a>{taskManager}</main>
 
   return <div className={`app-shell ${focusMode ? 'is-focused' : ''}`}>
     <header className="topbar">
@@ -492,7 +584,7 @@ export default function App() {
       <h1 className="review-title" title={review.title}>{review.title}</h1>
       <details ref={infoRef} className="workspace-menu review-tools"><summary className="button" aria-label="评审信息"><Info size={15} /><span className="button-text">评审信息</span></summary>
         <div className="review-info-card"><h2>评审说明</h2><p><strong>{review.title}</strong></p><p className="document-description">{review.description}</p>
-          {session.session && <section className="detail-section" aria-label="代理评审会话"><h3>第 {session.session.round} 轮 · {phaseLabels[session.session.phase]}</h3><p>会话 ID <code>{session.session.id}</code></p><p>批注保存到本机服务端；提交本轮后代理才能继续。代理发布新版时，原意见与回复会自动恢复。</p><button className="button" onClick={() => void backupFullSession()}>备份完整会话</button></section>}
+          {session.session && <section className="detail-section" aria-label="代理评审会话"><h3>第 {session.session.round} 轮 · {phaseLabels[session.session.phase]}</h3><p>任务 ID <code>{session.session.id}</code></p><p>审查目的：{session.session.scope?.purpose ?? '旧任务未单独记录'}</p>{session.session.scope?.context && <p>关联会话：{session.session.scope.context}</p>}<p>批注保存到服务端；提交本轮后代理才能继续。同一目的沿用轮次，更换目的请建立独立评审任务。</p><button className="button" onClick={() => void backupFullSession()}>备份完整会话</button><button className="button" onClick={openTasks}>管理评审任务</button></section>}
           <div className="document-meta"><span className="badge">{review.revision}</span>{review.snapshot.dirty && <span className="badge warning">包含未提交改动</span>}{approved && <span className="badge">本轮已通过</span>}</div>
           <p className="muted">{review.snapshot.repository}<br />代码 {review.snapshot.commit}<br />采集于 {new Date(review.snapshot.capturedAt).toLocaleString('zh-CN')}</p>
           <section className="detail-section"><h3>当前场景</h3><p>{scene.title} · {scene.description}</p></section>
@@ -507,12 +599,14 @@ export default function App() {
           <button className="button mobile-file-action" onClick={() => { closeMenus(); download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`) }}><ArrowDownToLine size={15} />导出评审</button>
           {HAS_BUNDLED_SPIRIT_REVIEW && <button className="button" disabled={!!SESSION_ID || loadingSpiritSanctum} aria-busy={loadingSpiritSanctum} onClick={() => { closeMenus(); void openSpiritSanctum() }}>{loadingSpiritSanctum ? '正在打开魔灵秘境…' : '打开魔灵秘境评审'}</button>}
           {!SESSION_ID && review.id !== sampleReview.id && <button className="button" onClick={() => { closeMenus(); void importFile(new File([JSON.stringify(sampleReview)], 'sample.json')) }}>打开 Vast 样例</button>}
-          {SESSION_ID ? <a className="button" href="/">返回本机评审</a> : <button className="button" disabled={sessionAction} onClick={() => { closeMenus(); void startSession() }}>建立代理评审会话</button>}
+          <button className="button" onClick={openTasks}>{SESSION_ID ? '管理评审任务' : '建立代理评审会话'}</button>
+          {SESSION_ID && <a className="button" href="/">返回本机评审</a>}
         </div></details>
         <button className="button desktop-file-action" onClick={() => download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`)}><ArrowDownToLine size={15} />导出评审</button>
         <button className="button primary" disabled={sessionBlocked || historical || (!pending.length && !currentDrafts.length)} onClick={() => { closeComposer(false); setSubmitting(true) }}>提交本轮{pending.length ? `（${pending.length}）` : ''}</button>
       </div>
     </header>
+    {taskManager}
     <div className="workspace-notifications">
       {session.error && <div className="notice error" role="alert"><p>{session.error}</p><button className="button" onClick={session.retry}>重新连接</button>{session.pendingRecovery && <><button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button><button className="button" disabled={session.busy} onClick={() => void backupAndRecoverSession()}>备份未同步意见并恢复服务端版本</button></>}</div>}
       {focusMode && displaySaveState.includes('失败') && <div className="notice error" role="alert"><p>{displaySaveState}</p><button className="button" onClick={() => download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`)}>导出评审</button></div>}

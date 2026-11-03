@@ -46,7 +46,7 @@ test('draft updates preserve other versions and orphan drafts and only delete th
   assert.deepEqual(parseDrafts([old]), [old])
 })
 
-test('draft parsing rejects malformed, mismatched and oversized data without silent truncation', () => {
+test('draft parsing rejects malformed, mismatched and oversized text without silent truncation', () => {
   const review = fixture()
   const draft = makeDraft(review, [{ kind: 'node', id: 'check' }], '草稿')
   for (const value of [null, {}, [{ ...draft, body: 1 }], [{ ...draft, body: 'a'.repeat(10001) }],
@@ -54,12 +54,17 @@ test('draft parsing rejects malformed, mismatched and oversized data without sil
     [{ ...draft, labels: [] }], [{ ...draft, replyTo: '' }], [draft, draft]]) {
     assert.throws(() => parseDrafts(value))
   }
-  assert.throws(() => makeDraft(review, Array.from({ length: 501 }, (_, index) => ({ kind: 'node', id: `${index}` })), '草稿'), /500/)
-  const full = Array.from({ length: 200 }, (_, index) => makeDraft(review, [{ kind: 'node', id: `${index}` }], '草稿'))
-  assert.equal(parseDrafts(full).length, 200)
-  assert.throws(() => parseDrafts([...full, draft]), /200/)
-  assert.throws(() => withDraft(full, draft), /200/)
-  assert.equal(full.length, 200)
+})
+
+test('draft and anchor collections can grow past previous limits and retain other drafts', () => {
+  const review = fixture()
+  const selected = Array.from({ length: 501 }, (_, index) => ({ kind: 'node' as const, id: `${index}` }))
+  const draft = makeDraft(review, selected, '草稿')
+  assert.equal(parseDrafts([draft])[0].targets.length, 501)
+  const full = Array.from({ length: 201 }, (_, index) => makeDraft(review, [{ kind: 'node', id: `${index}` }], '草稿'))
+  assert.equal(parseDrafts([...full, draft]).length, 202)
+  assert.deepEqual(withDraft(full, draft), [...full, draft])
+  assert.equal(full.length, 201)
 })
 
 test('feedback packages capture only open comments and clone all review context', () => {
@@ -97,7 +102,7 @@ test('approval records require explicit resolution of every issue and allow an e
   assert.throws(() => parseReviewRecord({ ...empty, review }), /未解决/)
 })
 
-test('record parsing validates envelopes, contained review states and history limits', () => {
+test('record parsing validates envelopes and contained review states without limiting history count', () => {
   const review = addComment(fixture(), [{ kind: 'node', id: 'check' }], '问题')
   const feedback = createFeedbackPackage(review)
   for (const value of [null, {}, { ...feedback, schemaVersion: 2 }, { ...feedback, kind: 'delivered' },
@@ -107,39 +112,27 @@ test('record parsing validates envelopes, contained review states and history li
   }
   assert.deepEqual(parseRecordHistory([feedback]), [feedback])
   assert.throws(() => parseRecordHistory([feedback, { ...feedback, createdAt: '2026-11-02T01:00:00Z' }]), /冲突/)
-  assert.throws(() => parseRecordHistory(Array.from({ length: 51 }, (_, index) => ({ ...feedback, id: `${index}` }))), /50/)
+  assert.equal(parseRecordHistory(Array.from({ length: 51 }, (_, index) => ({ ...feedback, id: `${index}` }))).length, 51)
 })
 
-test('reimporting identical fixed records is idempotent even at history capacity', () => {
+test('reimporting a growing fixed history is idempotent and conflicting records still fail', () => {
   const feedback = createFeedbackPackage(addComment(fixture(), [{ kind: 'node', id: 'check' }], '问题'))
   assert.deepEqual(parseRecordHistory([feedback, JSON.parse(JSON.stringify(feedback))]), [feedback])
-  const full = Array.from({ length: 50 }, (_, index) => ({ ...feedback, id: `${index}` }))
-  assert.deepEqual(parseRecordHistory([...full, full[0], full[49]]), full)
+  const full = Array.from({ length: 60 }, (_, index) => ({ ...feedback, id: `${index}` }))
+  assert.deepEqual(parseRecordHistory([...full, full[0], full[59]]), full)
   assert.throws(() => parseRecordHistory([...full, { ...full[0], createdAt: '2026-11-02T01:00:00Z' }]), /冲突/)
-  assert.equal(full.length, 50)
+  assert.equal(full.length, 60)
 })
 
-test('fixed-record envelopes cannot exceed the import limit when the contained review still fits', () => {
+test('large feedback and approval records retain the complete result across serialization', () => {
   const base = addComment(fixture(), [{ kind: 'node', id: 'check' }], 'a'.repeat(10000))
-  const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value, null, 2)).byteLength
-  const limit = 10 * 1024 * 1024
-  let low = 1
-  let high = 2000
-  let review = base
-  while (low <= high) {
-    const count = Math.floor((low + high) / 2)
-    const candidate = { ...base, comments: Array.from({ length: count }, (_, index) => ({ ...base.comments[0], id: `${index}` })) }
-    if (bytes(candidate) <= limit) { review = candidate; low = count + 1 }
-    else high = count - 1
-  }
-  const envelope = { schemaVersion: 1, kind: 'logic-margin-feedback', id: 'record', createdAt: '2026-11-02T00:00:00Z', review }
-  assert.ok(bytes(review) <= limit)
-  assert.ok(bytes(envelope) > limit)
-  assert.throws(() => createFeedbackPackage(review), /评审记录超过 10 MB/)
-  assert.throws(() => parseReviewRecord(envelope), /评审记录超过 10 MB/)
+  const review = { ...base, comments: Array.from({ length: 1100 }, (_, index) => ({ ...base.comments[0], id: `${index}` })) }
+  const feedback = createFeedbackPackage(review)
+  const serialized = JSON.stringify(feedback)
+  assert.ok(new TextEncoder().encode(serialized).byteLength > 10 * 1024 * 1024)
+  assert.equal(parseReviewRecord(JSON.parse(serialized)).review.comments.length, 1100)
   const resolved = { ...review, comments: review.comments.map(comment => ({ ...comment, status: 'resolved' as const })) }
-  while (bytes(resolved) > limit) resolved.comments.pop()
-  assert.throws(() => createApprovalRecord(resolved), /评审记录超过 10 MB/)
+  assert.equal(parseReviewRecord(createApprovalRecord(resolved)).review.comments.length, 1100)
 })
 
 test('pending feedback compares the latest matching human content at the source snapshot', () => {

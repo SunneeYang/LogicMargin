@@ -29,7 +29,9 @@ node "$LM_CLI" server start --host 0.0.0.0 --port 5173
 
 ## 发起审查
 
-用户已给出 session ID 或带 `?session=...` 的链接时，转到“恢复会话”。新评审先读取目标源码和当前工作区状态，明确本次要核对的行为、覆盖范围与尚未验证的部分。
+用户已给出 session ID 或带 `?session=...` 的链接并要求继续时，转到“恢复会话”。每次独立评审用 `--purpose` 明确本次目的；同一 agent 上下文中的需求确认、实现复核或另一项功能分别 `start`，取得独立 session ID。`--context` 填已知 thread/workflow 标识，用于查询归属；没有实际标识时省略。同一 `ReviewDocument.id` 或 context 不代表复用会话。
+
+新评审先读取目标源码和当前工作区状态，确定本次目的、覆盖范围与尚未验证的部分。根据已有任务确定目的即可，范围清楚时直接执行。新会话从空批注开始，旧意见留在原 session；同一目的的连续修改使用原 session 的 `revise`。
 
 生成 JSON 时读取 [评审格式](references/review-format.md)。根据实际代码整理场景、步骤、判断、失败出口和状态变化，保留源码位置与摘要；已有评审应沿用稳定对象 ID。用户提供的评审包先核对来源与版本，样例不能代替当前工程的真实逻辑。
 
@@ -37,10 +39,12 @@ node "$LM_CLI" server start --host 0.0.0.0 --port 5173
 
 ```sh
 node "$LM_CLI" verify path/to/review.logic-margin.json --source-root /path/to/source-workspace
-node "$LM_CLI" start path/to/review.logic-margin.json --wait
+node "$LM_CLI" start path/to/review.logic-margin.json --purpose "本次实际核对的行为" --wait
 ```
 
 `verify` 只读取来源并核对文件、片段摘要与快照指纹，不改写评审文件。失败时重新核对业务逻辑及依据，修正后再发起。
+
+已知上下文时为 `start` 加 `--context "实际 thread/workflow 标识"`。用户要求通过后自动清理时，加 `--cleanup-on-approval`：代理取得最终通过结果后归档，可恢复；仅在网页确认通过时尚不清理。
 
 命令在 stderr 输出审查地址，立即把完整链接给用户。随后持续等待这个命令完成；单条批注保存不代表人已完成本轮。工具返回运行句柄时，通过该工具的继续等待接口接收最终结果。
 
@@ -75,11 +79,13 @@ node "$LM_CLI" revise SESSION_ID path/to/updated.logic-margin.json \
 
 ## 恢复会话
 
-按用户给出的明确 session ID 读取状态，核对评审所属工程、源码快照、历史提交和代理回复：
+按用户给出的明确 session ID 读取状态，核对 `scope` 的目的和上下文、所属工程、源码快照、历史提交及代理回复：
 
 ```sh
 node "$LM_CLI" get SESSION_ID
 ```
+
+需要查找当前上下文的评审时，用 `list --context "实际上下文标识" --state all` 核对 ID、目的与归档状态，再选用户要继续的那一个。`get` 可读取归档内容；继续修改前执行 `restore SESSION_ID` 恢复。
 
 “代理已领取”只证明意见已被取回，不证明修改已完成。若上下文中断，先从历史恢复尚未处理的意见；完成它们后再发布新版。需要继续等待本轮尚未领取的提交时：
 
@@ -94,3 +100,16 @@ node "$LM_CLI" wait SESSION_ID --after SUBMISSION_ID
 ```
 
 超时、中断或连接失败都不等于评审通过。保留 session ID，恢复同一会话；从 `get` 的快照和历史核对旧草稿所属轮次，再决定基于哪一轮重新修改和发布，避免另建会话丢开旧意见。
+
+## 清理评审
+
+按用户指定的会话执行，完成后报告返回结果。默认清理是可恢复的归档：
+
+```sh
+node "$LM_CLI" cleanup SESSION_ID
+node "$LM_CLI" restore SESSION_ID
+```
+
+默认仅清理已通过评审。用户明确要求清理尚未完成的会话时，加 `--force`；这表示结束当前存放状态，不代表审查通过。永久删除只在用户要求永久删除时用 `cleanup SESSION_ID --mode delete`，未完成会话仍需 `--force`。一次操作仅针对指定 ID；context 查询用于选择，不触发批量删除。
+
+`--cleanup-on-approval` 可在 `start` 持久化，或在本次 `wait` / `resume --wait` 启用。等待先输出完整通过结果，再按已读版本归档；期间有新修改则清理失败并保留数据。此时先处理已取得的通过结果，再核对清理错误，不能把归档失败说成审批失败。手动命令已有明确授权时直接执行，无需再加确认步骤。

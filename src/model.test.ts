@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addComment, addReply, getChanges, parseReview, rebaseReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
+import { addComment, addReply, getChanges, parseReview, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
 import type { ReviewDocument } from './types.ts'
 import { sampleReview } from './sample.ts'
 
@@ -129,7 +129,7 @@ test('detects additions and edge behavior changes', () => {
   assert.deepEqual(getChanges(fixture(), next), { added: [{ kind: 'node', id: 'new' }], changed: [{ kind: 'edge', id: 'pass' }], removed: [] })
 })
 
-test('merging valid files cannot create a review too large to re-import', () => {
+test('large merged reviews remain exportable and importable without truncation', () => {
   const local = fixture()
   const incoming = fixture()
   const comment = addComment(fixture(), [{ kind: 'node', id: 'check' }], 'a'.repeat(9000)).comments[0]
@@ -137,9 +137,31 @@ test('merging valid files cannot create a review too large to re-import', () => 
   incoming.comments = Array.from({ length: 600 }, (_, index) => ({ ...comment, id: `incoming-${index}` }))
   assert.doesNotThrow(() => parseReview(local))
   assert.doesNotThrow(() => parseReview(incoming))
-  assert.throws(() => rebaseReview(local, incoming), /10 MB/)
+  const merged = rebaseReview(local, incoming)
+  const serialized = serializeReview(merged)
+  assert.ok(new TextEncoder().encode(serialized).byteLength > 10 * 1024 * 1024)
+  assert.equal(parseReview(JSON.parse(serialized)).comments.length, 1200)
   assert.equal(local.comments.length, 600)
   assert.equal(incoming.comments.length, 600)
+})
+
+test('comment counts and round numbers grow without business ceilings while invalid rounds are rejected', () => {
+  const base = addComment(fixture(), [{ kind: 'node', id: 'check' }], '意见')
+  const review = { ...base, comments: Array.from({ length: 2001 }, (_, index) => ({ ...base.comments[0], id: `comment-${index}` })) }
+  const parsed = parseReview(review)
+  assert.equal(parsed.comments.length, 2001)
+  assert.equal(addComment(parsed, [{ kind: 'node', id: 'check' }], '继续评审').comments.length, 2002)
+  assert.equal(rebaseReview(parsed, base).comments.length, 2002)
+  const replied = addReply(base, base.comments[0].id, '回复')
+  replied.comments[0].originRound = Number.MAX_SAFE_INTEGER
+  replied.comments[0].reviewedRound = Number.MAX_SAFE_INTEGER
+  replied.comments[0].replies![0].round = Number.MAX_SAFE_INTEGER
+  assert.deepEqual(parseReview(replied), replied)
+  for (const round of [0, -1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => parseReview({ ...base, comments: [{ ...base.comments[0], originRound: round }] }), /正整数/)
+    assert.throws(() => parseReview({ ...base, comments: [{ ...base.comments[0], reviewedRound: round }] }), /正整数/)
+    assert.throws(() => parseReview({ ...replied, comments: [{ ...replied.comments[0], replies: [{ ...replied.comments[0].replies![0], round }] }] }), /正整数/)
+  }
 })
 
 test('standalone imports flag stale opinions and preserve a human resolution after target removal', () => {
@@ -234,7 +256,7 @@ test('validates reply identities and preserves absence in legacy files', () => {
   assert.throws(() => parseReview({ ...replied, comments: [{ ...replied.comments[0], replies: [reply, reply] }] }), /重复/)
   const full = { ...replied, comments: [{ ...replied.comments[0], replies: Array.from({ length: 500 }, (_, index) => ({ ...reply, id: `${index}` })) }] }
   assert.doesNotThrow(() => parseReview(full))
-  assert.throws(() => addReply(full, review.comments[0].id, '更多'), /500/)
+  assert.equal(parseReview(addReply(full, review.comments[0].id, '更多')).comments[0].replies?.length, 501)
 })
 
 test('reply imports merge idempotently, reject conflicts, and retain a manual resolution after reimport', () => {
@@ -256,7 +278,7 @@ test('reply imports merge idempotently, reject conflicts, and retain a manual re
   assert.equal(local.comments[0].replies, undefined)
 })
 
-test('merging individually valid reply threads cannot overflow the thread limit', () => {
+test('merging long reply threads preserves every reply and remains idempotent', () => {
   const base = addComment(fixture(), [{ kind: 'node', id: 'check' }], '意见')
   const replied = addReply(base, base.comments[0].id, '回复')
   const reply = replied.comments[0].replies![0]
@@ -266,7 +288,9 @@ test('merging individually valid reply threads cannot overflow the thread limit'
   incoming.comments[0].replies = Array.from({ length: 251 }, (_, index) => ({ ...reply, id: `incoming-${index}` }))
   assert.doesNotThrow(() => parseReview(local))
   assert.doesNotThrow(() => parseReview(incoming))
-  assert.throws(() => rebaseReview(local, incoming), /回复超过 500/)
+  const merged = rebaseReview(local, incoming)
+  assert.equal(parseReview(merged).comments[0].replies?.length, 502)
+  assert.equal(rebaseReview(merged, incoming).comments[0].replies?.length, 502)
   assert.equal(local.comments[0].replies.length, 251)
 })
 

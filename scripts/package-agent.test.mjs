@@ -264,3 +264,39 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
   const newHealth = await (await fetch(`${newStatus.url}/api/health`)).json()
   assert.notEqual(newHealth.instanceId, health.instanceId)
 })
+
+test('distributed CLI isolates purposes and archives, restores and deletes only the selected review', async t => {
+  const { cwd, call, run } = await setup(t)
+  const review = await sourceReview(cwd)
+  await writeFile(join(cwd, 'review.json'), JSON.stringify(review))
+  const first = await run(['start', 'review.json', '--context', 'package-context', '--purpose', '票券扣除', '--cleanup-on-approval']).result
+  assert.equal(first.code, 0, first.stderr)
+  const id = JSON.parse(first.stdout).sessionId
+  const second = await run(['start', 'review.json', '--context', 'package-context', '--purpose', '异常回滚']).result
+  assert.equal(second.code, 0, second.stderr)
+  const sibling = JSON.parse(second.stdout).sessionId
+  const current = await call(`/${id}`)
+  assert.equal(current.cleanupPolicy, 'archive-on-approval')
+  assert.equal(current.scope.purpose, '票券扣除')
+  await call(`/${id}/finish`, { expectedVersion: current.version, kind: 'approval' })
+  const received = await run(['wait', id, '--timeout', '3']).result
+  assert.equal(received.code, 0, received.stderr)
+  assert.equal(JSON.parse(received.stdout).approved, true)
+  const list = await run(['list', '--context', 'package-context', '--state', 'all']).result
+  assert.equal(list.code, 0, list.stderr)
+  const tasks = JSON.parse(list.stdout).sessions
+  assert.equal(tasks.length, 2)
+  assert.ok(tasks.find(item => item.id === id).archivedAt)
+  assert.equal(tasks.find(item => item.id === sibling).archivedAt, undefined)
+  const restored = await run(['restore', id]).result
+  assert.equal(restored.code, 0, restored.stderr)
+  const archived = await run(['cleanup', id]).result
+  assert.equal(archived.code, 0, archived.stderr)
+  assert.equal(JSON.parse(archived.stdout).mode, 'archive')
+  const deleted = await run(['cleanup', id, '--mode', 'delete']).result
+  assert.equal(deleted.code, 0, deleted.stderr)
+  assert.equal(JSON.parse(deleted.stdout).mode, 'delete')
+  const after = JSON.parse((await run(['list', '--context', 'package-context', '--state', 'all']).result).stdout)
+  assert.deepEqual(after.sessions.map(item => item.id), [sibling])
+  assert.equal((await call(`/${sibling}`)).review.comments.length, 0)
+})

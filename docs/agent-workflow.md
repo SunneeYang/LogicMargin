@@ -19,10 +19,14 @@ npm run review -- verify /path/to/review.logic-margin.json --source-root /path/t
 `verify` 只读取并核验，不修改评审文件或创建会话。来源范围优先取 `snapshot.files`；未声明时取图内依据涉及的文件。建议显式列出覆盖的源码和文档，摘要规则见插件内的 [评审格式](../plugins/logic-margin/skills/logic-margin/references/review-format.md)。校验通过后，使用真实需求包发起会话并等待：
 
 ```sh
-npm run review -- start public/reviews/spirit-sanctum.logic-margin.json --wait --public-url http://100.124.38.121:5173
+npm run review -- start public/reviews/spirit-sanctum.logic-margin.json \
+  --context "实际 thread/workflow 标识" --purpose "魔灵秘境服务端实现复核" \
+  --wait --public-url http://100.124.38.121:5173
 ```
 
 命令在 stderr 打印带 `?session=...` 的审查链接；stdout 只在本轮提交后输出一份 JSON。Tailscale 地址只影响分享链接，代理默认连接本机 `http://127.0.0.1:5173`。跨机运行 CLI 时用 `--url http://100.124.38.121:5173` 指定 API 地址。
+
+每个独立目的使用一次 `start`，即使来自同一个 agent context、复用同一个评审文件，也生成新的 session ID。`--context` 是用于查询归属的实际 thread/workflow 标识，可省略；`--purpose` 说明这次核对什么。两者组成会话 `scope`，会出现在 `get` 及等待结果中。显式指定任一项时新会话清空输入包的旧批注，原 session 保留；仅指定 context 时，purpose 默认取文件说明或标题。插件技能要求明确传入 purpose。同一目的的多轮修改使用原 ID 的 `revise`。
 
 评审者打开链接，在节点、关系或整图上批注，保存后点击“提交本轮”。没有未解决意见时可确认通过。CLI 仅在收到固定快照的提交记录后返回，并将意见标为代理已领取；页面上的普通保存不会唤醒代理处理。
 
@@ -81,3 +85,36 @@ npm run review -- wait <sessionId> --after <submissionId> --timeout 1800
 `--after` 排除指定记录及之前的提交，返回其后最新的一份记录；如果期间有多次提交，`earlierSubmissions` 还会附上其余未领取记录，代理应逐份核对对应快照和意见。所有提交均保留在 `get` 的历史中。未知记录会报错。超时退出码为 1，服务端数据保留。等待期间中断 CLI 不会删除会话。`revise --wait` 默认跳过发布新版前的提交，等待新一轮意见。
 
 当前服务面向受信任的本机或 Tailscale 网络，未加入登录和权限管理。服务可达的设备能够读取和修改会话；请使用私有网络限制访问。恢复依赖运行服务机器上的实际会话目录：托管服务默认 `~/.logic-margin/sessions`，开发服务默认工程内 `.logic-margin/sessions`，自定义 `LOGIC_MARGIN_DATA_DIR` 时备份其实际目录。浏览器独立文件模式仍使用原来的本地保存及导入导出流程。
+
+## 查询、归档与删除
+
+查询当前上下文的活动评审或完整目录：
+
+```sh
+npm run review -- list --context "实际上下文标识"
+npm run review -- list --context "实际上下文标识" --state all
+```
+
+默认 `state` 是 `active`，也支持 `archived`。列表只包含会话概要，不拉取整图；先核对目的和 ID，再操作具体会话。
+
+```sh
+npm run review -- cleanup <sessionId>
+npm run review -- get <sessionId>
+npm run review -- restore <sessionId>
+```
+
+`cleanup` 默认归档，保留完整图、批注和历史，可恢复；原活动链接进入归档状态。`get` 遇到已归档会话会读取归档内容，继续修改前用 `restore` 恢复同一 ID。默认仅允许清理已通过的评审；`--force` 明确允许清理未完成的评审，并不把它标为通过。
+
+永久删除必须显式指定：
+
+```sh
+npm run review -- cleanup <sessionId> --mode delete
+```
+
+该命令同时删除此 ID 的活动与归档数据，无法恢复；未完成会话仍需 `--force`。没有默认批量删除。清理和恢复均按读到的 `version` 执行，期间有新修改则拒绝操作并保留数据。
+
+需要通过后自动归档时，新建加 `--cleanup-on-approval`，策略随会话持久化；已有会话可在本次 `wait` 或 `resume --wait` 加同一选项。代理等待命令先输出 `approved: true` 的最终结果，确认记录属于当前轮次且会话仍为通过状态后再归档；显式游标取回的旧通过记录不会归档新一轮。单纯点击网页通过尚不清理。自动归档发生冲突时，最终结果已经输出，错误会明确说明归档失败；会话留存，核对最新状态后再清理。
+
+场景、节点、批注、最终回应和轮次不再设固定业务条数上限。仍校验每条内容的格式、长度、引用与发布基线；大评审的处理速度取决于实际数据量与机器资源。
+
+CLI 单次读入的评审 JSON、最终回应 JSON 各保留 10 MB 资源边界，限制的是一次传入的文件，不是服务端累计批注、快照或历史。发布新版可只传新图与新增最终回应；已有批注由服务端合并保留，无需把累计线程写回输入文件。

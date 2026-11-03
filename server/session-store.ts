@@ -1,18 +1,22 @@
-import { readFile, rename, mkdir, open, stat, unlink } from 'node:fs/promises'
+import { readFile, readdir, rename, mkdir, open, stat, unlink, writeFile } from 'node:fs/promises'
 import type { BigIntStats } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { gzip, gunzip } from 'node:zlib'
+import { promisify } from 'node:util'
 import { addReply, parseReview, rebaseReview, targetExists } from '../src/model.ts'
 import { logicIdentity } from '../src/revisions.ts'
 import { validatePublication } from './publication.ts'
 import { currentSession } from './session-view.ts'
 import { createApprovalRecord, createFeedbackPackage, parseRecordHistory, pendingFeedback } from '../src/workspace.ts'
+import { parseSessionOptions } from '../src/session-lifecycle.ts'
 import type { ReviewComment, ReviewDocument, ReviewRecord } from '../src/types.ts'
-import type { CurrentSession, ReviewSession, ReviewSnapshot } from '../src/session-types.ts'
+import type { CleanupResult, CurrentSession, ReviewSession, ReviewSnapshot, SessionSummary } from '../src/session-types.ts'
 
-const MAX_SESSION_BYTES = 32 * 1024 * 1024
 const MAX_CACHE_BYTES = 64 * 1024 * 1024
 const MAX_CACHE_ENTRIES = 16
+const compress = promisify(gzip)
+const decompress = promisify(gunzip)
 type View = 'current' | undefined
 type Result<V extends View> = V extends 'current' ? CurrentSession : ReviewSession
 interface CachedSession { state: ReviewSession; signature: string; bytes: number; current?: CurrentSession }
@@ -53,7 +57,7 @@ function parseSession(value: unknown): ReviewSession {
   if (source.schemaVersion !== 1 || typeof source.phase !== 'string' || !phases.includes(source.phase)) throw new SessionError('会话格式无效')
   const review = checkedReview(source.review)
   const history = parseRecordHistory(source.history)
-  if (!Array.isArray(source.snapshots) || !source.snapshots.length || source.snapshots.length > 50) throw new SessionError('会话快照无效或超过 50 轮上限')
+  if (!Array.isArray(source.snapshots) || !source.snapshots.length) throw new SessionError('会话快照无效')
   const snapshots = source.snapshots.map(value => {
     const snapshot = object(value)
     const afterSubmission = snapshot.afterSubmission === undefined ? undefined : id(snapshot.afterSubmission)
@@ -71,6 +75,7 @@ function parseSession(value: unknown): ReviewSession {
   const acknowledgedSubmission = source.acknowledgedSubmission === undefined ? undefined : id(source.acknowledgedSubmission)
   if (acknowledgedSubmission && !history.some(item => item.id === acknowledgedSubmission && item.kind === 'logic-margin-feedback')) throw new SessionError('会话接收记录不存在')
   return { schemaVersion: 1, id: sessionId(source.id), version: integer(source.version, '版本'), round,
+    ...parseSessionOptions(source),
     phase: source.phase as ReviewSession['phase'], createdAt: date(source.createdAt), updatedAt: date(source.updatedAt), review, history, snapshots,
     ...(acknowledgedSubmission ? { acknowledgedSubmission } : {}) }
 }
@@ -82,9 +87,10 @@ export class SessionStore {
   private loading = new Map<string, Promise<ReviewSession>>()
   private cache = new Map<string, CachedSession>()
   private cacheBytes = 0
-  private listeners = new Map<string, Set<(state: ReviewSession) => void>>()
+  private listeners = new Map<string, Set<(state: ReviewSession | SessionError) => void>>()
   constructor(dataDir = join(process.cwd(), '.logic-margin', 'sessions')) { this.dataDir = dataDir }
   private path(session: string) { return join(this.dataDir, `${sessionId(session)}.json`) }
+  private archivePath(session: string) { return join(this.dataDir, 'archive', `${sessionId(session)}.json.gz`) }
   private forget(session: string) {
     const entry = this.cache.get(session)
     if (entry) { this.cacheBytes -= entry.bytes; this.cache.delete(session) }
@@ -93,14 +99,20 @@ export class SessionStore {
     this.forget(state.id)
     this.cache.set(state.id, { state, signature: signature(metadata), bytes })
     this.cacheBytes += bytes
-    // The budget uses serialized bytes; parsed objects also obey the schema's item limits.
+    // Serialized bytes estimate the cache budget; parsed objects can use more heap.
     while (this.cacheBytes > MAX_CACHE_BYTES || this.cache.size > MAX_CACHE_ENTRIES) this.forget(this.cache.keys().next().value!)
   }
   private async load(session: string): Promise<ReviewSession> {
     const path = this.path(session)
     let metadata: BigIntStats
     try { metadata = await stat(path, { bigint: true }) }
-    catch (error) { this.forget(session); if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new SessionError('找不到审查会话', 404); throw error }
+    catch (error) {
+      this.forget(session)
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      try { await stat(this.archivePath(session)) }
+      catch (archiveError) { if ((archiveError as NodeJS.ErrnoException).code === 'ENOENT') throw new SessionError('找不到审查任务，可能已被清理', 404); throw archiveError }
+      throw new SessionError('评审任务已归档，可从任务列表恢复', 410)
+    }
     const cached = this.cache.get(session)
     if (cached?.signature === signature(metadata)) {
       this.cache.delete(session); this.cache.set(session, cached)
@@ -112,7 +124,7 @@ export class SessionStore {
     const operation = (async () => {
       try {
         for (let attempt = 0; attempt < 3; attempt++) {
-          if (!metadata.isFile() || metadata.size > BigInt(MAX_SESSION_BYTES)) throw new Error('不是会话文件或超过 32 MB 上限')
+          if (!metadata.isFile()) throw new Error('不是会话文件')
           const raw = await readFile(path, 'utf8')
           const after = await stat(path, { bigint: true })
           if (signature(metadata) !== signature(after)) { metadata = after; continue }
@@ -129,7 +141,6 @@ export class SessionStore {
   }
   private async persist(session: ReviewSession) {
     const raw = JSON.stringify(session)
-    if (Buffer.byteLength(raw) > MAX_SESSION_BYTES) throw new SessionError('会话超过 32 MB，请备份并建立新会话')
     await mkdir(this.dataDir, { recursive: true, mode: 0o700 })
     const destination = this.path(session.id)
     const temporary = `${destination}.${randomUUID()}.tmp`
@@ -167,7 +178,7 @@ export class SessionStore {
       // Transition callbacks build new current fields; validated history and snapshots stay immutable.
       const next = change(previous)
       if (next.review === previous.review && next.history === previous.history && next.snapshots === previous.snapshots && next.phase === previous.phase && next.acknowledgedSubmission === previous.acknowledgedSubmission) return this.output(previous, view)
-      next.version = previous.version + 1
+      next.version = integer(previous.version + 1, '版本')
       next.updatedAt = new Date().toISOString()
       checkCommentRounds(next.review, next.round)
       await this.persist(next)
@@ -189,15 +200,119 @@ export class SessionStore {
     if (!record) throw new SessionError('找不到这个评审记录', 404)
     return structuredClone(record)
   }
-  create<V extends View = undefined>(value: unknown, view?: V): Promise<Result<V>> {
+  private async readArchive(session: string): Promise<{ archivedAt: string; session: ReviewSession }> {
+    let bytes: Buffer
+    try { bytes = await readFile(this.archivePath(session)) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new SessionError('找不到归档评审任务', 404); throw error }
+    try {
+      const archived = object(JSON.parse((await decompress(bytes)).toString('utf8')))
+      const state = parseSession(archived.session)
+      if (state.id !== session) throw new Error('文件与评审任务标识不一致')
+      return { archivedAt: date(archived.archivedAt), session: state }
+    } catch (error) { throw new SessionError(`归档文件损坏，原文件已保留：${error instanceof Error ? error.message : '格式无效'}`, 500) }
+  }
+  async getArchive(session: string): Promise<ReviewSession> {
+    await this.serial.get(session)
+    return structuredClone((await this.readArchive(session)).session)
+  }
+  async list(options: { context?: string; state?: string } = {}): Promise<{ sessions: SessionSummary[]; warnings?: string[] }> {
+    if (options.state !== undefined && !['active', 'archived', 'all'].includes(options.state)) throw new SessionError('任务列表状态无效')
+    const entries = async (directory: string) => {
+      try { return await readdir(directory) }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error }
+    }
+    const activeIds = (await entries(this.dataDir)).filter(name => /^[a-f0-9-]{36}\.json$/.test(name)).map(name => name.slice(0, -5))
+    const sessions: SessionSummary[] = []
+    const warnings: string[] = []
+    const unreadable = (id: string, error: unknown) => {
+      if (error instanceof SessionError && [404, 410].includes(error.status)) return
+      warnings.push(`任务 ${id} 无法读取，原文件已保留：${error instanceof Error ? error.message : String(error)}`)
+    }
+    const add = (state: ReviewSession, archivedAt?: string) => {
+      if (options.context !== undefined && state.scope?.context !== options.context) return
+      sessions.push({ id: state.id, title: state.review.title, version: state.version, round: state.round, phase: state.phase,
+        createdAt: state.createdAt, updatedAt: state.updatedAt, ...parseSessionOptions(state), ...(archivedAt ? { archivedAt } : {}) })
+    }
+    if (options.state !== 'archived') for (const id of activeIds) {
+      try { add(await this.get(id)) }
+      catch (error) { unreadable(id, error) }
+    }
+    if (options.state === 'archived' || options.state === 'all') {
+      for (const file of await entries(join(this.dataDir, 'archive'))) {
+        if (!/^[a-f0-9-]{36}\.json\.gz$/.test(file)) continue
+        const id = file.slice(0, -8)
+        if (activeIds.includes(id)) continue
+        await this.serial.get(id)
+        try { const archive = await this.readArchive(id); add(archive.session, archive.archivedAt) }
+        catch (error) { unreadable(id, error) }
+      }
+    }
+    sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id))
+    return { sessions, ...(warnings.length ? { warnings } : {}) }
+  }
+  cleanup(session: string, value: unknown): Promise<CleanupResult> {
+    const input = object(value)
+    if (input.mode !== 'archive' && input.mode !== 'delete') throw new SessionError('清理方式必须是归档或永久删除')
+    if (input.allowUnfinished !== undefined && typeof input.allowUnfinished !== 'boolean') throw new SessionError('未完成任务清理选项无效')
+    const mode = input.mode
+    return this.queue(session, async () => {
+      let state: ReviewSession, previousArchive: { archivedAt: string; session: ReviewSession } | undefined
+      try { state = await this.load(session) }
+      catch (error) {
+        if (!(error instanceof SessionError) || error.status !== 410) throw error
+        previousArchive = await this.readArchive(session); state = previousArchive.session
+      }
+      if (input.expectedVersion !== state.version) throw new SessionError('评审已有更新，请重新核对后再清理', 409)
+      if (mode === 'archive' && previousArchive) return { id: session, mode, archivedAt: previousArchive.archivedAt }
+      if (state.phase !== 'approved' && input.allowUnfinished !== true) throw new SessionError('评审尚未通过；确认放弃后才能清理未完成任务', 409)
+      let archivedAt: string | undefined
+      if (mode === 'archive') {
+        archivedAt = new Date().toISOString()
+        const destination = this.archivePath(session)
+        await mkdir(join(this.dataDir, 'archive'), { recursive: true, mode: 0o700 })
+        const temporary = `${destination}.${randomUUID()}.tmp`
+        try {
+          const bytes = await compress(Buffer.from(JSON.stringify({ archivedAt, session: state })))
+          await writeFile(temporary, bytes, { flag: 'wx', mode: 0o600 })
+          // Keep the active file until its complete, recoverable archive has been committed.
+          await rename(temporary, destination)
+        } finally { await unlink(temporary).catch(error => { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }) }
+        await unlink(this.path(session))
+      } else {
+        // Remove any older archive first; on failure the active review remains available.
+        await unlink(this.archivePath(session)).catch(error => { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error })
+        if (!previousArchive) await unlink(this.path(session))
+      }
+      this.forget(session)
+      const changed = new SessionError(mode === 'archive' ? '评审任务已归档，可从任务列表恢复' : '评审任务已永久删除', mode === 'archive' ? 410 : 404)
+      for (const listener of this.listeners.get(session) ?? []) listener(changed)
+      return { id: session, mode, ...(archivedAt ? { archivedAt } : {}) }
+    })
+  }
+  restore(session: string, value: unknown): Promise<ReviewSession> {
+    const input = object(value)
+    return this.queue(session, async () => {
+      const archive = await this.readArchive(session)
+      if (input.expectedVersion !== archive.session.version) throw new SessionError('归档版本已变化，请重新读取后恢复', 409)
+      try { await stat(this.path(session)); throw new SessionError('已有同名活动任务，不能覆盖', 409) }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+      const restored = { ...archive.session, version: integer(archive.session.version + 1, '版本'), updatedAt: new Date().toISOString() }
+      await this.persist(restored)
+      await unlink(this.archivePath(session))
+      return structuredClone(restored)
+    })
+  }
+  create<V extends View = undefined>(value: unknown, view?: V, options: { scope?: unknown; cleanupPolicy?: unknown } = {}): Promise<Result<V>> {
     const sessionKey = randomUUID()
     return this.queue(sessionKey, async () => {
       const incoming = checkedReview(value)
-      const review = { ...incoming, comments: incoming.comments.map(comment => ({ ...comment, originRound: 1,
+      const metadata = parseSessionOptions(options)
+      const review = { ...incoming, comments: (metadata.scope ? [] : incoming.comments).map(comment => ({ ...comment, originRound: 1,
         ...(comment.reviewedRound === undefined ? {} : { reviewedRound: 1 }),
         ...(comment.replies === undefined ? {} : { replies: comment.replies.map(reply => ({ ...reply, round: 1 })) }) })) }
       const now = new Date().toISOString()
       const session: ReviewSession = { schemaVersion: 1, id: sessionKey, version: 1, round: 1, phase: 'awaiting-review', createdAt: now, updatedAt: now,
+        ...metadata,
         review, history: [], snapshots: [{ round: 1, openedAt: now, review: structuredClone(review) }] }
       await this.persist(session)
       return this.output(session, view)
@@ -205,7 +320,7 @@ export class SessionStore {
   }
   mutate<V extends View = undefined>(session: string, value: unknown, view?: V): Promise<Result<V>> {
     const batch = object(value)
-    if (!Array.isArray(batch.mutations) || !batch.mutations.length || batch.mutations.length > 200) throw new SessionError('每批需要 1–200 项操作')
+    if (!Array.isArray(batch.mutations) || !batch.mutations.length) throw new SessionError('每批至少需要一项操作')
     const mutations = batch.mutations.map(object)
     return this.update(session, state => {
       if (batch.revision !== state.review.revision || batch.fingerprint !== state.review.snapshot.fingerprint) throw new SessionError('流程已更新，请恢复会话并核对新版后重试；未保存操作应保留导出', 409)
@@ -267,7 +382,6 @@ export class SessionStore {
       if (input.kind === 'feedback' && !pending.length) throw new SessionError('没有新的待处理意见可提交')
       const record = input.kind === 'feedback' ? createFeedbackPackage({ ...state.review, comments: pending }) : createApprovalRecord(state.review)
       record.id = submissionId
-      if (state.history.length >= 50) throw new SessionError('评审历史最多 50 项，请先备份并归档历史')
       return { ...state, history: [...state.history, ...parseRecordHistory([record])], phase: input.kind === 'feedback' ? 'feedback-ready' : 'approved' }
     }, view)
   }
@@ -287,11 +401,10 @@ export class SessionStore {
     return this.update(session, state => {
       if (input.expectedVersion !== state.version) throw new SessionError('会话已有更新，请读取最新意见后发布新版', 409)
       if (review.id !== state.review.id) throw new SessionError('只能发布相同评审 ID 的新版')
-      if (state.round >= 50) throw new SessionError('会话已达 50 轮，请备份并建立新会话')
       const publication = validatePublication(input.publication, review)
       if (publication.baseRound !== state.round) throw new SessionError('发布基线不是当前固定流程，请重新读取本轮意见', 409)
       if (logicIdentity(state.review) === logicIdentity(review) && !publication.unchangedReason) throw new SessionError('流程没有逻辑变化，请说明流程未变的原因')
-      const round = state.round + 1
+      const round = integer(state.round + 1, '轮次')
       let next = rebaseReview(state.review, review)
       const previous = new Map(state.review.comments.map(comment => [comment.id, comment]))
       next = { ...next, comments: next.comments.map(comment => {
@@ -301,7 +414,7 @@ export class SessionStore {
           ...(replies === undefined ? {} : { replies }) }
       }) }
       if (input.replies !== undefined) {
-        if (!Array.isArray(input.replies) || input.replies.length > 2000) throw new SessionError('发布回应最多 2000 项')
+        if (!Array.isArray(input.replies)) throw new SessionError('发布回应必须是数组')
         for (const value of input.replies) {
           const reply = object(value)
           const commentId = id(reply.commentId)
@@ -321,7 +434,7 @@ export class SessionStore {
     if (current.version !== afterVersion) return this.output(current, view)
     return new Promise((resolve, reject) => {
       let ended = false
-      const listeners = this.listeners.get(session) ?? new Set<(state: ReviewSession) => void>()
+      const listeners = this.listeners.get(session) ?? new Set<(state: ReviewSession | SessionError) => void>()
       this.listeners.set(session, listeners)
       const finish = (result: ReviewSession | null, error?: unknown) => {
         if (ended) return
@@ -329,7 +442,10 @@ export class SessionStore {
         if (!listeners.size) this.listeners.delete(session)
         if (error) reject(error); else resolve(result ? this.output(result, view) : null)
       }
-      const changed = (state: ReviewSession) => { if (state.version !== afterVersion) finish(state) }
+      const changed = (state: ReviewSession | SessionError) => {
+        if (state instanceof SessionError) finish(null, state)
+        else if (state.version !== afterVersion) finish(state)
+      }
       const aborted = () => finish(null)
       const timer = setTimeout(() => finish(null), Math.max(0, Math.min(waitMs, 25000)))
       listeners.add(changed); signal?.addEventListener('abort', aborted, { once: true })

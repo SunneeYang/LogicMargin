@@ -22,13 +22,13 @@ function date(value: unknown, label: string): string {
   return result
 }
 
-function list(value: unknown, label: string, max: number): unknown[] {
-  if (!Array.isArray(value) || value.length > max) throw new Error(`${label}必须是数组，最多 ${max} 项`)
+function list(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${label}必须是数组`)
   return value
 }
 
 function targets(value: unknown): Target[] {
-  const result = list(value, '草稿目标', 500).map(value => {
+  const result = list(value, '草稿目标').map(value => {
     const target = object(value, '草稿目标')
     if (typeof target.kind !== 'string' || !['node', 'edge', 'scene', 'review'].includes(target.kind)) throw new Error('草稿目标类型无效')
     return { kind: target.kind as Target['kind'], id: id(target.id, '草稿目标 ID') }
@@ -56,14 +56,14 @@ export function makeDraft(review: ReviewDocument, selected: Target[], body: stri
 }
 
 export function parseDrafts(value: unknown): CommentDraft[] {
-  const parsed = list(value, '批注草稿', 200).map(value => {
+  const parsed = list(value, '批注草稿').map(value => {
     const draft = object(value, '批注草稿')
     const selected = targets(draft.targets)
     const documentId = id(draft.documentId, '草稿评审 ID')
     const revision = id(draft.revision, '草稿版本')
     const fingerprint = id(draft.fingerprint, '草稿快照指纹')
     const replyTo = draft.replyTo === undefined ? undefined : id(draft.replyTo, '回复批注 ID')
-    const labels = list(draft.labels, '草稿目标标签', 500).map(value => text(value, '草稿目标标签', 2000, true))
+    const labels = list(draft.labels, '草稿目标标签').map(value => text(value, '草稿目标标签', 2000, true))
     if (labels.length !== selected.length) throw new Error('草稿目标与标签数量不一致')
     const expectedKey = key(documentId, revision, fingerprint, selected, replyTo)
     if (draft.key !== expectedKey) throw new Error('草稿标识与所属评审、版本或目标不一致')
@@ -82,7 +82,6 @@ export function withDraft(drafts: CommentDraft[], draft: CommentDraft): CommentD
   if (replacement.body === '') return without
   const index = checked.findIndex(item => item.key === replacement.key)
   if (index >= 0) return checked.map((item, at) => at === index ? replacement : item)
-  if (checked.length >= 200) throw new Error('草稿已达 200 条上限，请先处理已有草稿')
   return [...checked, replacement]
 }
 
@@ -95,14 +94,7 @@ function record(review: ReviewDocument, kind: ReviewRecord['kind']): ReviewRecor
     throw new Error('仍有待处理或待复核批注，不能确认通过')
   }
   const result: ReviewRecord = { schemaVersion: 1, kind, id: newId(), createdAt: new Date().toISOString(), review: cloned }
-  checkRecordSize(result)
   return result
-}
-
-function checkRecordSize(record: ReviewRecord) {
-  if (new TextEncoder().encode(JSON.stringify(record, null, 2)).byteLength > 10 * 1024 * 1024) {
-    throw new Error('评审记录超过 10 MB，请拆分评审后生成记录')
-  }
 }
 
 export function createFeedbackPackage(review: ReviewDocument): ReviewRecord {
@@ -125,19 +117,17 @@ export function parseReviewRecord(value: unknown): ReviewRecord {
     throw new Error('通过记录不能包含未解决的批注')
   }
   const result: ReviewRecord = { schemaVersion: 1, kind: source.kind, id: id(source.id, '评审记录 ID'), createdAt: date(source.createdAt, '评审记录日期'), review }
-  checkRecordSize(result)
   return result
 }
 
 export function parseRecordHistory(value: unknown): ReviewRecord[] {
-  if (!Array.isArray(value)) throw new Error('评审历史必须是数组，最多 50 项')
+  if (!Array.isArray(value)) throw new Error('评审历史必须是数组')
   const byId = new Map<string, ReviewRecord>()
   for (const source of value) {
     const item = parseReviewRecord(source)
     const existing = byId.get(item.id)
     if (existing && JSON.stringify(existing) !== JSON.stringify(item)) throw new Error(`评审记录 ${item.id} 的内容冲突`)
     byId.set(item.id, item)
-    if (byId.size > 50) throw new Error('评审历史最多 50 项，请先备份并归档历史')
   }
   return [...byId.values()]
 }

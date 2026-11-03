@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { newId } from './id.ts'
-import { parsePendingSession, pendingMatchesSession, reviewMutations, sameVisibleReview, currentRequest as sessionRequest, snapshotRequest } from './session-client.ts'
+import { parsePendingSession, pendingMatchesSession, reviewMutations, sameVisibleReview, currentRequest as sessionRequest, snapshotRequest, SessionRequestError } from './session-client.ts'
 import type { PendingSession } from './session-client.ts'
-import type { CurrentSession } from './session-types.ts'
+import type { CurrentSession, SessionOptions } from './session-types.ts'
 import type { ReviewDocument } from './types.ts'
 
 const message = (error: unknown) => error instanceof Error ? error.message : '会话同步失败'
@@ -15,6 +15,8 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
   const [error, setError] = useState('')
   const [pendingRecovery, setPendingRecovery] = useState<string | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
+  const [availability, setAvailability] = useState<'active' | 'archived' | 'deleted'>('active')
+  const watchController = useRef<AbortController | null>(null)
   const onSessionRef = useRef(onSession)
   onSessionRef.current = onSession
   const current = useRef<CurrentSession | null>(null)
@@ -78,11 +80,12 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     generation.current++
     current.current = null; displayed.current = null; pending.current = null; task.current = null
     snapshotCache.current = new Map(); snapshotTasks.current = new Map(); setSnapshots(new Map())
-    setSession(null); setError(''); setBusy(false); setPendingCount(0); setPendingRecovery(null)
+    setSession(null); setError(''); setBusy(false); setPendingCount(0); setPendingRecovery(null); setAvailability('active')
     readyRef.current = false
     setReady(false)
     if (!sessionId) return () => { alive.current = false }
     const controller = new AbortController()
+    watchController.current = controller
     let timer: ReturnType<typeof setTimeout> | undefined
     let raw: string | null = null
     try {
@@ -109,6 +112,11 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
           }
         } catch (error) {
           if (controller.signal.aborted) break
+          if (error instanceof SessionRequestError && (error.status === 404 || error.status === 410)) {
+            setAvailability(error.status === 410 ? 'archived' : 'deleted')
+            readyRef.current = false; setReady(false); setError('')
+            controller.abort(); break
+          }
           setError(message(error))
           await new Promise<void>(resolve => { timer = setTimeout(resolve, 2000); controller.signal.addEventListener('abort', () => { clearTimeout(timer); resolve() }, { once: true }) })
         }
@@ -126,7 +134,6 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     if (!mutations.length) return
     const hasStatus = mutations.some(item => item.kind === 'set-status')
     if (hasStatus && (pending.current || task.current)) throw new Error('上一条批注正在保存，请稍后再确认状态')
-    if ((pending.current?.batches.length ?? 0) >= 2000) throw new Error('待同步操作已达上限，请恢复连接后再继续')
     store({ schemaVersion: 1, review: after, batches: [...(pending.current?.batches ?? []), {
       revision: before.revision, fingerprint: before.snapshot.fingerprint,
       round: displayed.current.round,
@@ -152,15 +159,19 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     } catch (error) { setError(message(error)); throw error }
     finally { setBusy(false) }
   }, [sessionId, flush, publish])
-  const create = useCallback(async (review: ReviewDocument) => {
+  const create = useCallback(async (review: ReviewDocument, options: SessionOptions = {}) => {
     setBusy(true)
     try {
-      const next = await sessionRequest('', { review })
+      const next = await sessionRequest('', { review, ...options })
       if (!next) throw new Error('会话服务未返回创建结果')
       return next
     } finally { setBusy(false) }
   }, [])
   const retry = useCallback(() => { void flush().catch(() => {}) }, [flush])
+  const stop = useCallback((state: 'archived' | 'deleted') => {
+    watchController.current?.abort()
+    readyRef.current = false; setReady(false); setBusy(false); setError(''); setAvailability(state)
+  }, [])
   const recoverRemote = useCallback(async () => {
     if (!sessionId || task.current || recovering.current) throw new Error('请等待当前保存完成后再恢复服务端版本')
     recovering.current = true; setBusy(true)
@@ -193,6 +204,6 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     snapshotTasks.current.set(round, operation)
     return operation
   }, [sessionId])
-  return { session, ready, busy, error, pendingRecovery, enqueue, flush, finish, create, retry, recoverRemote, snapshots, loadSnapshot,
+  return { session, ready, busy, error, pendingRecovery, availability, stop, enqueue, flush, finish, create, retry, recoverRemote, snapshots, loadSnapshot,
     saveState: error ? '同步暂停' : busy || pendingCount ? '正在同步' : ready ? '已保存到会话' : '正在连接会话' }
 }

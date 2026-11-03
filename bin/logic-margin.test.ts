@@ -291,7 +291,169 @@ test('CLI rejects unsupported commands and invalid options before contacting a s
     ['get', 'id', '--source-root', '.'], ['get', 'id', '--summary', 'summary'], ['start', 'review.json', '--replies-file', 'replies.json'],
     ['get', 'id', '--base-round', '1'], ['start', 'review.json', '--base-round', '1'], ['verify', 'review.json', '--base-round', '1'],
     ['revise', 'id', 'review.json', '--base-round', '0'], ['revise', 'id', 'review.json', '--base-round', '1.5'],
-    ['revise', 'id', 'review.json', '--base-round', '51']]) {
+    ['get', 'id', '--purpose', '目的'], ['resume', 'id', '--cleanup-on-approval'], ['get', 'id', '--force'],
+    ['list', '--state', 'unknown'], ['cleanup', 'id', '--mode', 'unknown']]) {
     await assert.rejects(runCli(args, output().io))
   }
+})
+
+test('scoped starts isolate comments and purposes within one agent context', async t => {
+  const { reviewFile } = await revisionFixture(t)
+  const scopes: unknown[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init?: RequestInit) => {
+    const payload = JSON.parse(String(init?.body))
+    assert.deepEqual(payload.review.comments, [])
+    assert.equal(payload.cleanupPolicy, 'archive-on-approval')
+    scopes.push(payload.scope)
+    return Response.json({ ...fixture(), id: `isolated-${scopes.length}`, review: payload.review,
+      scope: payload.scope, cleanupPolicy: payload.cleanupPolicy })
+  })
+  const first = output(), second = output()
+  for (const [purpose, result] of [['需求确认', first], ['实现复核', second]] as const) {
+    await runCli(['start', reviewFile, '--context', 'thread:one', '--purpose', purpose, '--cleanup-on-approval', '--url', 'http://local.test'], result.io)
+  }
+  assert.notEqual(first.value.sessionId, second.value.sessionId)
+  assert.deepEqual(scopes, [{ context: 'thread:one', purpose: '需求确认' }, { context: 'thread:one', purpose: '实现复核' }])
+  assert.deepEqual(first.value.scope, scopes[0])
+})
+
+test('context-only start defaults purpose from the review description', async t => {
+  const { reviewFile, next } = await revisionFixture(t)
+  t.mock.method(globalThis, 'fetch', async (_url: string, init?: RequestInit) => {
+    const payload = JSON.parse(String(init?.body))
+    assert.deepEqual(payload.scope, { context: 'workflow:one', purpose: next.description.trim() || next.title })
+    assert.deepEqual(payload.review.comments, [])
+    return Response.json({ ...fixture(), review: payload.review, scope: payload.scope })
+  })
+  await runCli(['start', reviewFile, '--context', 'workflow:one', '--url', 'http://local.test'], output().io)
+})
+
+test('list filters by context and state; cleanup defaults to archive and force is explicit', async t => {
+  const current = fixture()
+  let cleanups = 0
+  t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+    if (url.includes('?')) {
+      const query = new URL(url).searchParams
+      assert.equal(query.get('context'), 'thread:one')
+      assert.equal(query.get('state'), 'all')
+      return Response.json({ sessions: [{ id: current.id, title: current.review.title, version: current.version }] })
+    }
+    if (url.endsWith('/cleanup')) {
+      const payload = JSON.parse(String(init?.body))
+      assert.deepEqual(payload, cleanups++ === 0
+        ? { expectedVersion: current.version, mode: 'archive' }
+        : { expectedVersion: current.version, mode: 'delete', allowUnfinished: true })
+      return Response.json({ id: current.id, mode: payload.mode })
+    }
+    return Response.json(current)
+  })
+  const listed = output()
+  await runCli(['list', '--context', 'thread:one', '--state', 'all', '--url', 'http://local.test'], listed.io)
+  assert.equal(listed.value.sessions[0].id, current.id)
+  await runCli(['cleanup', current.id, '--url', 'http://local.test'], output().io)
+  await runCli(['cleanup', current.id, '--mode', 'delete', '--force', '--url', 'http://local.test'], output().io)
+  assert.equal(cleanups, 2)
+})
+
+test('get and cleanup read an archived session after 410, and restore uses its expected version', async t => {
+  const current = fixture()
+  const requests: string[] = []
+  t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+    requests.push(url)
+    if (url.endsWith(`/${current.id}`)) return Response.json({ error: '已归档' }, { status: 410 })
+    if (url.endsWith('/cleanup')) {
+      assert.deepEqual(JSON.parse(String(init?.body)), { expectedVersion: current.version, mode: 'delete' })
+      return Response.json({ id: current.id, mode: 'delete' })
+    }
+    if (url.endsWith('/restore')) assert.deepEqual(JSON.parse(String(init?.body)), { expectedVersion: current.version })
+    return Response.json(current)
+  })
+  const result = output()
+  await runCli(['get', current.id, '--url', 'http://local.test'], result.io)
+  assert.equal(result.value.id, current.id)
+  await runCli(['cleanup', current.id, '--mode', 'delete', '--url', 'http://local.test'], output().io)
+  await runCli(['restore', current.id, '--url', 'http://local.test'], output().io)
+  assert.equal(requests.filter(url => url.endsWith('/archive')).length, 3)
+})
+
+test('approval is output before automatic archival with the read version and scope', async t => {
+  const current = fixture()
+  current.review.comments = []
+  current.history = [createApprovalRecord(current.review)]
+  current.phase = 'approved'
+  current.scope = { context: 'thread:one', purpose: '最终验收' }
+  current.cleanupPolicy = 'archive-on-approval'
+  const result = output()
+  t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+    if (url.endsWith('/cleanup')) {
+      assert.equal(result.value.approved, true)
+      assert.deepEqual(result.value.scope, current.scope)
+      assert.deepEqual(JSON.parse(String(init?.body)), { expectedVersion: current.version, mode: 'archive' })
+      return Response.json({ id: current.id, mode: 'archive', archivedAt: new Date().toISOString() })
+    }
+    return Response.json(current)
+  })
+  await runCli(['wait', current.id, '--url', 'http://local.test'], result.io)
+  assert.match(result.err, /已归档.*restore/)
+})
+
+test('one-off automatic archival preserves approval output when concurrent changes reject cleanup', async t => {
+  const current = fixture()
+  current.review.comments = []
+  current.history = [createApprovalRecord(current.review)]
+  current.phase = 'approved'
+  t.mock.method(globalThis, 'fetch', async (url: string) => url.endsWith('/cleanup')
+    ? Response.json({ error: '会话已有更新' }, { status: 409 }) : Response.json(current))
+  const result = output()
+  await assert.rejects(runCli(['resume', current.id, '--wait', '--cleanup-on-approval', '--url', 'http://local.test'], result.io), /已输出通过结果.*自动归档失败/)
+  assert.equal(result.value.approved, true)
+})
+
+test('historical approval never archives a reopened or newer round', async t => {
+  const current = fixture()
+  const first = createFeedbackPackage(current.review)
+  const approval = createApprovalRecord({ ...current.review, comments: [] })
+  current.history = [first, approval]
+  current.cleanupPolicy = 'archive-on-approval'
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    assert.equal(url.endsWith('/cleanup'), false)
+    return Response.json(current)
+  })
+  for (const phase of ['awaiting-review', 'approved'] as const) {
+    current.phase = phase
+    current.round = 2
+    current.snapshots = [current.snapshots[0], { ...structuredClone(current.snapshots[0]), round: 2, afterSubmission: approval.id }]
+    const result = output()
+    await runCli(['wait', current.id, '--after', first.id, '--url', 'http://local.test'], result.io)
+    assert.equal(result.value.round, 1)
+    assert.equal(result.value.approved, true)
+    assert.match(result.err, /跳过自动归档/)
+  }
+  current.round = 1
+  current.phase = 'awaiting-review'
+  current.snapshots = current.snapshots.slice(0, 1)
+  await runCli(['wait', current.id, '--after', first.id, '--url', 'http://local.test'], output().io)
+})
+
+test('revision accepts reviewed rounds beyond 50 and reply batches beyond 2000', async t => {
+  const current = fixture()
+  current.round = 51
+  current.snapshots[0].round = 51
+  const { dir, reviewFile } = await revisionFixture(t, current)
+  const replies = Array.from({ length: 2001 }, (_, index) => ({ commentId: `comment-${index}`, body: '已核对' }))
+  const repliesFile = join(dir, 'replies.json')
+  await writeFile(repliesFile, JSON.stringify(replies))
+  t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+    if (url.endsWith('/revise')) {
+      const payload = JSON.parse(String(init?.body))
+      assert.equal(payload.publication.baseRound, 51)
+      assert.equal(payload.replies.length, 2001)
+      return Response.json({ ...current, round: 52, review: payload.review })
+    }
+    return Response.json(current)
+  })
+  const result = output()
+  await runCli(['revise', current.id, reviewFile, '--source-root', dir, '--base-round', '51', '--summary', '继续复核',
+    '--replies-file', repliesFile, '--url', 'http://local.test'], result.io)
+  assert.equal(result.value.round, 52)
 })

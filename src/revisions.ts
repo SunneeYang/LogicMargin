@@ -33,7 +33,7 @@ export function parsePublication(value: unknown): RevisionPublication {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('新版发布缺少来源核验和变更说明')
   const publication = value as Record<string, unknown>
   const source = publication.source as Record<string, unknown> | undefined
-  if (!Number.isSafeInteger(publication.baseRound) || Number(publication.baseRound) < 1 || Number(publication.baseRound) > 50 ||
+  if (!Number.isSafeInteger(publication.baseRound) || Number(publication.baseRound) < 1 ||
     typeof publication.summary !== 'string' || !publication.summary.trim() || publication.summary.length > 10000 ||
     !source || typeof source !== 'object' || Array.isArray(source) || source.algorithm !== 'sha256-path-content-v1' ||
     typeof source.checkedAt !== 'string' || !Number.isFinite(Date.parse(source.checkedAt)) ||

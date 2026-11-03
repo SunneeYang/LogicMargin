@@ -6,10 +6,10 @@
 
 ## 安装
 
-解压 `logic-margin-agent-0.4.0.zip`，将解压目录放在持久位置，然后执行：
+解压 `logic-margin-agent-0.5.0.zip`，将解压目录放在持久位置，然后执行：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.4.0
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.5.0
 codex plugin add logic-margin@logic-margin-local
 ```
 
@@ -45,7 +45,7 @@ node /path/to/plugin/skills/logic-margin/scripts/logic-margin.mjs server start -
 
 ## 它会怎样工作
 
-Agent 核对当前工程源码，整理节点、连线、输入输出和源码依据，生成固定快照评审文件，发起会话并等待。你在图上批注，保存单条意见不会结束等待；点击“提交本轮”后，agent 记录实际处理的轮次，在原工作区修改逻辑，把最终回应和新版图一起发布并等待下一轮。确认解决和整轮通过由你完成。
+Agent 核对当前工程源码，整理节点、连线、输入输出和源码依据，生成固定快照评审文件，以 `--purpose` 明确此次目的，发起会话并等待。同一 thread/workflow 下的不同目的分别生成 session ID；可用 `--context` 记录归属。新评审从空批注开始，同一目的的修改则沿原 session 继续。你在图上批注，保存单条意见不会结束等待；点击“提交本轮”后，agent 记录实际处理的轮次，在原工作区修改逻辑，把最终回应和新版图一起发布并等待下一轮。确认解决和整轮通过由你完成。
 
 CLI 的 `verify <review.json> --source-root <workspace>` 可先核验真实来源；`revise` 自动再核验，并必填 `--base-round NUMBER --summary TEXT`。`--source-root` 默认当前工程，最终回应可通过 `--replies-file` 传入，逻辑未变时必填 `--unchanged-reason`。独立 `reply` 用于临时交流，发布新版前不能确认解决或通过。完整命令与回应格式见 [代理评审流程](agent-workflow.md)。
 
@@ -57,6 +57,16 @@ CLI 的 `verify <review.json> --source-root <workspace>` 可先核验真实来�
 
 CLI 位于插件的 `skills/logic-margin/scripts/logic-margin.mjs`。文件参数相对当前工程解析，因此无需切换到插件目录。`--help` 提供全部命令；`LOGIC_MARGIN_URL`、`LOGIC_MARGIN_PUBLIC_URL` 可提供默认地址，显式参数优先。
 
+## 评审隔离与清理
+
+`list --context ID --state all` 按上下文查活动与归档评审，概要包含目的、轮次和状态。继续既有评审用原 session ID；为另一个目的发起审查时重新 `start --purpose TEXT [--context ID]`，不会继承文件里的旧批注。旧版无 scope 的会话继续兼容。
+
+`cleanup SESSION_ID` 默认只归档已通过评审，保留完整图、批注与历史；`get SESSION_ID` 可以读归档，`restore SESSION_ID` 恢复同一会话。用户明确要求清理未完成评审时用 `--force`。永久删除用 `cleanup SESSION_ID --mode delete`，会删除该 ID 的活动及归档数据，无法恢复；没有默认批量删除。
+
+`start --cleanup-on-approval` 持久化通过后归档策略；`wait` / `resume --wait` 的同名选项只为本次等待启用。代理先取得并输出最终通过结果，再按该版本归档；期间有新修改会拒绝归档并保留数据。网页确认通过本身不触发清理。归档位于实际会话数据目录，备份应包含完整目录；插件更新不删除归档。
+
+评审轮次、图对象和回复数量不设固定业务条数上限，保留单条格式、长度、引用及发布基线校验。容量取决于机器和实际数据量。
+
 ## 开发与验证
 
 在 LogicMargin 源工程中构建：
@@ -66,7 +76,7 @@ npm run package:agent
 npm run test:agent
 ```
 
-构建更新插件内的独立 CLI，并生成 `artifacts/logic-margin-agent-0.4.0.zip`。前端、会话 API 与启动管理一起打包；包中不包含本机实际会话、浏览器草稿或魔灵秘境专用评审包。默认包构建仅需工程 npm 依赖及系统 `zip`。
+构建更新插件内的独立 CLI，并生成 `artifacts/logic-margin-agent-0.5.0.zip`。前端、会话 API 与启动管理一起打包；包中不包含本机实际会话、浏览器草稿或魔灵秘境专用评审包。默认包构建仅需工程 npm 依赖及系统 `zip`。
 
 可选原生包只在构建时需要 Bun，安装方无需 Node/Bun/npm。按目标分别打包，避免将多个运行时塞进同一个包：
 

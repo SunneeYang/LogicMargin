@@ -43,11 +43,17 @@ export function createSessionApi(options: { dataDir?: string } = {}) {
       if (path === PREFIX && request.method === 'POST') {
         const body = await readBody(request)
         if (!body || typeof body !== 'object' || Array.isArray(body) || !('review' in body)) throw new SessionError('缺少评审流程')
-        json(201, await store.create(body.review, view)); return
+        const input = body as Record<string, unknown>
+        json(201, await store.create(body.review, view, { scope: input.scope, cleanupPolicy: input.cleanupPolicy })); return
       }
-      const match = path!.match(/^\/api\/review-sessions\/([^/]+)(?:\/(mutations|finish|ack|revise)|\/(snapshots|records)\/([^/]+))?$/)
+      if (path === PREFIX && request.method === 'GET') {
+        json(200, await store.list({ context: url.searchParams.get('context') ?? undefined, state: url.searchParams.get('state') ?? undefined })); return
+      }
+      const match = path!.match(/^\/api\/review-sessions\/([^/]+)(?:\/(mutations|finish|ack|revise|cleanup|restore|archive)|\/(snapshots|records)\/([^/]+))?$/)
       if (!match) throw new SessionError('找不到此审查接口', 404)
       const [, sessionId, action, resource, resourceId] = match
+      if (action === 'archive' && request.method === 'GET') { json(200, await store.getArchive(sessionId)); return }
+      if (action === 'archive') throw new SessionError('此接口仅支持读取', 405)
       if (resource) {
         if (request.method !== 'GET') throw new SessionError('此接口仅支持读取', 405)
         const value = resource === 'snapshots' ? await store.getSnapshot(sessionId, Number(resourceId)) : await store.getRecord(sessionId, decodeURIComponent(resourceId))
@@ -70,6 +76,8 @@ export function createSessionApi(options: { dataDir?: string } = {}) {
       }
       if (action && request.method === 'POST') {
         const body = await readBody(request)
+        if (action === 'cleanup') { json(200, await store.cleanup(sessionId, body)); return }
+        if (action === 'restore') { json(200, await store.restore(sessionId, body)); return }
         const session = action === 'mutations' ? await store.mutate(sessionId, body, view)
           : action === 'finish' ? await store.finish(sessionId, body, view)
           : action === 'ack' ? await store.acknowledge(sessionId, body, view)

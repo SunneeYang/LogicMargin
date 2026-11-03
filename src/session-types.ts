@@ -1,8 +1,11 @@
 import type { CommentReply, CommentStatus, ReviewComment, ReviewDocument, ReviewRecord, SourceFile } from './types.ts'
 
 export type SessionPhase = 'awaiting-review' | 'feedback-ready' | 'agent-working' | 'approved'
+export interface ReviewScope { context?: string; purpose: string }
+export type CleanupPolicy = 'manual' | 'archive-on-approval'
+export interface SessionOptions { scope?: ReviewScope; cleanupPolicy?: CleanupPolicy }
 
-export interface ReviewSession {
+export interface ReviewSession extends SessionOptions {
   schemaVersion: 1
   id: string
   version: number
@@ -15,6 +18,19 @@ export interface ReviewSession {
   snapshots: ReviewSnapshot[]
   acknowledgedSubmission?: string
 }
+
+export interface SessionSummary extends SessionOptions {
+  id: string
+  title: string
+  phase: SessionPhase
+  version: number
+  round: number
+  createdAt: string
+  updatedAt: string
+  archivedAt?: string
+}
+
+export interface CleanupResult { id: string; mode: 'archive' | 'delete'; archivedAt?: string }
 
 export interface SourceVerification {
   algorithm: 'sha256-path-content-v1'

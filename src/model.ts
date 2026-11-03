@@ -16,13 +16,11 @@ function text(value: unknown, label: string, max = 2000, required = false): stri
 const id = (value: unknown, label: string) => text(value, label, 200, true)
 
 export function serializeReview(review: ReviewDocument): string {
-  const serialized = JSON.stringify(review, null, 2)
-  if (new TextEncoder().encode(serialized).byteLength > 10 * 1024 * 1024) throw new Error('评审文件超过 10 MB，请拆分为多个评审')
-  return serialized
+  return JSON.stringify(review, null, 2)
 }
 
-function list(value: unknown, label: string, max: number): unknown[] {
-  if (!Array.isArray(value) || value.length > max) throw new Error(`${label}必须是数组，最多 ${max} 项`)
+function list(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${label}必须是数组`)
   return value
 }
 
@@ -49,13 +47,12 @@ function unique<T extends { id: string }>(values: T[], label: string): T[] {
 }
 
 function round(value: unknown, label: string) {
-  const result = number(value, label, true)
-  if (result > 50) throw new Error(`${label}最多 50 轮`)
-  return result
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) throw new Error(`${label}必须是正整数`)
+  return value
 }
 
 function targets(value: unknown): Target[] {
-  const result = list(value, '批注目标', 500).map(value => {
+  const result = list(value, '批注目标').map(value => {
     const target = object(value, '批注目标')
     return { kind: choice(target.kind, ['node', 'edge', 'scene', 'review'] as const, '批注目标类型'), id: id(target.id, '批注目标 ID') }
   })
@@ -65,7 +62,7 @@ function targets(value: unknown): Target[] {
 }
 
 function replies(value: unknown): CommentReply[] {
-  return unique(list(value, '批注回复', 500).map(value => {
+  return unique(list(value, '批注回复').map(value => {
     const reply = object(value, '批注回复')
     return { id: id(reply.id, '回复 ID'), author: choice(reply.author, ['reviewer', 'agent'] as const, '回复作者'),
       body: text(reply.body, '回复内容', 10000, true), createdAt: date(reply.createdAt, '回复日期'), revision: id(reply.revision, '回复版本'),
@@ -79,13 +76,13 @@ export function parseReview(value: unknown): ReviewDocument {
   const snapshot = object(review.snapshot, '代码快照')
   if (typeof snapshot.dirty !== 'boolean') throw new Error('代码快照 dirty 必须是布尔值')
   const coverage = object(review.coverage, '覆盖范围')
-  const scenes = unique(list(review.scenes, '场景', 100).map(value => {
+  const scenes = unique(list(review.scenes, '场景').map(value => {
     const scene = object(value, '场景')
     return { id: id(scene.id, '场景 ID'), title: text(scene.title, '场景标题', 200, true), description: text(scene.description, '场景说明') }
   }), '场景')
   if (!scenes.length) throw new Error('评审文件至少需要一个场景')
   const sceneIds = new Set(scenes.map(scene => scene.id))
-  const nodes = unique(list(review.nodes, '节点', 1000).map(value => {
+  const nodes = unique(list(review.nodes, '节点').map(value => {
     const node = object(value, '节点')
     const position = object(node.position, '节点坐标')
     const sceneId = id(node.sceneId, '节点所属场景')
@@ -96,7 +93,7 @@ export function parseReview(value: unknown): ReviewDocument {
       summary: text(node.summary, '节点摘要'), detail: text(node.detail, '节点详情', 10000),
       input: text(node.input, '节点输入', 10000), output: text(node.output, '节点输出', 10000),
       position: { x: number(position.x, '节点横坐标'), y: number(position.y, '节点纵坐标') },
-      evidence: list(node.evidence, '源码依据', 20).map(value => {
+      evidence: list(node.evidence, '源码依据').map(value => {
         const evidence = object(value, '源码依据')
         const startLine = number(evidence.startLine, '源码起始行', true)
         const endLine = number(evidence.endLine, '源码结束行', true)
@@ -106,7 +103,7 @@ export function parseReview(value: unknown): ReviewDocument {
     }
   }), '节点')
   const nodeMap = new Map(nodes.map(node => [node.id, node]))
-  const edges = unique(list(review.edges, '连线', 2000).map(value => {
+  const edges = unique(list(review.edges, '连线').map(value => {
     const edge = object(value, '连线')
     const sceneId = id(edge.sceneId, '连线所属场景')
     const source = id(edge.source, '连线起点')
@@ -116,7 +113,7 @@ export function parseReview(value: unknown): ReviewDocument {
     }
     return { id: id(edge.id, '连线 ID'), sceneId, source, target, label: text(edge.label, '连线标签', 200), detail: text(edge.detail, '连线说明', 10000) }
   }), '连线')
-  const comments = unique(list(review.comments, '批注', 2000).map(value => {
+  const comments = unique(list(review.comments, '批注').map(value => {
     const comment = object(value, '批注')
     return { id: id(comment.id, '批注 ID'), body: text(comment.body, '批注内容', 10000, true), targets: targets(comment.targets),
       status: choice(comment.status, ['open', 'resolved', 'needs-review'] as const, '批注状态'),
@@ -133,20 +130,19 @@ export function parseReview(value: unknown): ReviewDocument {
     snapshot: { repository: text(snapshot.repository, '仓库路径', 2000, true), commit: text(snapshot.commit, '代码提交', 200, true),
       fingerprint: text(snapshot.fingerprint, '快照指纹', 200, true), capturedAt: date(snapshot.capturedAt, '快照日期'), dirty: snapshot.dirty,
       ...(snapshot.files === undefined ? {} : { files: parseSourceFiles(snapshot.files) }) },
-    coverage: { included: list(coverage.included, '已覆盖范围', 100).map(value => text(value, '已覆盖说明')),
-      excluded: list(coverage.excluded, '未覆盖范围', 100).map(value => text(value, '未覆盖说明')), note: text(coverage.note, '覆盖范围说明', 10000) },
+    coverage: { included: list(coverage.included, '已覆盖范围').map(value => text(value, '已覆盖说明')),
+      excluded: list(coverage.excluded, '未覆盖范围').map(value => text(value, '未覆盖说明')), note: text(coverage.note, '覆盖范围说明', 10000) },
     scenes, nodes, edges, comments,
   }
   result.comments = comments.map(comment => ({ ...comment,
     status: (comment.reviewedRevision ?? comment.revision) !== revision || (comment.status !== 'resolved' && comment.targets.some(target => !targetExists(result, target)))
       ? 'needs-review' : comment.status,
   }))
-  serializeReview(result)
   return result
 }
 
 export function parseSourceFiles(value: unknown) {
-  const files = list(value, '来源文件清单', 2000).map(value => {
+  const files = list(value, '来源文件清单').map(value => {
     const file = object(value, '来源文件')
     const path = text(file.path, '来源路径', 2000, true)
     if (path.startsWith('/') || path.includes('\\') || /^[a-zA-Z]:/.test(path) || path.split('/').some(part => !part || part === '.' || part === '..') || /[\x00-\x1f]/.test(path)) throw new Error('来源路径必须是工作区内的规范相对路径')
@@ -195,11 +191,9 @@ export function targetLabel(review: ReviewDocument, target: Target): string {
 export function addComment(review: ReviewDocument, selected: Target[], body: string): ReviewDocument {
   const checked = targets(selected)
   if (checked.some(target => !targetExists(review, target))) throw new Error('不能在已移除的目标上添加批注')
-  if (review.comments.length >= 2000) throw new Error('批注已达 2000 条上限')
   const content = text(body.trim(), '批注内容', 10000, true)
   const result: ReviewDocument = { ...review, comments: [...review.comments, { id: newId(), targets: checked, body: content,
     status: 'open', createdAt: new Date().toISOString(), revision: review.revision }] }
-  serializeReview(result)
   return result
 }
 
@@ -207,12 +201,10 @@ export function addReply(review: ReviewDocument, commentId: string, body: string
   const comment = review.comments.find(comment => comment.id === commentId)
   if (!comment) throw new Error('找不到此批注')
   choice(author, ['reviewer', 'agent'] as const, '回复作者')
-  if ((comment.replies?.length ?? 0) >= 500) throw new Error('单条批注的回复已达 500 条上限')
   const reply: CommentReply = { id: newId(), author, body: text(body.trim(), '回复内容', 10000, true),
     createdAt: new Date().toISOString(), revision: review.revision }
   const result: ReviewDocument = { ...review, comments: review.comments.map(item => item.id === commentId
     ? { ...item, replies: [...(item.replies ?? []), reply], status: author === 'agent' ? 'needs-review' : item.status } : item) }
-  serializeReview(result)
   return result
 }
 
@@ -220,7 +212,6 @@ export function setCommentStatus(review: ReviewDocument, commentId: string, stat
   choice(status, ['open', 'resolved', 'needs-review'] as const, '批注状态')
   if (!review.comments.some(comment => comment.id === commentId)) throw new Error('找不到此批注')
   const result = { ...review, comments: review.comments.map(comment => comment.id === commentId ? { ...comment, status, reviewedRevision: review.revision } : comment) }
-  serializeReview(result)
   return result
 }
 
@@ -269,7 +260,6 @@ function mergeReplies(local: ReviewComment, incoming?: ReviewComment): { replies
       if (reply.author === 'agent') hasNewAgentReply = true
     }
   }
-  if (merged.length > 500) throw new Error('合并后的单条批注回复超过 500 条上限')
   return { replies: merged, hasNewAgentReply }
 }
 
@@ -311,8 +301,6 @@ export function rebaseReview(previous: ReviewDocument, next: ReviewDocument): Re
   const imported = next.comments.filter(comment => !localIds.has(comment.id)).map(comment => ({ ...comment,
     status: (comment.reviewedRevision ?? comment.revision) !== next.revision || (comment.status !== 'resolved' && comment.targets.some(target => !targetExists(next, target))) ? 'needs-review' as const : comment.status,
   }))
-  if (carried.length + imported.length > 2000) throw new Error('合并后的批注超过 2000 条上限')
   const result = { ...next, comments: [...carried, ...imported] }
-  serializeReview(result)
   return result
 }

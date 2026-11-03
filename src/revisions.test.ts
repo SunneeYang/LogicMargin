@@ -56,5 +56,11 @@ test('explicit origin rounds distinguish repeated revision strings and legacy lo
 test('publication metadata validates normalized source manifests and rejects malformed provenance', () => {
   const source = { algorithm: 'sha256-path-content-v1', checkedAt: '2026-11-03T00:00:00Z', fingerprint: 'a'.repeat(64), files: [{ path: 'src/logic.ts', sha256: 'b'.repeat(64) }] }
   assert.equal(parsePublication({ baseRound: 1, summary: '更新条件', source }).baseRound, 1)
+  for (const baseRound of [51, 10_000_001, Number.MAX_SAFE_INTEGER]) {
+    assert.equal(parsePublication({ baseRound, summary: '继续本次审查', source }).baseRound, baseRound)
+  }
+  for (const baseRound of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => parsePublication({ baseRound, summary: '更新条件', source }))
+  }
   for (const input of [{ baseRound: 0, summary: 'x', source }, { baseRound: 1, summary: '', source }, { baseRound: 1, summary: 'x', source: { ...source, files: [{ path: '../secret', sha256: 'b'.repeat(64) }] } }]) assert.throws(() => parsePublication(input))
 })

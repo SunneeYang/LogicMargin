@@ -1,7 +1,8 @@
 import { parseReview } from './model.ts'
 import { humanFeedback, parseRecordHistory, parseReviewRecord } from './workspace.ts'
 import { parsePublication } from './revisions.ts'
-import type { CurrentSession, MutationBatch, ReviewMutation, ReviewSession, SnapshotInfo } from './session-types.ts'
+import { parseSessionOptions } from './session-lifecycle.ts'
+import type { CleanupResult, CurrentSession, MutationBatch, ReviewMutation, ReviewSession, SessionSummary, SnapshotInfo } from './session-types.ts'
 import type { ReviewDocument } from './types.ts'
 
 function object(value: unknown): Record<string, unknown> {
@@ -17,7 +18,7 @@ export function parseSession(value: unknown): ReviewSession {
     !['awaiting-review', 'feedback-ready', 'agent-working', 'approved'].includes(String(source.phase)) ||
     typeof source.createdAt !== 'string' || !Number.isFinite(Date.parse(source.createdAt)) ||
     typeof source.updatedAt !== 'string' || !Number.isFinite(Date.parse(source.updatedAt)) ||
-    !Array.isArray(source.snapshots) || source.snapshots.length > 50 ||
+    !Array.isArray(source.snapshots) ||
     (source.acknowledgedSubmission !== undefined && typeof source.acknowledgedSubmission !== 'string')) throw new Error('会话数据格式错误')
   const snapshots = source.snapshots.map(value => {
     const snapshot = object(value)
@@ -30,7 +31,7 @@ export function parseSession(value: unknown): ReviewSession {
   if (snapshots.length !== Number(source.round) || snapshots.some((snapshot, index) => snapshot.round !== index + 1)) throw new Error('图版本与会话轮次不一致')
   return { schemaVersion: 1, id: source.id, version: Number(source.version), round: Number(source.round),
     phase: source.phase as ReviewSession['phase'], createdAt: source.createdAt, updatedAt: source.updatedAt,
-    review: parseReview(source.review), history: parseRecordHistory(source.history), snapshots,
+    review: parseReview(source.review), history: parseRecordHistory(source.history), snapshots, ...parseSessionOptions(source),
     ...(source.acknowledgedSubmission === undefined ? {} : { acknowledgedSubmission: source.acknowledgedSubmission as string }) }
 }
 
@@ -85,14 +86,14 @@ export function pendingMatchesSession(pending: PendingSession, session: Pick<Rev
 
 export function parsePendingSession(raw: string): PendingSession {
   const value = object(JSON.parse(raw))
-  if (value.schemaVersion !== 1 || !Array.isArray(value.batches) || value.batches.length > 2000) throw new Error('待同步记录格式错误，原始记录已保留')
+  if (value.schemaVersion !== 1 || !Array.isArray(value.batches)) throw new Error('待同步记录格式错误，原始记录已保留')
   const review = parseReview(value.review)
   for (const valueBatch of value.batches) {
     const batch = object(valueBatch)
     if (typeof batch.revision !== 'string' || !batch.revision || typeof batch.fingerprint !== 'string' || !batch.fingerprint ||
-      (batch.round !== undefined && (!Number.isSafeInteger(batch.round) || Number(batch.round) < 1 || Number(batch.round) > 50)) ||
+      (batch.round !== undefined && (!Number.isSafeInteger(batch.round) || Number(batch.round) < 1)) ||
       (batch.expectedVersion !== undefined && (!Number.isSafeInteger(batch.expectedVersion) || Number(batch.expectedVersion) < 1)) ||
-      !Array.isArray(batch.mutations) || !batch.mutations.length || batch.mutations.length > 2000) throw new Error('待同步记录格式错误，原始记录已保留')
+      !Array.isArray(batch.mutations) || !batch.mutations.length) throw new Error('待同步记录格式错误，原始记录已保留')
     for (const valueMutation of batch.mutations) {
       const mutation = object(valueMutation)
       if (mutation.kind === 'add-comment') {
@@ -115,6 +116,11 @@ export async function sessionRequest(path: string, body?: unknown, signal?: Abor
   return value === null ? null : parseSession(value)
 }
 
+export class SessionRequestError extends Error {
+  status: number
+  constructor(message: string, status: number) { super(message); this.status = status }
+}
+
 async function requestJson(path: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(`/api/review-sessions${path}`, body === undefined
     ? { signal, cache: 'no-store' }
@@ -123,7 +129,7 @@ async function requestJson(path: string, body?: unknown, signal?: AbortSignal): 
   const value: unknown = await response.json()
   if (!response.ok) {
     const message = object(value).error
-    throw new Error(typeof message === 'string' ? message : `会话服务返回 ${response.status}`)
+    throw new SessionRequestError(typeof message === 'string' ? message : `会话服务返回 ${response.status}`, response.status)
   }
   return value
 }
@@ -132,12 +138,12 @@ export function parseCurrentSession(value: unknown): CurrentSession {
   const source = object(value)
   const validId = (value: unknown): value is string => typeof value === 'string' && !!value.trim() && value.length <= 200
   const validDate = (value: unknown): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))
-  const validRound = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 50
+  const validRound = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 1
   if (source.view !== 'current' || source.schemaVersion !== 1 || !validId(source.id) || !Number.isSafeInteger(source.version) || Number(source.version) < 1 ||
     !validRound(source.round) || !validDate(source.createdAt) || !validDate(source.updatedAt) ||
     !['awaiting-review', 'feedback-ready', 'agent-working', 'approved'].includes(String(source.phase)) ||
-    !Array.isArray(source.history) || source.history.length > 50 || !Array.isArray(source.snapshots) || source.snapshots.length !== source.round ||
-    !Array.isArray(source.submittedCommentIds) || source.submittedCommentIds.length > 2000 || !Array.isArray(source.commentOrigins) || source.commentOrigins.length > 2000) throw new Error('当前会话格式错误')
+    !Array.isArray(source.history) || !Array.isArray(source.snapshots) || source.snapshots.length !== source.round ||
+    !Array.isArray(source.submittedCommentIds) || !Array.isArray(source.commentOrigins)) throw new Error('当前会话格式错误')
   const review = parseReview(source.review)
   const snapshots: SnapshotInfo[] = source.snapshots.map((value, index) => {
     const item = object(value)
@@ -162,7 +168,7 @@ export function parseCurrentSession(value: unknown): CurrentSession {
     review.comments.some(comment => (comment.originRound ?? 1) > Number(source.round) || (comment.reviewedRound ?? 1) > Number(source.round) || comment.replies?.some(reply => (reply.round ?? 1) > Number(source.round)))) throw new Error('会话轮次引用错误')
   if (source.acknowledgedSubmission !== undefined && (!validId(source.acknowledgedSubmission) || !history.some(item => item.id === source.acknowledgedSubmission && item.kind === 'logic-margin-feedback'))) throw new Error('会话接收记录错误')
   return { schemaVersion: 1, view: 'current', id: source.id, version: Number(source.version), round: source.round, phase: source.phase as CurrentSession['phase'],
-    createdAt: source.createdAt, updatedAt: source.updatedAt, review, history, snapshots, submittedCommentIds, commentOrigins,
+    createdAt: source.createdAt, updatedAt: source.updatedAt, review, history, snapshots, submittedCommentIds, commentOrigins, ...parseSessionOptions(source),
     ...(source.acknowledgedSubmission === undefined ? {} : { acknowledgedSubmission: source.acknowledgedSubmission as string }) }
 }
 
@@ -181,4 +187,35 @@ export async function recordRequest(sessionId: string, recordId: string) {
   const record = parseReviewRecord(await requestJson(`/${encodeURIComponent(sessionId)}/records/${encodeURIComponent(recordId)}`))
   if (record.id !== recordId) throw new Error('评审记录标识不一致')
   return record
+}
+
+export function parseSessionSummary(value: unknown): SessionSummary {
+  const item = object(value)
+  const validText = (value: unknown): value is string => typeof value === 'string' && !!value.trim()
+  const validDate = (value: unknown): value is string => validText(value) && Number.isFinite(Date.parse(value))
+  if (!validText(item.id) || !validText(item.title) || !Number.isSafeInteger(item.version) || Number(item.version) < 1 ||
+    !Number.isSafeInteger(item.round) || Number(item.round) < 1 || !validDate(item.createdAt) || !validDate(item.updatedAt) ||
+    !['awaiting-review', 'feedback-ready', 'agent-working', 'approved'].includes(String(item.phase)) ||
+    (item.archivedAt !== undefined && !validDate(item.archivedAt))) throw new Error('评审任务列表格式错误')
+  return { id: item.id, title: item.title, version: Number(item.version), round: Number(item.round), phase: item.phase as SessionSummary['phase'],
+    createdAt: item.createdAt, updatedAt: item.updatedAt, ...parseSessionOptions(item),
+    ...(item.archivedAt === undefined ? {} : { archivedAt: item.archivedAt as string }) }
+}
+
+export async function listSessions(context?: string, onWarning?: (message: string) => void): Promise<SessionSummary[]> {
+  const query = new URLSearchParams({ state: 'all' })
+  if (context) query.set('context', context)
+  const value = object(await requestJson(`?${query}`))
+  if (!Array.isArray(value.sessions)) throw new Error('评审任务列表格式错误')
+  if (value.warnings !== undefined) {
+    if (!Array.isArray(value.warnings) || value.warnings.some(item => typeof item !== 'string')) throw new Error('评审任务列表警告格式错误')
+    if (value.warnings.length) onWarning?.(value.warnings.join('\n'))
+  }
+  return value.sessions.map(parseSessionSummary)
+}
+
+export async function cleanupSession(sessionId: string, expectedVersion: number, mode: 'archive' | 'delete'): Promise<CleanupResult> {
+  const result = object(await requestJson(`/${encodeURIComponent(sessionId)}/cleanup`, { expectedVersion, mode }))
+  if (result.id !== sessionId || result.mode !== mode || (mode === 'archive' && (typeof result.archivedAt !== 'string' || !Number.isFinite(Date.parse(result.archivedAt))))) throw new Error('清理结果格式错误')
+  return { id: sessionId, mode, ...(mode === 'archive' ? { archivedAt: result.archivedAt as string } : {}) }
 }
