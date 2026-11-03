@@ -1,108 +1,199 @@
-# LogicMargin · 逻辑旁批
+<p align="center">
+  <strong>English</strong> · <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-用流程图审查业务行为，将意见挂到具体节点、连线或一段流程上。支持本地文件评审和代理共享会话，提供 Vast 通灵技能样例与魔灵秘境的真实源码评审包。
+<p align="center">
+  <img src="src/assets/logo.svg" width="88" height="88" alt="LogicMargin Logo" />
+</p>
 
-## 运行
+<h1 align="center">LogicMargin</h1>
 
-需要 Node.js 22.18+（推荐 24+）和 npm。
+<p align="center">
+  <strong>A local business logic review tool for people and coding agents.</strong>
+</p>
+
+<p align="center">
+  Review business rules on a flowchart. Keep feedback and changes in context across rounds.
+</p>
+
+<p align="center">
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.5.0-2563eb?style=flat-square" alt="Version 0.5.0" /></a>
+  <a href="#quickstart"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Requires Node.js 22.18 or later" /></a>
+  <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
+</p>
+
+<p align="center">
+  <a href="#about">About</a> ·
+  <a href="#preview">Preview</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
+
+## About
+
+LogicMargin is a local review tool for designers, product managers, and developers who need to check execution flows, conditions, failure paths, and state changes. It brings flowcharts, source references, and discussions together so everyone can review the same business logic.
+
+A coding agent reads the actual code or documents and prepares a flowchart. You select objects on the diagram and leave comments. After you submit a review round, the agent updates the implementation and diagram, replies to the original feedback, and hands the result back for human verification. The agent handles source reading, code changes, and diagram generation; LogicMargin provides the review surface and records.
+
+## Why LogicMargin?
+
+- **Code diffs make business behavior hard to follow.** Put success conditions, failure exits, and state changes on a diagram to answer questions such as “When is the fee deducted?” and “What state remains after a failure?”
+- **Feedback in chat loses its context.** Attach comments to nodes, edges, or groups of objects, keeping the original feedback, replies, and source version together.
+- **An agent says “fixed,” but the change is hard to verify.** Publish the updated diagram and final replies together, compare before and after, and revisit the original location when a node has been removed. A person confirms whether the issue is resolved.
+
+**Who it is for:** designers and product managers checking rules and edge cases, developers tracing branches and state changes against source code, and teams using coding agents to turn feedback into changes that can be reviewed again.
+
+## Preview
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/review-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/review-light.png" />
+  <img src="docs/images/review-light.png" alt="LogicMargin: switch scenarios on the left, inspect order submission and failure paths in the center, and review the original comment and agent reply in the same thread on the right." width="1440" />
+</picture>
+
+<p align="center">
+  Diagram annotations · Threaded replies · Human verification<br />
+  <a href="docs/images/review-light.png">Light theme</a> ·
+  <a href="docs/images/review-dark.png">Dark theme</a> ·
+  <a href="docs/examples/order-review.logic-margin.json">Download the order demo</a>
+</p>
+
+These screenshots show the current Chinese UI with fictional order data. They contain no real review sessions and do not demonstrate source verification.
+
+## Features
+
+| Capability | What you can do |
+| --- | --- |
+| **Review directly on the diagram** | Comment on nodes, edges, multiple objects, a whole scenario, or the entire review, with the relevant flow in view. |
+| **Keep source context** | Inspect rules, inputs, outputs, source references, and snapshot metadata to understand what the review covers. |
+| **See changes across rounds** | Switch between the previous and current diagrams, inspect field changes, and return to the original location of a removed target. |
+| **Work with a coding agent** | Submit a round explicitly, let the agent wait, revise, reply, and publish a new diagram, then verify or approve the result yourself. |
+| **Separate review purposes** | Associate multiple independent reviews with one agent conversation while keeping their comments, drafts, and rounds separate. |
+| **Control your data** | Import and export JSON, download full backups, archive and restore reviews, or explicitly delete them. Optional automatic archival follows approval. |
+
+The interface follows your system's light or dark theme and works on desktop and mobile. The diagram gets most of the workspace; details and discussions open when needed.
+
+## Quickstart
+
+Requires **Node.js 22.18+**; 24+ is recommended. Running from source also requires npm. Building a plugin package requires the system `zip` command.
+
+### Try it in your browser
+
+From the repository root:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-开发服务默认监听 `0.0.0.0:5173`。本机打开 `http://127.0.0.1:5173`；同一局域网的设备使用终端显示的 Network 地址，即 `http://本机局域网IP:5173`。Vite 同时提供本机评审会话 API，数据保存在工程的 `.logic-margin/sessions/`；依赖与字体均在本地加载。
+Open **http://127.0.0.1:5173**. Browse the built-in examples, or choose “File → Import review” (currently “文件 → 导入评审”) and select the [order demo JSON](docs/examples/order-review.logic-margin.json) to try diagram annotations, replies, and human verification.
 
-带 `?session=...` 的共享会话由服务端保存批注、回复、状态和历史，Tailscale 页面与代理读取同一份记录。独立文件模式和未提交草稿仍按浏览器及访问地址保存；它们不会自动搬到其他设备。
+The demo is for learning the interface. A real review should be generated from actual code or documents and include source evidence.
 
-新版网页日常仅同步当前图、批注线程及历史目录，查看旧轮次或下载固定意见包时按需读取对应内容。现有 CLI 完整会话接口与完整备份保持不变。会话响应和独立包静态资源自动协商 gzip，客户端无需额外配置。
+### Use it with an agent
 
-```sh
-npm test         # 评审模型、导入校验和版本复核
-npm run build    # 严格类型检查 + 生产构建
-npx playwright install chromium
-npm run test:e2e # 自动启动/停止测试用本地服务，验证实际交互和移动布局
-```
-
-已安装 Chrome 时可用 `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。在本工程内执行会产生较多临时文件的安装、测试和构建时，按工作区约定通过 `/Users/hcm-b0677/.codex/bin/agent-tmp-run` 包装上述命令。
-
-## 魔灵秘境实测入口
-
-“文件”菜单中的“打开魔灵秘境评审”在桌面与手机均可使用。也可通过 `/?review=spirit-sanctum` 直达；当前 Tailscale 入口为 [魔灵秘境评审](http://100.124.38.121:5173/?review=spirit-sanctum)，访问设备需连接同一 Tailnet。
-
-评审包从本站固定路径 `/reviews/spirit-sanctum.logic-margin.json` 加载，可[下载 JSON](public/reviews/spirit-sanctum.logic-margin.json)留存并通过“导入评审”打开。切换评审会保留各自的本机意见、草稿和历史；直达链接优先恢复该评审的本机版本，避免旧捆绑包降级本机新版；没有本机记录时才下载评审包。手动点击入口会明确重新载入捆绑包并合并已保存意见。可用“打开 Vast 样例”回到通灵样例。成功手工导入新版或切换样例后会移除直达参数，刷新恢复本机所选版本，避免旧评审包覆盖新导入的图。
-
-该包绑定 `vast-spirit-sanctum` 工作区的源码快照，含入场、成功与验算回写、扫荡、门票与战斗配装限制等业务流程；来源和核对边界见 [魔灵秘境来源](docs/spirit-sanctum-source.md)。流程可用于真实需求评审，但不代表正式关卡、客户端或验算 JavaScript 已完成联调。初始包不预置用户意见；使用代理共享会话时，实际批注保存在本机服务端。
-
-## 代理发起、等待与恢复
-
-可安装 [agent 插件](docs/agent-plugin.md)，在其他工程直接用 `$logic-margin:logic-margin` 发起或恢复评审。插件包含网页、API、独立 CLI 与启动管理；`npm run package:agent` 生成默认通用 ZIP（如 `artifacts/logic-margin-agent-0.5.0.zip`），运行方只需 Node.js，目标工程无需 npm 依赖。默认自动启动或复用本机服务，显式 `--url` 时继续连接指定服务。另有可选 Bun 原生包，安装方无需运行时。
-
-在服务运行时执行：
+Build and install the local Codex plugin from this repository:
 
 ```sh
-npm run review -- start public/reviews/spirit-sanctum.logic-margin.json --wait --public-url http://100.124.38.121:5173
+npm ci
+npm run package:agent
+codex plugin marketplace add .
+codex plugin add logic-margin@logic-margin-local
 ```
 
-命令打印共享会话地址，并等待网页明确提交本轮。保存单条意见不会结束等待。代理收到固定意见包后，记录实际处理的 `round`，在原工作区修改逻辑；`revise --base-round NUMBER --summary TEXT --wait` 核验真实来源，将新版图和 `--replies-file` 中的最终回应一起发布，由人复核。来源工作区可用 `--source-root` 指定；流程未变时提供 `--unchanged-reason`。`verify` 可提前检查来源，独立 `reply` 仅用于临时交流，发布新版前禁止确认解决和整轮通过。`resume <sessionId> --wait` 可恢复中断的会话，重启服务不会丢失已有轮次和批注。
+Then ask the agent in the project you want to review:
 
-也可在“文件”菜单中将当前评审“建立代理评审会话”。会话模式通过代理发布新版，文件模式继续支持导入导出，两者的缓存独立。会话状态在底栏与“评审信息”中展示。
+```text
+$logic-margin:logic-margin
+Start a logic review for the current feature. Focus on whether failures
+can still deduct a fee, and wait for my feedback.
+```
 
-完整命令、返回结构、备份和恢复方式见 [代理评审流程](docs/agent-workflow.md)。服务只接收评审数据，不执行 shell；源码修改和新版图整理仍由开发代理在原工作区完成。
+The agent reads the actual sources, prepares the diagram, and gives you a review link. The complete plugin starts its background service on first use and reuses it afterward. Your business project does not need LogicMargin's npm dependencies.
 
-## 如何评审
+The default distribution is a single Node module containing the web UI and server. See the [plugin guide](docs/agent-plugin.md) for offline installation, CLI use with other agents, and optional native packages. The detailed guides are currently in Chinese.
 
-桌面默认展开左侧场景目录，顶部只保留紧凑工具区，流程图占满剩余高度。可收起导航或进入“专注画布”；右侧详情与讨论按需打开。标题、说明、版本、来源与覆盖范围集中在顶部“评审信息”，文件导入与样例切换在“文件”菜单，小屏导出也在该菜单中。
+## Review workflow
 
-1. 选择流程场景，在图中浏览步骤和条件；“步骤详情”按需打开规则、数据变化、源码依据和可用键盘操作的列表。
-2. 右键节点/连线、双击连线，或选择后点“批注所选”。框选只包含节点，连线需显式加入。遗漏流程可用“批注此场景”或“批注整个评审”。
-3. 在图内快速填写；“移到侧栏编辑”继续长意见，仍是同一个输入框，正文、目标和光标保留。普通选择变化不会改变正在编辑的批注目标。
-4. 草稿按评审、源码版本和目标自动保留。Esc、点击外部或“稍后继续”关闭后可恢复，刷新也保留；草稿列表可继续编辑当前版本，或导出旧版本内容。手机打开编辑器不会自动弹键盘。
-5. “添加批注”仅保存一条意见，支持 ⌘ / Ctrl + Enter。节点数量和多目标编号可打开讨论；“回复讨论”将补充内容留在原线程。
-6. 共享会话中，“提交本轮”保存固定意见包并通知等待中的代理；文件模式生成 JSON 意见包。两者都包含流程快照、源码信息和新待处理意见；存在草稿时，可先保存并提交，或仅提交已保存意见。**文件模式下载后需交给开发者或代理；共享会话只有实际领取后才显示“代理已接收”。**相同版本、内容和人工回复的意见不会重复提交。
-7. 共享会话由代理核验来源并原子发布新版图与最终回应；文件模式可导入新版评审文件及 `author: "agent"` 的回复。原意见与回复保留，新代理回复或相关规则变化会进入“待复核”；代理回应不会自动解决意见。共享会话可切换“修改前 / 当前”，从“本轮变化”定位新增、修改、删除项并查看字段差异，源码依据更新单独展示。
-8. “开始逐条复核”定位意见对应流程；可确认并看下一条，或保留为仍需处理。所有意见确认后，“确认整轮通过”单独生成当前快照的通过记录。新版流程或新增意见会使当前通过标识失效，历史记录保留。
-
-“导出评审”始终保存完整可继续工作的 JSON。导入固定意见包或通过记录仅加入历史，不会用旧快照覆盖当前流程。记录列表可再次下载同一份固定记录。
-
-批注保存稳定 ID 集合，重新排版不会漂移。共享会话中的目标移除后，原意见仍保留，可回到提出时轮次查看原图原位置；历史图只读，返回当前版本后确认解决。界面跟随系统明暗主题，外观变化无需刷新。
-
-文件模式的评审、草稿、固定记录分别保存在当前浏览器、当前地址的 localStorage 中。共享会话批注先保存到专属本机待同步队列，再上传服务端；断线保留操作，冲突显示错误，可导出备份后恢复服务端版本；不会静默覆盖新版。草稿始终保存在当前浏览器。损坏数据会暂停对应自动保存，先备份原文才能恢复；配额不足会显示错误并保留内存内容，请及时导出。清理网站数据会丢失本机内容。草稿和记录不设固定条数上限，可显式导出并移除草稿，或导出归档历史释放浏览器容量。
-
-同一段 Agent 对话可通过 `--context` 关联多个独立评审任务，每个任务的 `--purpose`、批注和轮次独立。更换审查目的时新建任务，不把另一任务的讨论带入。网页“管理评审任务”支持建立、备份、归档、恢复和永久删除；CLI 提供 `list`、`cleanup`、`restore`。默认清理是保留完整结果的压缩归档，显式 `--mode delete` 才永久删除。启用 `--cleanup-on-approval` 后，Agent 收到当前轮最终通过结果后自动归档；版本变化会阻止清理。详见 [代理工作流](docs/agent-workflow.md)。
-
-## 评审文件约定
-
-数据契约见 [src/types.ts](src/types.ts)，完整例子见 [src/sample.ts](src/sample.ts)，导入验证见 [src/model.ts](src/model.ts)。文件为 `schemaVersion: 1` 的 JSON 对象。
-
-| 字段 | 含义 |
+| Step | Action |
 | --- | --- |
-| `id` / `revision` | 稳定评审身份 / 本次内容版本，内容更新时更换 revision |
-| `snapshot` | 源仓库、提交、工作区内容指纹、采集时间、是否包含未提交内容及可选 `files` 来源文件摘要清单 |
-| `coverage` | 已展示范围、尚未覆盖范围、验证限制 |
-| `scenes` | 场景目录；每个场景独立浏览 |
-| `nodes` | 业务步骤、判断或出口；含规则、输入输出、布局与源码证据 |
-| `edges` | 同一场景内的执行关系、条件与解释 |
-| `comments` | 批注正文、目标 ID 集合、人工状态、原意见版本与轮次、复核版本与轮次及回复 |
+| **1 · Start** | The agent prepares a diagram for one explicit review purpose, records its source snapshot, opens an independent review, and waits. |
+| **2 · Annotate** | Inspect branches, select objects, and leave comments on the diagram. Move longer comments to the side panel when needed. |
+| **3 · Submit** | Submit the round to freeze the current feedback into a package for the waiting agent. |
+| **4 · Revise** | The agent changes the code or documents, verifies the sources again, and publishes the updated diagram and final replies together. |
+| **5 · Verify** | Compare the changes, read the original feedback and replies, then confirm resolution, add feedback, or approve the round. |
 
-节点与连线分别拥有唯一且稳定的 ID，改标题或排版不应重新分配身份。源码证据保存相对路径、符号、起止行号和片段摘要；网页不执行或加载评审文件中的代码。
+**Saving a comment and submitting a round are separate actions.** Saved session comments remain available before submission; the waiting agent continues after an explicit submission. A reply does not automatically resolve an issue. The reviewer makes the final decision.
 
-合并规则：
+The agent reads sources, changes code, and prepares diagrams. LogicMargin displays, discusses, stores, and tracks the review. Its server does not execute project code or shell commands, and it has no built-in language model.
 
-- 同一评审 ID 导入时保留本机批注，并加入文件中的新批注。相同批注 ID 的正文/目标冲突会拒绝导入，当前记录保留；状态不同优先保留本机人工状态；回复按 ID 幂等合并，身份冲突拒绝导入。新的代理回复要求人工复核。
-- 评审版本或源码指纹改变时，保守地将已有批注全部标为待复核；不会自动确认解决。
-- 同版本下规则、条件或证据变化会使相关批注待复核；只改布局坐标不会。
-- 目标被移除时保留批注；人工复核后确认解决的状态可持久保存。
-- 场景、节点、连线、批注、回复、评审轮次和固定历史不设业务数量上限。单条批注最多 10000 字符；非法引用、重复 ID 和无效状态仍拒绝导入。CLI 单次输入文件与 HTTP 请求仍保留资源大小校验，不会按累计数量裁剪评审数据。
+## Independent reviews and cleanup
 
-## 当前边界
+Continue the original review for changes serving the same purpose. Start a new review when the subject or purpose changes. Use `--context` to associate reviews with an agent conversation and `--purpose` to describe what each review checks.
 
-通灵样例覆盖 3 个场景、24 个步骤；依据、固定提交与摘要计算方法见 [docs/sample-source.md](docs/sample-source.md)。魔灵秘境评审包的工作区、指纹与覆盖边界另见 [docs/spirit-sanctum-source.md](docs/spirit-sanctum-source.md)。业务说明由实际源码人工整理，尚未自动从代码生成，评审包不是完整代码审查或真实环境验收证明。
+```sh
+# List active and archived reviews in one context
+npm run review -- list --context order-checkout --state all
 
-已实现流程图、批注、文件交换、持久会话、代理 CLI 与技能插件。时序图、状态图、登录权限和实时仓库监听尚未实现。当前网页不会检测源仓库后续变化，需要开发者或代理重新核对并发布新版评审。服务面向受信任的本机或私有网络，可访问该服务的设备能读写会话。一个数据目录由一个服务进程写入；每会话上限 32 MB、50 轮/50 份固定记录，备份应包含 `.logic-margin/`。生产构建的静态文件本身不包含会话 API，需使用本工程的 Vite 服务或 preview 配置提供 API。
+# Archive by default, preserving the full diagram, comments, and history
+npm run review -- cleanup <sessionId>
 
-Crit 批注与代理反馈机制的源码对照、逻辑锚点映射及后续实现顺序见 [docs/crit-reference.md](docs/crit-reference.md)。
+# Restore an archived review
+npm run review -- restore <sessionId>
 
-已确认的页面设计、操作流程、状态与实施顺序见 [docs/design-proposal.md](docs/design-proposal.md)。已实现代理传输、实际领取回执与文件方式的意见包、回复和人工复核；自动理解源码并生成新版流程仍由外部开发代理承担。
+# Permanently delete one review; it cannot be restored from the server
+npm run review -- cleanup <sessionId> --mode delete
+```
 
-操作流程确认后的交互优化、技能依据与可用性验证任务见 [docs/interaction-design.md](docs/interaction-design.md)。
+“File → Manage review tasks” (currently “文件 → 管理评审任务”) also provides creation, backup, archive, restore, and deletion actions. By default, only approved reviews can be cleaned up. See the [agent workflow](docs/agent-workflow.md#查询归档与删除) for explicit cleanup of unfinished reviews, command options, and concurrency checks.
+
+With `--cleanup-on-approval`, the agent receives the current round's final approval before archival runs. New feedback arriving in the meantime prevents cleanup using the old version. Rounds, comments, and history have no fixed business count limits; individual content and single-request resource checks still apply.
+
+<details>
+<summary><strong>Where is the data stored? How do I access it from another device?</strong></summary>
+
+- **Shared reviews:** diagrams, comments, replies, and history live on the service machine. Managed services default to `~/.logic-margin/sessions`; the development server uses `.logic-margin/sessions` in the repository. The actual directory is configurable.
+- **Browser data:** unfinished drafts, pending operations, and standalone file reviews are stored in the current browser for the current origin. They do not automatically appear on other devices.
+- **Private network access:** the development server listens on `0.0.0.0:5173` by default. Other LAN devices can use the machine's LAN address. With Tailscale, set the review link's public address to the service machine's Tailscale address.
+- **Current boundaries:** the service is intended for a trusted local machine or private network and has no account or permission management yet. Source digest verification also does not replace human verification of the diagram's meaning.
+
+</details>
+
+## Documentation
+
+The detailed guides below are currently in Chinese.
+
+| Topic | Start here |
+| --- | --- |
+| Plugin installation, automatic startup, distribution, and platform entry points | [Agent plugin](docs/agent-plugin.md) |
+| Starting, waiting, replying, publishing revisions, and cleanup | [Agent workflow](docs/agent-workflow.md) |
+| Diagram JSON, stable IDs, and source digests | [Review format](plugins/logic-margin/skills/logic-margin/references/review-format.md) |
+| Cross-round comparison, carried comments, and original locations | [Revision review design](docs/revision-review-design.md) |
+| Synchronization, rendering, and measurement boundaries | [Performance optimization](docs/performance-optimization.md) |
+| Real sources and coverage of the built-in examples | [Psycho-skill example](docs/sample-source.md) · [Spirit Sanctum](docs/spirit-sanctum-source.md) |
+
+<details>
+<summary><strong>Local development and validation</strong></summary>
+
+```sh
+npm ci
+npm run dev         # Web UI and review API
+npm test            # Models, client, CLI, and server tests
+npm run build       # TypeScript checks and production build
+npm run test:agent  # Distribution integration tests
+
+npx playwright install chromium
+npm run test:e2e    # Desktop, mobile, and system theme interaction tests
+```
+
+If Chrome is already installed, you can also run `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`.
+
+Built with React 19, TypeScript, React Flow, Vite, and a local Node.js HTTP service. The default Node distribution does not bundle a runtime. See the [plugin guide](docs/agent-plugin.md#开发与验证) for optional Bun native builds.
+
+</details>
+
+## Acknowledgements
+
+Special thanks to **[Crit](https://github.com/tomasz-tomczyk/crit)** for inspiring the workflow of browser annotations, explicit submissions, and agents waiting for review. LogicMargin draws on these interaction patterns and independently implements diagram annotations, cross-round verification, and review task management around business flows and logical relationships. Primary sources and design decisions are recorded in the [Crit reference notes](docs/crit-reference.md).
+
+Thanks to **[React Flow / xyflow](https://github.com/xyflow/xyflow)** for the diagram canvas foundation.

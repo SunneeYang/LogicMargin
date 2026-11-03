@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDownToLine, ArrowRight, ChevronRight, Circle, Focus, GitBranch, Hand, Info, Maximize2, MessageSquare, MousePointer2, PanelLeftClose, PanelLeftOpen, Scan, ShieldCheck, Upload, X } from 'lucide-react'
+import { ArrowDownToLine, ArrowRight, ChevronRight, Circle, Focus, Hand, Info, Maximize2, MessageSquare, MousePointer2, PanelLeftClose, PanelLeftOpen, Scan, ShieldCheck, Upload, X } from 'lucide-react'
+import logoUrl from './assets/logo.svg'
 import type { CommentDraft, CommentStatus, ReviewChanges, ReviewDocument, ReviewRecord, Target } from './types.ts'
 import { addComment, addReply, getChanges, parseReview, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
 import { createApprovalRecord, createFeedbackPackage, draftKey, makeDraft, parseDrafts, parseRecordHistory, parseReviewRecord, pendingFeedback, withDraft } from './workspace.ts'
@@ -580,7 +581,7 @@ export default function App() {
   return <div className={`app-shell ${focusMode ? 'is-focused' : ''}`}>
     <header className="topbar">
       <button className="button icon-button nav-toggle" data-keep-composer aria-label={navOpen ? '收起场景导航' : '展开场景导航'} aria-expanded={navOpen} aria-controls="scene-navigation" onClick={() => setNavOpen(current => !current)}>{navOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}</button>
-      <span className="brand-mark" title="LogicMargin · 逻辑旁批"><GitBranch size={20} /></span>
+      <span className="brand-mark" title="LogicMargin · 逻辑旁批"><img src={logoUrl} alt="LogicMargin" width="28" height="28" /></span>
       <h1 className="review-title" title={review.title}>{review.title}</h1>
       <details ref={infoRef} className="workspace-menu review-tools"><summary className="button" aria-label="评审信息"><Info size={15} /><span className="button-text">评审信息</span></summary>
         <div className="review-info-card"><h2>评审说明</h2><p><strong>{review.title}</strong></p><p className="document-description">{review.description}</p>
