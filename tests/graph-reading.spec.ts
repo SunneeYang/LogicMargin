@@ -58,6 +58,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const incomingStroke = await incoming.locator('.react-flow__edge-path').evaluate(element => getComputedStyle(element).stroke)
     expect(await outgoing.locator('.react-flow__edge-path').evaluate(element => getComputedStyle(element).stroke)).toBe(incomingStroke)
     expect(await page.locator('.react-flow__edge.is-unrelated').count()).toBeGreaterThan(0)
+    const otherCondition = page.locator('.react-flow__edge.is-unrelated').first()
+    await expect(otherCondition).toHaveCSS('opacity', '1')
+    await expect(otherCondition.locator('.react-flow__edge-text')).toHaveCSS('opacity', '1')
     const light = incoming.locator('.edge-flow-light')
     const offset = await light.evaluate(element => getComputedStyle(element).strokeDashoffset)
     await expect.poll(() => light.evaluate(element => getComputedStyle(element).strokeDashoffset)).not.toBe(offset)
@@ -72,6 +75,20 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(errors).toEqual([])
   })
 }
+
+test('desktop overview can restore readable text around the selected step', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+  const selected = page.locator('.react-flow__node[data-id="upgrade-toggle"]')
+  await selected.locator('.node-title').click()
+  await page.getByRole('button', { name: '显示完整流程', exact: true }).click()
+  const zoom = () => page.locator('.react-flow__viewport').evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).a)
+  await expect.poll(zoom).toBeLessThan(1)
+  await page.getByRole('button', { name: '恢复阅读视图', exact: true }).click()
+  await expect.poll(zoom).toBe(1)
+  await expect(selected).toBeInViewport({ ratio: 1 })
+  await expect(selected).toHaveClass(/selected/)
+})
 
 test('parallel transitions keep separate routes and precise comment targets', async ({ page }) => {
   await page.goto('/')

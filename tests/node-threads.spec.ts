@@ -71,6 +71,8 @@ test('selected details open the complete related history in the independent disc
   await expect(discussion).toContainText(secondOpinion)
   await expect(discussion).toContainText(secondReply)
   await expect(discussion.locator('.comment-card')).toHaveCount(2)
+  await expect(discussion.locator('.composer-targets')).toHaveCount(0)
+  await expect(discussion.locator('.jump-to-target')).toHaveCount(2)
   await expect(discussion).not.toContainText('入口步骤的独立意见')
   await expect(details.getByRole('button', { name: '确认整轮通过', exact: true })).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('related-discussion.png') })
@@ -89,12 +91,63 @@ test('selected details open the complete related history in the independent disc
   await expect(page.locator('.canvas')).toHaveAttribute('data-readonly', 'true')
 })
 
+test('review filtering starts with pending work, preserves a manual choice and opens full discussions', async ({ page, request }) => {
+  const { session, comments } = await reviewedSession(request)
+  const path = `/api/review-sessions/${session.id}`
+  const resolveComments = async (items: typeof session.review.comments) => {
+    const current: ReviewSession = await (await request.get(path)).json()
+    const response = await request.post(`${path}/mutations`, { data: {
+      expectedVersion: current.version, round: session.round, revision: session.review.revision, fingerprint: session.review.snapshot.fingerprint,
+      mutations: items.map(comment => ({ kind: 'set-status', commentId: comment.id, from: comment.status, status: 'resolved', reviewedRevision: session.review.revision })),
+    } })
+    expect(response.ok(), await response.text()).toBeTruthy()
+    return await response.json() as ReviewSession
+  }
+  await resolveComments(session.review.comments.slice(1))
+  await page.goto(`/?session=${session.id}`)
+  const panel = await openInspector(page, 'comments')
+  const filters = panel.locator('.comment-filter')
+  await expect(filters.getByRole('button', { name: '待复核 1', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(filters.getByRole('button', { name: '已确认解决 2', exact: true })).toBeVisible()
+  await expect(panel.locator('.comment-card')).toHaveCount(1)
+  await expect(panel.locator('.comment-card')).toContainText(firstOpinion)
+
+  const read = panel.getByRole('button', { name: '展开意见 1 的完整讨论', exact: true })
+  await read.click()
+  const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })
+  await expect(discussion).toContainText(firstOpinion)
+  await expect(discussion).toContainText(secondOpinion)
+  await expect(discussion).toContainText(firstReply)
+  await expect(discussion).not.toContainText('入口步骤的独立意见')
+  await discussion.getByRole('button', { name: '关闭讨论', exact: true }).click()
+  await expect(read).toBeFocused()
+
+  await filters.getByRole('button', { name: '全部 3', exact: true }).click()
+  await page.getByRole('button', { name: '收起侧栏', exact: true }).click()
+  await openInspector(page, 'detail')
+  await openInspector(page, 'comments')
+  await expect(filters.getByRole('button', { name: '全部 3', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: '修改前 R1', exact: true }).click()
+  await page.getByRole('button', { name: '返回当前 R2', exact: true }).click()
+  await expect(filters.getByRole('button', { name: '全部 3', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  const resolved = await resolveComments([session.review.comments.find(comment => comment.id === comments[0].id)!])
+  await expect(filters.getByRole('button', { name: '待复核 0', exact: true })).toBeVisible()
+  await expect(panel.locator('.comment-card')).toHaveCount(3)
+  await expect(filters.getByRole('button', { name: '全部 3', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  const approved = await request.post(`${path}/finish`, { data: { expectedVersion: resolved.version, kind: 'approval' } })
+  expect(approved.ok()).toBeTruthy()
+  await page.reload()
+  await openInspector(page, 'comments')
+  await expect(filters.getByRole('button', { name: '全部 3', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(panel.locator('.comment-card')).toHaveCount(3)
+})
+
 test('a node comment badge opens its threads even when the discussion list has another status filter', async ({ page, request }) => {
   const { session } = await reviewedSession(request, true)
   await page.goto(`/?session=${session.id}`)
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
   await openInspector(page, 'comments')
-  await page.locator('.comment-filter').getByRole('button', { name: '已确认解决', exact: true }).click()
+  await page.locator('.comment-filter').getByRole('button', { name: /^已确认解决 \d+$/ }).click()
   await expect(page.locator('.inspector .comment-card')).toHaveCount(0)
   const width = (await page.locator('.canvas').boundingBox())!.width
   const badge = page.getByRole('button', { name: '批注：通灵功能是否开放？（2 条）', exact: true })
@@ -110,12 +163,43 @@ test('a node comment badge opens its threads even when the discussion list has a
   await expect(discussion).not.toContainText('入口步骤的独立意见')
   await expect(page.locator('.inspector.is-open')).toBeVisible()
   await expect(page.locator('.inspector-tabs').getByRole('button', { name: '讨论 3', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.comment-filter').getByRole('button', { name: '已确认解决', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.comment-filter').getByRole('button', { name: /^已确认解决 \d+$/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.inspector .comment-card')).toHaveCount(0)
   expect((await page.locator('.canvas').boundingBox())!.width).toBeCloseTo(width, 0)
   await page.keyboard.press('Escape')
   await expect(discussion).not.toBeVisible()
   await expect(badge).toBeFocused()
+})
+
+test('closing a discussion returns focus to the panel when its filtered entry was resolved', async ({ page, request }) => {
+  const { session, comments } = await reviewedSession(request)
+  await page.goto(`/?session=${session.id}`)
+  const panel = await openInspector(page, 'comments')
+  await panel.getByRole('button', { name: '展开意见 1 的完整讨论', exact: true }).click()
+  const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })
+  await discussion.getByRole('article', { name: '意见 1', exact: true }).getByRole('button', { name: '复核并确认解决', exact: true }).click()
+  await expect(panel.locator(`#thread-${comments[0].id}`)).toHaveCount(0)
+  await discussion.getByRole('button', { name: '关闭讨论', exact: true }).click()
+  await expect(panel.locator('.inspector-tabs').getByRole('button', { name: '讨论 3', exact: true })).toBeFocused()
+})
+
+test('importing another review into an open panel freezes its initial pending filter', async ({ page }) => {
+  await page.goto('/')
+  const panel = await openInspector(page, 'comments')
+  let incoming = addComment(sampleReview, [{ kind: 'node', id: 'upgrade-start' }], '导入后的待复核意见。')
+  incoming = addComment(incoming, [{ kind: 'node', id: 'upgrade-toggle' }], '导入前已解决的意见。')
+  incoming.id = 'imported-review-filter'
+  incoming.comments[0].status = 'needs-review'
+  incoming.comments[1].status = 'resolved'
+  incoming.comments[1].reviewedRevision = incoming.revision
+  await page.getByLabel('导入评审文件').setInputFiles({ name: 'review.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(incoming)) })
+  await expect(panel.locator('.comment-card')).toHaveCount(1)
+  await expect(panel.locator('.comment-card')).toContainText('导入后的待复核意见。')
+  await panel.getByRole('button', { name: '复核并确认解决', exact: true }).click()
+  await expect(panel.locator('.comment-card')).toHaveCount(0)
+  await expect(panel.locator('.comment-filter').getByRole('button', { name: '待复核 0', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await panel.locator('.comment-filter').getByRole('button', { name: '全部 2', exact: true }).click()
+  await expect(panel.locator('.comment-card')).toHaveCount(2)
 })
 
 test('a node badge retains every attached opinion and reply across a new revision', async ({ page, request }, info) => {

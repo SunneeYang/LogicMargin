@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDownToLine, ArrowRight, ChevronRight, Circle, Focus, Hand, Info, Maximize2, MessageSquare, MousePointer2, PanelLeftClose, PanelLeftOpen, Scan, SlidersHorizontal, Upload, X } from 'lucide-react'
+import { ArrowDownToLine, ArrowRight, ChevronDown, ChevronRight, Circle, Focus, Hand, Info, Maximize2, MessageSquare, MousePointer2, PanelLeftClose, PanelLeftOpen, Scan, SlidersHorizontal, Upload, X } from 'lucide-react'
 import logoUrl from './assets/logo.svg'
 import type { CommentDraft, CommentStatus, ReviewChanges, ReviewDocument, ReviewRecord, Target } from './types.ts'
 import { addComment, addReply, getChanges, parseReview, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
@@ -97,7 +97,7 @@ export default function App() {
   }, [])
   const [focusMode, setFocusMode] = useState(false)
   const infoRef = useRef<HTMLDetailsElement>(null)
-  const [filter, setFilter] = useState<'all' | CommentStatus>('all')
+  const [filter, setFilter] = useState<'all' | CommentStatus | null>(null)
   const [threadId, setThreadId] = useState<string | null>(null)
   const [continuous, setContinuous] = useState(false)
   const reviewQueue = useRef<string[]>([])
@@ -138,7 +138,6 @@ export default function App() {
   const unresolved = useMemo(() => review.comments.filter(comment => comment.status !== 'resolved'), [review.comments])
   const currentDrafts = drafts.filter(draft => draft.documentId === review.id && draft.revision === review.revision && draft.fingerprint === review.snapshot.fingerprint)
   const validDrafts = currentDrafts.filter(draft => draft.replyTo ? review.comments.some(comment => comment.id === draft.replyTo) : draft.targets.every(target => targetExists(review, target)))
-  const visibleComments = useMemo(() => review.comments.filter(comment => filter === 'all' || comment.status === filter), [review.comments, filter])
   const selectedComments = useMemo(() => {
     const targets = new Set(selection.map(keyOf))
     return review.comments.filter(comment => comment.targets.some(target => targets.has(keyOf(target))))
@@ -191,6 +190,12 @@ export default function App() {
   const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction || session.availability !== 'active')
   const reviewBlocked = sessionBlocked || historical || publicationPending
   const needsReviewCount = unresolved.filter(comment => comment.status === 'needs-review').length
+  const activeFilter = filter ?? (!approved && needsReviewCount ? 'needs-review' : 'all')
+  const commentCounts = { all: review.comments.length, open: unresolved.length - needsReviewCount, 'needs-review': needsReviewCount, resolved: review.comments.length - unresolved.length }
+  const visibleComments = useMemo(() => review.comments.filter(comment => activeFilter === 'all' || comment.status === activeFilter), [review.comments, activeFilter])
+  useEffect(() => {
+    if (filter === null && panelOpen && tab === 'comments' && (!SESSION_ID || session.ready)) setFilter(activeFilter)
+  }, [filter, panelOpen, tab, session.ready, activeFilter])
   const hasFeedback = pending.length > 0
   const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
   const finishLabel = hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
@@ -381,7 +386,10 @@ export default function App() {
   }, [])
   const closeDiscussion = useCallback((restore = true) => {
     setDiscussionTargets(null); closeComposer(false)
-    if (restore) requestAnimationFrame(() => { if (discussionOrigin.current?.isConnected) discussionOrigin.current.focus({ preventScroll: true }) })
+    if (restore) requestAnimationFrame(() => {
+      const target = discussionOrigin.current?.isConnected ? discussionOrigin.current : document.querySelector<HTMLElement>('.inspector.is-open .inspector-tabs button[aria-pressed="true"]') ?? document.querySelector<HTMLElement>('.panel-toggle')
+      target?.focus({ preventScroll: true })
+    })
   }, [closeComposer])
   function switchScene(id: string) {
     setSceneId(id); setSelection([]); setDiscussionTargets(null); closeComposer(false)
@@ -486,6 +494,7 @@ export default function App() {
       if (saved) previous = parseReview(JSON.parse(saved))
     }
     const next = previous ? rebaseReview(previous, incoming) : incoming
+    if (next.id !== latestReview.current.id) setFilter(null)
     setChanges(previous ? getChanges(previous, incoming) : EMPTY_CHANGES)
     replaceReview(next); switchScene(next.scenes[0].id); setThreadId(null); setSubmitting(false); setContinuous(false); setNotice('')
     setStatus('评审已导入，原批注与各版本草稿均保留。')
@@ -648,13 +657,17 @@ export default function App() {
     threadId, continuous, historical, reviewBlocked, sessionBlocked, viewRound: activeRound,
     setThreadId, showTargets, openComposer, closeComposer, reviewNext,
   }
+  const scopeButtons = <>
+    <button className="button" onClick={() => { closeMenus(); openComposer([{ kind: 'scene', id: scene.id }]) }}>批注此场景</button>
+    <button className="button" onClick={() => { closeMenus(); openComposer([{ kind: 'review', id: review.id }]) }}>批注整个评审</button>
+  </>
 
   return <div className={`app-shell ${focusMode ? 'is-focused' : ''}`}>
     <header className="topbar">
       <button className="button icon-button nav-toggle" data-keep-composer aria-label={navOpen ? '收起场景导航' : '展开场景导航'} aria-expanded={navOpen} aria-controls="scene-navigation" onClick={() => setNavOpen(current => !current)}>{navOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}</button>
       <span className="brand-mark" title="LogicMargin · 逻辑旁批"><img src={logoUrl} alt="LogicMargin" width="28" height="28" /></span>
       <h1 className="review-title" title={review.title}>{review.title}</h1>
-      <details ref={infoRef} className="workspace-menu review-tools"><summary className="button" aria-label="评审信息"><Info size={15} /><span className="button-text">评审信息</span></summary>
+      <details ref={infoRef} className="workspace-menu review-tools"><summary className="button" aria-label="评审信息"><Info size={15} /><span className="button-text">评审信息</span><ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
         <div className="review-info-card"><h2>评审说明</h2><p className="document-description">{review.description}</p>
           {session.session && <section className="detail-section" aria-label="代理评审会话"><h3>第 {session.session.round} 轮 · {phaseLabels[session.session.phase]}</h3><p>审查目的：{session.session.scope?.purpose ?? '旧任务未单独记录'}</p><p>批注保存到服务端，提交本轮后交给代理处理。</p></section>}
           <div className="document-meta"><span className="badge">{review.revision}</span>{review.snapshot.dirty && <span className="badge warning">包含未提交改动</span>}{approved && <span className="badge">本轮已通过</span>}</div>
@@ -665,7 +678,7 @@ export default function App() {
       </details>
       <div className="topbar-actions"><span className={`save-state ${displaySaveState.includes('失败') ? 'save-error' : ''}`} role="status"><Circle size={7} fill="currentColor" />{displaySaveState}</span>
         <input className="screen-reader-only" ref={inputRef} type="file" accept=".json,application/json" aria-label="导入评审文件" onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = '' }} />
-        <details className="workspace-menu file-menu"><summary className="button">文件</summary><div className="menu-content">
+        <details className="workspace-menu file-menu"><summary className="button">文件<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">
           {!SESSION_ID && <button className="button" onClick={() => { closeMenus(); inputRef.current?.click() }}><Upload size={15} />导入评审</button>}
           <button className="button" onClick={() => { closeMenus(); download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`) }}><ArrowDownToLine size={15} />导出评审</button>
           {!SESSION_ID && HAS_BUNDLED_SPIRIT_REVIEW && <button className="button" disabled={loadingSpiritSanctum} aria-busy={loadingSpiritSanctum} onClick={() => { closeMenus(); void openSpiritSanctum() }}>{loadingSpiritSanctum ? '正在打开魔灵秘境…' : '打开魔灵秘境评审'}</button>}
@@ -690,7 +703,7 @@ export default function App() {
     </div>
     <div className={`workspace ${panelOpen ? 'panel-open' : 'panel-closed'} ${navOpen ? 'nav-open' : 'nav-collapsed'}`}>
       <button className="nav-shade" aria-label="关闭场景导航" onClick={() => setNavOpen(false)} />
-      <aside id="scene-navigation" className="sidebar" aria-label="评审场景"><span className="project-label">流程场景 · {displayReview.scenes.length}</span>
+      <aside id="scene-navigation" className="sidebar" aria-label="评审场景"><div className="navigation-heading"><span>流程场景</span><span>{displayReview.scenes.length}</span></div>
         <nav>{displayReview.scenes.map((item, index) => <button key={item.id} className={`scene-button ${scene.id === item.id ? 'active' : ''}`} onClick={() => switchScene(item.id)} aria-current={scene.id === item.id ? 'page' : undefined}><span className="scene-number">{String(index + 1).padStart(2, '0')}</span><span><strong>{item.title}</strong><small>{displayReview.nodes.filter(node => node.sceneId === item.id).length} 个步骤</small></span><ChevronRight size={14} /></button>)}</nav>
       </aside>
       <main className="review-main">
@@ -698,12 +711,14 @@ export default function App() {
           <div className="scene-context"><h2 className="scene-title" title={`${scene.title} · ${scene.description}`}>{scene.title}</h2><label className="mobile-scene-select"><select aria-label="场景" value={scene.id} onChange={event => switchScene(event.target.value)}>{displayReview.scenes.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
           <button className={`button panel-toggle ${panelOpen ? 'active' : ''}`} data-keep-composer aria-label={`评审面板${review.comments.length ? ` ${review.comments.length}` : ''}`} aria-expanded={panelOpen} aria-controls="node-inspector" onClick={() => { if (panelOpen) { setPanelOpen(false); if (docked) closeComposer(false) } else openPanel(tab) }}><MessageSquare size={14} /><span className="panel-label">评审面板</span>{review.comments.length > 0 && <span className="panel-count">{review.comments.length}</span>}</button>
           <details className={`canvas-tools${compactToolbar ? ' workspace-menu' : ''}`} open={!compactToolbar}>
-            <summary className="button" aria-label="画布工具"><SlidersHorizontal size={15} />工具{mode === 'select' && <span className="badge">框选中</span>}</summary>
+            <summary className="button" aria-label="画布工具"><SlidersHorizontal size={15} />工具{mode === 'select' && <span className="badge">框选中</span>}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
             <div className="canvas-tool-content" onClick={event => { if (compactToolbar && (event.target as Element).closest('button')) closeMenus() }}>
               {session.session && <RevisionControls session={session.session} viewRound={activeRound} onViewRound={switchRound} onOpenChanges={() => openPanel('changes')} />}
-              <div className="tool-group"><button className={`button ${mode === 'pan' ? 'active' : ''}`} aria-label="浏览" aria-pressed={mode === 'pan'} onClick={() => setMode('pan')}><Hand size={14} /><span className="tool-label">浏览</span></button><button className={`button ${mode === 'select' ? 'active' : ''}`} aria-label="框选" aria-pressed={mode === 'select'} onClick={() => setMode('select')}><Scan size={14} /><span className="tool-label">框选</span></button></div>
+              <div className="tool-group canvas-mode-switch" role="group" aria-label="画布操作模式"><button className={`button ${mode === 'pan' ? 'active' : ''}`} aria-label="浏览" aria-pressed={mode === 'pan'} onClick={() => setMode('pan')}><Hand size={14} /><span className="tool-label">浏览</span></button><button className={`button ${mode === 'select' ? 'active' : ''}`} aria-label="框选" aria-pressed={mode === 'select'} onClick={() => setMode('select')}><Scan size={14} /><span className="tool-label">框选</span></button></div>
               <div className="tool-group toolbar-actions">
-                {!historical && <details className="workspace-menu scope-actions"><summary className="button">添加批注</summary><div className="menu-content"><button className="button" onClick={() => { closeMenus(); openComposer([{ kind: 'scene', id: scene.id }]) }}>批注此场景</button><button className="button" onClick={() => { closeMenus(); openComposer([{ kind: 'review', id: review.id }]) }}>批注整个评审</button></div></details>}
+                {!historical && (compactToolbar
+                  ? <div className="scope-actions-inline" role="group" aria-label="批注范围"><span className="project-label">范围批注</span>{scopeButtons}</div>
+                  : <details className="workspace-menu scope-actions"><summary className="button">添加批注<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">{scopeButtons}</div></details>)}
                 {!!selection.length && <><button className="button icon-button locate-selection" data-keep-composer aria-label="定位当前选择" title="定位当前选择" onClick={() => graph.current?.focusTargets(selection)}><Focus size={16} /></button><button className="button mobile-clear-selection" onClick={() => setSelection([])}><X size={14} />清除选择</button></>}
                 <button className="button focus-toggle" data-keep-composer aria-label={focusMode ? '退出专注' : '专注画布'} aria-pressed={focusMode} onClick={toggleFocus}><Maximize2 size={15} /><span className="focus-label">{focusMode ? '退出专注' : '专注画布'}</span></button>
               </div>
@@ -726,7 +741,7 @@ export default function App() {
           </div>
         </section>}
         {publicationPending && <div className="revision-banner publication-pending" role="status"><strong>修改中，新版尚未发布</strong><p>当前仍是 R{session.session?.round} 的流程图。代理交流回复不代表修改已完成；新版发布后才能确认处理结果。</p></div>}
-        {historical && <div className="revision-banner historical-banner"><span>正在查看 R{activeRound} 的历史流程 · 只读。使用版本切换返回当前流程。</span></div>}
+        {historical && <div className="revision-banner historical-banner"><span>正在查看 R{activeRound} 的历史流程 · 只读。</span><button className="button subtle" onClick={() => void switchRound(session.session!.round)}>返回当前 R{session.session?.round}</button></div>}
         <GraphCanvas ref={graph} key={canvasKey} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode}
           nodeAppearance={nodeAppearance} onNodeAppearanceChange={changeNodeAppearance}
           readOnly={historical} viewportKey={canvasKey} changeSide={historical ? 'before' : 'after'} commentOrder={commentOrder}
@@ -754,9 +769,9 @@ export default function App() {
           </>}
           {tab === 'comments' && <>
             {!!review.comments.length && <div className="review-navigation"><p>{unresolved.length} 条尚未确认{pending.length > 0 && ` · ${pending.length} 条可提交`}</p>{!continuous && !reviewBlocked && unresolved.length > 0 && <button className="button" onClick={startReview}>开始逐条复核</button>}{continuous && <button className="button subtle" onClick={() => setContinuous(false)}>退出连续复核</button>}</div>}
-            {!!review.comments.length && <div className="comment-filter" aria-label="筛选批注">{(['all', 'open', 'needs-review', 'resolved'] as const).map(item => <button key={item} className={filter === item ? 'active' : ''} aria-pressed={filter === item} onClick={() => setFilter(item)}>{item === 'all' ? '全部' : statusLabels[item]}</button>)}</div>}
+            {!!review.comments.length && <div className="comment-filter" aria-label="筛选批注">{(['all', 'open', 'needs-review', 'resolved'] as const).map(item => <button key={item} className={activeFilter === item ? 'active' : ''} aria-pressed={activeFilter === item} onClick={() => setFilter(item)}>{item === 'all' ? '全部' : statusLabels[item]} <span className="filter-count">{commentCounts[item]}</span></button>)}</div>}
             {!visibleComments.length && <div className="empty-state"><MessageSquare size={24} /><h3>{review.comments.length ? '此状态下暂无批注' : '让意见落在具体流程上'}</h3><p>在图中选择步骤、连线或一段流程，也可以批注遗漏的场景。</p></div>}
-            <CommentThreads {...threadProps} comments={visibleComments} />
+            <CommentThreads {...threadProps} comments={visibleComments} openThread={openThread} />
             {SESSION_ID ? !!session.session?.history.length && <details className="record-list"><summary>会话评审记录 · {session.session.history.length}</summary>{session.session.history.slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '已提交的意见包' : '整轮通过记录'}</strong><small>R{record.round} · {record.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => void downloadRecord(record.id)}>下载固定记录</button></div>)}</details> : !!history.filter(record => record.review.id === review.id).length && <details className="record-list"><summary>本地评审记录 · {history.filter(record => record.review.id === review.id).length}</summary>{history.filter(record => record.review.id === review.id).slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '意见包 · 待交给代理' : '整轮通过记录'}</strong><small>{record.review.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => download(JSON.stringify(record, null, 2), `${filename(record.review.id)}-${record.id}.json`)}>下载固定记录</button></div>)}</details>}
           </>}
           {tab === 'drafts' && <section className="draft-list"><p className="muted">未保存的内容自动保留。旧版本草稿可导出核对。</p>{!drafts.length && <div className="empty-state"><p>没有未保存的意见。</p></div>}{drafts.map(draft => {
@@ -770,7 +785,7 @@ export default function App() {
         </div>
         <CommentComposer draft={composer} docked={docked} position={position}
           discussion={discussionTargets ? {
-            key: discussionTargets.map(keyOf).join('|'), label: discussionTargets.map(target => targetLabel(displayReview, target)).join(' · '),
+            key: discussionTargets.map(keyOf).join('|'),
             content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} /></>,
             replyLabel: composer?.replyTo ? `回复意见 #${review.comments.findIndex(comment => comment.id === composer.replyTo) + 1}` : undefined,
           } : undefined}

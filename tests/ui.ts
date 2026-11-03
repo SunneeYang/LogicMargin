@@ -30,7 +30,7 @@ export async function openTasks(page: Page) {
 }
 
 export async function commentScope(page: Page, scope: 'scene' | 'review') {
-  await openMenu(page, '.scope-actions')
+  await openMenu(page, await page.locator('.scope-actions-inline').count() ? '.canvas-tools' : '.scope-actions')
   await page.getByRole('button', { name: scope === 'scene' ? '批注此场景' : '批注整个评审', exact: true }).click()
 }
 

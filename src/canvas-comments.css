@@ -6,15 +6,16 @@
   min-width: 28px;
   min-height: 28px;
   padding: var(--space-xs) var(--space-sm);
-  border: var(--rule-width) solid var(--color-rule);
+  border: var(--rule-width) solid var(--color-clear);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  background: var(--color-accent-paper);
   color: var(--color-accent);
   font-size: var(--text-xs);
   line-height: 1;
 }
 .node-comment-button:hover { background: var(--color-accent-paper); border-color: var(--color-accent); }
-.node-comment-button.is-empty { opacity: 0; pointer-events: none; }
+.node-comment-button.is-empty { opacity: 0; pointer-events: none; background: var(--color-clear); color: var(--color-muted); }
+.node-comment-button.is-empty:hover { color: var(--color-accent); background: var(--color-accent-paper); }
 .review-node:hover .node-comment-button.is-empty,
 .review-node:focus-within .node-comment-button.is-empty,
 .react-flow__node.selected .node-comment-button.is-empty,
@@ -42,7 +43,7 @@
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 8px 28px var(--color-selection);
+  box-shadow: var(--shadow-popover);
 }
 .comment-composer.is-docked { margin: var(--space-lg); overflow-y: auto; min-height: 0; }
 .composer-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }

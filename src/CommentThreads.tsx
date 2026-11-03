@@ -23,11 +23,12 @@ interface Props {
   setThreadId: (id: string) => void
   showTargets: (targets: Target[], round?: number) => Promise<void>
   openComposer: (targets: Target[], at?: { x: number; y: number }, replyTo?: string) => void
+  openThread?: (id: string, at: { x: number; y: number }) => void
   closeComposer: (restore?: boolean) => void
   reviewNext: (id: string, resolved: boolean) => void
 }
 
-export default memo(function CommentThreads({ review, session, snapshots, comments, idPrefix = 'thread', viewRound = session?.round, changes, threadId, continuous, historical, reviewBlocked, sessionBlocked, setThreadId, showTargets, openComposer, closeComposer, reviewNext }: Props) {
+export default memo(function CommentThreads({ review, session, snapshots, comments, idPrefix = 'thread', viewRound = session?.round, changes, threadId, continuous, historical, reviewBlocked, sessionBlocked, setThreadId, showTargets, openComposer, openThread, closeComposer, reviewNext }: Props) {
   const origins = useMemo(() => new Map(session?.commentOrigins.map(item => [item.commentId, item]) ?? []), [session])
   const numbers = useMemo(() => new Map(review.comments.map((comment, index) => [comment.id, index + 1])), [review.comments])
   return <>{[...comments].reverse().map(comment => {
@@ -36,7 +37,7 @@ export default memo(function CommentThreads({ review, session, snapshots, commen
               const remaining = comment.targets.filter(target => targetExists(review, target)).length
               const labels = comment.targets.map(target => targetLabel(targetExists(review, target) ? review : originalGraph, target)).join(' · ')
               return <article id={`${idPrefix}-${comment.id}`} key={comment.id} className={`comment-card status-${comment.status} ${threadId === comment.id ? 'is-active' : ''}`} aria-label={`意见 ${numbers.get(comment.id)}`}>
-              <div className="comment-card-head"><span className="status-label">#{numbers.get(comment.id)} · {statusLabels[comment.status]}</span></div>
+              <div className="comment-card-head"><span className="status-label">#{numbers.get(comment.id)} · {statusLabels[comment.status]}</span>{openThread && <button className="button subtle read-discussion" aria-label={`展开意见 ${numbers.get(comment.id)} 的完整讨论`} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); openThread(comment.id, { x: rect.left, y: rect.bottom }) }}>展开讨论<ChevronRight size={12} /></button>}</div>
               {remaining || original ? <button className="jump-to-target" onClick={() => { if (!remaining) closeComposer(false); setThreadId(comment.id); showTargets(comment.targets, remaining ? session?.round : original?.round) }}>{!remaining && `查看原位置${original?.exact === false ? '（推断）' : ''} · `}{labels}<ChevronRight size={12} /></button> : <p className="comment-meta">{labels}</p>}<p className="comment-body">{comment.body}</p>
               {remaining < comment.targets.length && <p className="comment-location-note">{remaining ? `当前可定位 ${remaining} 项，已移除 ${comment.targets.length - remaining} 项` : '原目标已移除，意见与原位置已保留'}。</p>}
               <details className="comment-history"><summary>{original ? `提出于 R${original.round}${!original.exact ? '（推断）' : ''}` : '版本信息'}{comment.reviewedRound && ` · R${comment.reviewedRound} 已复核`}</summary>

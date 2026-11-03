@@ -190,6 +190,23 @@ for (const device of [
 test.describe('mobile reading actions', () => {
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
 
+  test('both scope comment actions are directly reachable in mobile tools', async ({ page }) => {
+    for (const scope of ['scene', 'review'] as const) {
+      await page.goto('/')
+      await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+      await page.locator('.canvas-tools > summary').tap()
+      await expect(page.locator('.scope-actions')).toHaveCount(0)
+      const scopes = page.getByRole('group', { name: '批注范围', exact: true })
+      await expect(scopes.getByRole('button')).toHaveCount(2)
+      await scopes.getByRole('button', { name: scope === 'scene' ? '批注此场景' : '批注整个评审', exact: true }).tap()
+      const editor = page.getByRole('dialog', { name: '流程批注', exact: true })
+      await editor.getByLabel('问题与预期行为').fill(`手机范围批注：${scope}`)
+      await editor.getByRole('button', { name: '添加批注', exact: true }).tap()
+      const saved = await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:review:${id}`)!), sampleReview.id)
+      expect(saved.comments.at(-1).targets).toEqual([{ kind: scope, id: scope === 'scene' ? sampleReview.scenes[0].id : sampleReview.id }])
+    }
+  })
+
   test('returns from overview to reading and keeps display settings reachable', async ({ page }, info) => {
     await page.goto('/')
     await page.locator('.canvas[data-viewport-ready="true"]').waitFor({ state: 'visible' })

@@ -1,6 +1,5 @@
 .edge-crossing-gap { stroke: var(--color-paper); pointer-events: none; stroke-linejoin: round; stroke-linecap: round; }
 .react-flow__edge .react-flow__edge-path { stroke-linejoin: round; stroke-linecap: round; }
-.react-flow__edge.is-unrelated { opacity: .22; }
 .react-flow__edge.is-related .react-flow__edge-path { stroke-width: 2.5; }
 .edge-flow-light { stroke-width: 3; stroke-linecap: round; stroke-dasharray: 8 42; pointer-events: none; animation: edge-flow 1.8s linear infinite; filter: drop-shadow(0 0 3px currentColor); }
 @keyframes edge-flow { to { stroke-dashoffset: -50; } }
@@ -8,9 +7,9 @@
 .canvas-reading-guide > .display-settings-toggle { display: none; list-style: none; cursor: pointer; }
 .display-settings-toggle::-webkit-details-marker { display: none; }
 .canvas-display-options { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-sm); }
-.node-appearance-switch { display: flex; gap: 2px; padding: 2px; border: var(--rule-width) solid var(--color-rule); border-radius: var(--radius-lg); background: var(--color-surface); }
-.node-appearance-switch .button { min-height: 32px; padding: var(--space-sm); border-color: var(--color-clear); font-size: var(--text-xs); }
-.node-appearance-switch .button.active { border-color: var(--color-accent); }
+.node-appearance-switch { display: flex; gap: 2px; padding: 2px; border: var(--rule-width) solid var(--color-rule); border-radius: var(--radius-md); background: var(--color-surface-muted); }
+.node-appearance-switch .button { min-height: 32px; padding: var(--space-sm); border-color: var(--color-clear); border-radius: var(--radius-sm); font-size: var(--text-xs); }
+.node-appearance-switch .button.active { background: var(--color-surface); color: var(--color-ink); }
 [data-node-appearance="distinct"] .kind-action { --node-type-color: var(--color-accent); --node-type-paper: var(--color-accent-paper); --node-type-radius: var(--radius-sm); }
 [data-node-appearance="distinct"] .kind-decision { --node-type-color: var(--color-warning); --node-type-paper: var(--color-warning-paper); --node-type-radius: 2px; --node-type-shadow: inset 0 3px var(--color-warning); }
 [data-node-appearance="distinct"] .kind-result { --node-type-color: var(--color-success); --node-type-paper: var(--color-success-paper); --node-type-radius: 24px; }
