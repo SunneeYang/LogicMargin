@@ -4,7 +4,7 @@ import { sampleReview } from '../src/sample.ts'
 import { makeDraft } from '../src/workspace.ts'
 import type { ReviewSession } from '../src/session-types.ts'
 import type { APIRequestContext } from '@playwright/test'
-import { commentScope, openMenu } from './ui.ts'
+import { commentScope, openMenu, openTasks } from './ui.ts'
 
 async function createTask(request: APIRequestContext, context: string, purpose: string) {
   const review = addComment(structuredClone(sampleReview), [{ kind: 'review', id: sampleReview.id }], '另一目的留下的旧意见')
@@ -35,12 +35,13 @@ test('different purposes in one Agent context keep separate comments, rounds and
   expect((await (await request.get(`/api/review-sessions/${second.id}`)).json()).review.comments).toEqual([])
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('留在原目的的草稿')
-  await page.getByRole('button', { name: '稍后继续', exact: true }).click()
+  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
   await openMenu(page, '.file-menu')
-  await page.getByRole('button', { name: '管理评审任务', exact: true }).click()
+  await openTasks(page)
   const dialog = page.getByRole('dialog', { name: '评审任务', exact: true })
   await expect(dialog.getByRole('article', { name: '检查扣费时机', exact: true })).toBeVisible()
   await expect(dialog.getByRole('article', { name: '检查失败返回码', exact: true })).toBeVisible()
+  await dialog.locator('.new-task > summary').click()
   await dialog.getByLabel('审查目的', { exact: true }).fill('另行检查发奖顺序')
   await dialog.getByRole('button', { name: '建立独立评审', exact: true }).click()
   await expect(page).not.toHaveURL(`/?session=${first.id}`)
@@ -52,7 +53,8 @@ test('different purposes in one Agent context keep separate comments, rounds and
   expect(fresh.round).toBe(1)
   expect(fresh.history).toEqual([])
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:session:${id}:drafts`) ?? '[]')[0].body, first.id)).toBe('留在原目的的草稿')
-  await expect(page.getByRole('button', { name: '草稿 0', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '草稿 0', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^评审面板/ })).toBeVisible()
 })
 
 test('completed task can be archived, restored and explicitly deleted without touching another purpose', async ({ page, request }) => {
@@ -63,10 +65,11 @@ test('completed task can be archived, restored and explicitly deleted without to
   await page.goto(`/?session=${completed.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
   await openMenu(page, '.file-menu')
-  await page.getByRole('button', { name: '管理评审任务', exact: true }).click()
+  await openTasks(page)
   let dialog = page.getByRole('dialog', { name: '评审任务', exact: true })
   let task = dialog.getByRole('article', { name: '已经完成的独立审查', exact: true })
   const archivedBackup = page.waitForEvent('download')
+  await task.locator('.task-options > summary').click()
   await task.getByRole('button', { name: '备份并归档', exact: true }).click()
   await archivedBackup
   await expect(page.getByRole('heading', { name: '评审任务已归档', exact: true })).toBeVisible()
@@ -75,15 +78,16 @@ test('completed task can be archived, restored and explicitly deleted without to
   expect((await request.get(`/api/review-sessions/${ongoing.id}`)).ok()).toBeTruthy()
   await page.reload()
   await expect(page.getByRole('heading', { name: '评审任务已归档', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: '管理评审任务', exact: true }).click()
+  await openTasks(page)
   dialog = page.getByRole('dialog', { name: '评审任务', exact: true })
   task = dialog.getByRole('article', { name: '已经完成的独立审查', exact: true })
   await task.getByRole('button', { name: '恢复任务', exact: true }).click()
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
   await openMenu(page, '.file-menu')
-  await page.getByRole('button', { name: '管理评审任务', exact: true }).click()
+  await openTasks(page)
   dialog = page.getByRole('dialog', { name: '评审任务', exact: true })
   task = dialog.getByRole('article', { name: '已经完成的独立审查', exact: true })
+  await task.locator('.task-options > summary').click()
   await task.getByRole('button', { name: '永久删除', exact: true }).click()
   expect((await request.get(path)).ok()).toBeTruthy()
   const deletedBackup = page.waitForEvent('download')
@@ -106,8 +110,9 @@ test('local drafts prevent cleanup and a remotely archived task stops active bro
   await page.reload()
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
   await openMenu(page, '.file-menu')
-  await page.getByRole('button', { name: '管理评审任务', exact: true }).click()
+  await openTasks(page)
   const task = page.getByRole('dialog', { name: '评审任务', exact: true }).getByRole('article', { name: '有本机草稿的完成任务', exact: true })
+  await task.locator('.task-options > summary').click()
   await task.getByRole('button', { name: '备份并归档', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('本机草稿或未同步意见')
   const path = `/api/review-sessions/${completed.id}`

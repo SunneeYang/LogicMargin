@@ -21,7 +21,7 @@ async function savedDrafts(page: Page): Promise<CommentDraft[]> {
   return page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!))
 }
 
-test('save on the diagram, read the marker in the sidebar, and restore after reload', async ({ page }) => {
+test('save on the diagram, read the marker in a discussion dialog, and restore after reload', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.emulateMedia({ colorScheme: 'dark' })
@@ -38,11 +38,13 @@ test('save on the diagram, read the marker in the sidebar, and restore after rel
   const marker = page.getByRole('button', { name: '批注：发起总等级升级（1 条）', exact: true })
   await expect(marker).toBeFocused()
   await marker.click()
-  await expect(page.locator('.inspector.is-open .comment-body')).toHaveText('这里不应该要求已有上阵技能。')
+  const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })
+  await expect(discussion.locator('.comment-body')).toHaveText('这里不应该要求已有上阵技能。')
+  await expect(page.locator('.inspector')).not.toHaveClass(/is-open/)
   await expect(editor).not.toBeVisible()
   await page.reload()
   await marker.click()
-  await expect(page.locator('.inspector.is-open .comment-body')).toHaveText('这里不应该要求已有上阵技能。')
+  await expect(discussion.locator('.comment-body')).toHaveText('这里不应该要求已有上阵技能。')
   expect((await savedReview(page)).comments[0].targets).toEqual([{ kind: 'node', id: 'upgrade-start' }])
   expect(await savedDrafts(page)).toEqual([])
   expect(errors).toEqual([])
@@ -118,7 +120,7 @@ test('marquee selects only nodes, an explicit edge joins the selection, and the 
     { kind: 'edge', id: 'upgrade-start-to-toggle' },
   ])
   await page.getByRole('button', { name: '批注 1，涉及 3 项', exact: true }).click()
-  await expect(page.locator('.inspector.is-open .comment-body')).toHaveText('这段流程失败时不能扣除资源。')
+  await expect(page.getByRole('dialog', { name: '节点讨论', exact: true }).locator('.comment-body')).toHaveText('这段流程失败时不能扣除资源。')
 })
 
 test('right-clicking a success edge anchors a comment to that exact edge', async ({ page }) => {

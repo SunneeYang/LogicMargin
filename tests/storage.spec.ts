@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { commentScope } from './ui.ts'
+import { commentScope, openInspector } from './ui.ts'
 import { sampleReview } from '../src/sample.ts'
 import { createFeedbackPackage, makeDraft } from '../src/workspace.ts'
 import { addComment } from '../src/model.ts'
@@ -11,13 +11,15 @@ test('more than two hundred drafts remain editable and can be exported without d
   await commentScope(page, 'scene')
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByLabel('问题与预期行为').fill('超过旧上限后保留的新意见')
-  await page.getByRole('button', { name: '稍后继续', exact: true }).click()
+  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!).length)).toBe(202)
-  await page.getByRole('button', { name: '草稿 202', exact: true }).first().click()
+  await openInspector(page, 'drafts')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: '导出并移除草稿', exact: true }).first().click()
+  const firstDraft = page.locator('.draft-entry').first()
+  await firstDraft.locator('.draft-options > summary').click()
+  await firstDraft.getByRole('button', { name: '导出并移除草稿', exact: true }).click()
   await download
-  await expect(page.getByRole('heading', { name: '保留的草稿 · 201', exact: true })).toBeVisible()
+  await expect(page.locator('.inspector-tabs').getByRole('button', { name: '草稿 201', exact: true })).toBeVisible()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!).some((draft: { body: string }) => draft.body === '超过旧上限后保留的新意见'))).toBe(true)
 })
 
@@ -47,4 +49,29 @@ test('conflicting history import reports an error without crashing or replacing 
   await expect(page.getByRole('heading', { name: sampleReview.title, exact: true })).toBeVisible()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:record-history')!)[0].review.comments[0].body)).toBe('原意见')
   expect(errors).toEqual([])
+})
+
+test('a history save failure offers the complete record backup rather than an unrelated draft export', async ({ page }) => {
+  const review = addComment(sampleReview, [{ kind: 'review', id: sampleReview.id }], '需要保留的固定意见')
+  const record = createFeedbackPackage(review)
+  await page.addInitScript(record => {
+    localStorage.setItem('logic-margin:record-history', JSON.stringify([record]))
+    const setItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'logic-margin:record-history') throw new DOMException('History storage full', 'QuotaExceededError')
+      return setItem.call(this, key, value)
+    }
+  }, record)
+  await page.goto('/')
+  const error = page.getByRole('alert').filter({ hasText: '评审记录保存失败' })
+  await expect(error).toBeVisible()
+  await expect(error.getByRole('button', { name: '导出草稿', exact: true })).toHaveCount(0)
+  const downloading = page.waitForEvent('download')
+  await error.getByRole('button', { name: '导出评审记录', exact: true }).click()
+  const download = await downloading
+  const stream = await download.createReadStream()
+  const chunks: Buffer[] = []
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk))
+  expect(JSON.parse(Buffer.concat(chunks).toString())).toEqual([record])
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:record-history')!))).toEqual([record])
 })

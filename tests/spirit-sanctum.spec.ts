@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { commentScope, expectRevision, openMenu, openSpiritReview } from './ui.ts'
+import { commentScope, expectRevision, openMenu, openSpiritReview, openInspector } from './ui.ts'
 import type { Download } from '@playwright/test'
 import type { ReviewDocument, ReviewRecord } from '../src/types.ts'
 import { sampleReview } from '../src/sample.ts'
@@ -34,7 +34,7 @@ test('the real requirement opens by link and completes review without the secure
   await editor.getByLabel('问题与预期行为').fill('交互验收：请核对非法占位关卡被拒绝时，原有战斗和门票保持不变。')
   await editor.getByRole('button', { name: '添加批注', exact: true }).click()
   await expect(editor).not.toBeVisible()
-  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  await openInspector(page, 'comments')
   await page.getByRole('button', { name: '回复讨论', exact: true }).click()
   await page.getByLabel('补充说明').fill('交互验收：正式60秒关卡与模式11验算JS仍待接入，应保留在本轮覆盖边界中。')
   await page.getByRole('button', { name: '保存回复', exact: true }).click()
@@ -55,10 +55,11 @@ test('the real requirement opens by link and completes review without the secure
   response.comments[0].replies!.push({ id: 'acceptance-agent-response', author: 'agent', body: '交互验收回执：按原源码核对，入口校验发生在清场之前。', createdAt: new Date().toISOString(), revision: source.revision })
   await page.getByLabel('导入评审文件').setInputFiles({ name: 'acceptance-response.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(response)) })
   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).comments[0].status, storageKey)).toBe('needs-review')
-  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  await openInspector(page, 'comments')
   await page.getByRole('button', { name: '复核并确认解决', exact: true }).click()
+  await page.locator('.topbar').getByRole('button', { name: '完成审查', exact: true }).click()
   const approvalDownload = page.waitForEvent('download')
-  await page.getByRole('button', { name: '确认整轮通过', exact: true }).click()
+  await page.locator('.feedback-summary').getByRole('button', { name: '确认整轮通过', exact: true }).click()
   const approval = await readDownload<ReviewRecord>(await approvalDownload)
   expect(approval.kind).toBe('logic-margin-approval')
   expect(approval.review.comments[0].status).toBe('resolved')
@@ -70,7 +71,7 @@ test('opening the new requirement preserves another review and current-version l
   await page.goto('/')
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('旧评审未完成的意见草稿。')
-  await page.getByRole('button', { name: '稍后继续', exact: true }).click()
+  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
   await openSpiritReview(page)
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
   const stored = await page.evaluate(id => ({ review: localStorage.getItem(`logic-margin:review:${id}`), drafts: JSON.parse(localStorage.getItem('logic-margin:drafts')!) }), sampleReview.id)

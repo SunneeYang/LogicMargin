@@ -2,17 +2,18 @@ import { memo } from 'react'
 import { BaseEdge } from '@xyflow/react'
 import type { Edge, EdgeProps } from '@xyflow/react'
 import type { LayoutEdge } from './graph-layout.ts'
+import { smoothEdgePath } from './graph-path.ts'
 
 export type FlowRelation = 'incoming' | 'outgoing' | 'selected'
 export type FlowEdge = Edge<{ route: LayoutEdge; relation?: FlowRelation }, 'review'>
 
 export const relationColors: Record<FlowRelation, string> = {
-  incoming: 'var(--color-accent)', outgoing: 'var(--color-success)', selected: 'var(--color-accent)',
+  incoming: 'var(--color-accent)', outgoing: 'var(--color-accent)', selected: 'var(--color-accent)',
 }
 
 export default memo(function GraphEdge({ id, data, label, markerEnd, style, interactionWidth }: EdgeProps<FlowEdge>) {
   if (!data) return null
-  const path = data.route.points.map((point, index) => `${index ? 'L' : 'M'}${point.x},${point.y}`).join(' ')
+  const path = smoothEdgePath(data.route.points)
   return <>
     <path className="edge-crossing-gap" d={path} fill="none" strokeWidth={8} />
     <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} interactionWidth={interactionWidth}

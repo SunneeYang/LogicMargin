@@ -17,10 +17,10 @@ export default function RevisionControls({ session, viewRound, onViewRound, onOp
   const before = session.snapshots.find(snapshot => snapshot.round === baseRound)
   const historical = viewRound !== session.round
   return <div className="revision-controls" aria-label="流程图版本">
-    <div className="revision-switch" role="group" aria-label="切换流程图版本">
+    {!before && !historical ? <span className="revision-current">第 {session.round} 轮</span> : <div className="revision-switch" role="group" aria-label="切换流程图版本">
       {before && <button className="button" aria-pressed={viewRound === baseRound} onClick={() => onViewRound(baseRound)}>修改前 R{baseRound}</button>}
-      <button className="button" aria-pressed={!historical} onClick={() => onViewRound(session.round)}>当前 R{session.round}</button>
-    </div>
+      <button className="button" aria-pressed={!historical} onClick={() => { if (historical) onViewRound(session.round) }}>当前 R{session.round}</button>
+    </div>}
     {historical && <span className="revision-readonly"><LockKeyhole size={12} />{viewRound === baseRound ? '只读' : `提出时 R${viewRound} · 只读`}</span>}
     {before && <button className="button revision-changes-button" onClick={onOpenChanges}><FileDiff size={14} />本轮变化</button>}
   </div>

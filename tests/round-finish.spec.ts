@@ -4,7 +4,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { addComment } from '../src/model.ts'
 import { sampleReview } from '../src/sample.ts'
 import type { ReviewSession } from '../src/session-types.ts'
-import { commentScope } from './ui.ts'
+import { commentScope, openInspector } from './ui.ts'
 
 const opinion = 'R1：功能关闭时必须保留原资源。'
 const agentReply = 'R2：已补齐拒绝出口，并确认不会扣除资源。'
@@ -59,7 +59,7 @@ test('the second-round entry guides verification and submits the newly supplemen
   const get = async (): Promise<ReviewSession> => (await request.get(path)).json()
   await page.goto(`/?session=${state.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
-  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  await openInspector(page, 'comments')
   const card = page.getByRole('article', { name: '意见 1', exact: true })
   await expect(card).toContainText(agentReply)
   await card.getByRole('button', { name: '回复讨论', exact: true }).click()
@@ -94,7 +94,7 @@ test('the second-round entry offers explicit approval after every opinion is res
   const get = async (): Promise<ReviewSession> => (await request.get(path)).json()
   await page.goto(`/?session=${state.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
-  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  await openInspector(page, 'comments')
   const card = page.getByRole('article', { name: '意见 1', exact: true })
   await card.getByRole('button', { name: '复核并确认解决', exact: true }).click()
   await expect.poll(async () => (await get()).review.comments[0].status).toBe('resolved')
@@ -112,7 +112,7 @@ test('the second-round entry offers explicit approval after every opinion is res
   expect(completed.history).toHaveLength(2)
   expect(completed.history[1].kind).toBe('logic-margin-approval')
   await expect(confirmation).not.toBeVisible()
-  await expect(page.locator('.topbar').getByRole('button', { name: '本轮已通过', exact: true })).toBeDisabled()
+  await expect(page.locator('.topbar-actions').getByText('本轮已通过', { exact: true })).toBeVisible()
 })
 
 test('agent work blocks approval while still allowing newly supplemented feedback', async ({ page, request }) => {
@@ -127,7 +127,7 @@ test('agent work blocks approval while still allowing newly supplemented feedbac
   const card = page.getByRole('article', { name: '意见 1', exact: true })
   await expect(card).toHaveClass(/is-active/)
   await expect(card.getByRole('button', { name: /确认解决/ })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '确认整轮通过', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '确认整轮通过', exact: true })).toHaveCount(0)
   await card.getByRole('button', { name: '回复讨论', exact: true }).click()
   const editor = page.getByRole('dialog', { name: '回复讨论', exact: true })
   await editor.getByLabel('补充说明').fill(supplement)
@@ -139,12 +139,12 @@ test('agent work blocks approval while still allowing newly supplemented feedbac
   expect((await get()).history[1].kind).toBe('logic-margin-feedback')
 })
 
-test('the finish entry stays disabled on a historical diagram', async ({ page, request }) => {
+test('the finish entry is absent on a historical diagram', async ({ page, request }) => {
   const { state } = await secondRound(request)
   await page.goto(`/?session=${state.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
   await page.getByRole('button', { name: '修改前 R1', exact: true }).click()
-  await expect(page.locator('.topbar').getByRole('button', { name: /^(提交本轮|复核本轮|完成审查)/ })).toBeDisabled()
+  await expect(page.locator('.topbar').getByRole('button', { name: /^(提交本轮|复核本轮|完成审查)/ })).toHaveCount(0)
 })
 
 test('already-submitted open opinions remain directly reachable without creating another submission', async ({ page, request }) => {
@@ -177,7 +177,7 @@ test('an unfinished draft does not block explicit approval and remains unchanged
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('这份尚未完成的想法继续留在草稿。')
-  await page.getByRole('button', { name: '稍后继续', exact: true }).click()
+  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
   const draft = await page.evaluate(key => localStorage.getItem(key), draftKey)
   expect(JSON.parse(draft!)).toHaveLength(1)
   await page.locator('.topbar').getByRole('button', { name: '复核本轮', exact: true }).click()
@@ -193,8 +193,8 @@ test('an unfinished draft does not block explicit approval and remains unchanged
   expect((await get()).review.comments).toHaveLength(1)
   expect(await page.evaluate(key => localStorage.getItem(key), draftKey)).toBe(draft)
   await page.reload()
-  await expect(page.locator('.topbar').getByRole('button', { name: '本轮已通过', exact: true })).toBeDisabled()
+  await expect(page.locator('.topbar-actions').getByText('本轮已通过', { exact: true })).toBeVisible()
   expect(await page.evaluate(key => localStorage.getItem(key), draftKey)).toBe(draft)
-  await page.locator('.graph-toolbar').getByRole('button', { name: '草稿 1', exact: true }).click()
+  await openInspector(page, 'drafts')
   await expect(page.locator('.draft-list')).toContainText('这份尚未完成的想法继续留在草稿。')
 })

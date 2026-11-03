@@ -36,7 +36,9 @@ export function layoutGraph(
 ) {
   const graph = new Graph<GraphLabel, NodeLabel, EdgeLabel>({ directed: true, multigraph: true })
   graph.setGraph({ rankdir: 'TB', ranksep: 88, nodesep: 72, edgesep: 32, marginx: 24, marginy: 24 })
-  for (const node of nodes) {
+  // Seed Dagre's crossing reducer with normal steps first, keeping each group's original order.
+  const kindOrder = { action: 0, decision: 0, result: 1, failure: 2 }
+  for (const node of [...nodes].sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind])) {
     const measured = sizes.get(node.id)
     graph.setNode(node.id, { width: measured?.width || 248, height: measured?.height || 160 })
   }

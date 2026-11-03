@@ -1,11 +1,13 @@
 import { test, expect } from '@playwright/test'
 import { commentScope } from './ui.ts'
 
-for (const theme of ['light', 'dark'] as const) {
-  test(`system ${theme} theme covers the canvas, controls and inputs`, async ({ page }) => {
+for (const [theme, nodeAppearance] of [['light', 'plain'], ['light', 'distinct'], ['dark', 'plain'], ['dark', 'distinct']] as const) {
+  test(`system ${theme} theme covers ${nodeAppearance} nodes, controls and inputs`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: theme })
     await page.goto('/')
     await expect(page.locator(`.react-flow.${theme}`)).toBeVisible()
+    if (nodeAppearance === 'distinct') await page.getByRole('group', { name: '节点显示方式', exact: true }).getByRole('button', { name: '多样式', exact: true }).click()
+    await expect(page.locator('.canvas')).toHaveAttribute('data-node-appearance', nodeAppearance)
     await commentScope(page, 'scene')
     const appearance = await page.evaluate(() => {
       const ctx = document.createElement('canvas').getContext('2d')!
@@ -23,10 +25,13 @@ for (const theme of ['light', 'dark'] as const) {
       const root = getComputedStyle(document.documentElement)
       const body = getComputedStyle(document.body)
       const input = getComputedStyle(document.querySelector('textarea')!)
-      const node = getComputedStyle(document.querySelector('.review-node')!)
-      const muted = getComputedStyle(document.querySelector('.node-summary')!)
-      const failure = getComputedStyle(document.querySelector('.review-node.kind-failure')!)
-      const failureLabel = getComputedStyle(document.querySelector('.kind-failure .node-kind')!)
+      const nodeContrasts = Object.fromEntries(['action', 'decision', 'result', 'failure'].flatMap(kind => {
+        const node = document.querySelector(`.review-node.kind-${kind}`)!
+        const background = getComputedStyle(node).backgroundColor
+        return ['node-kind', 'node-title', 'node-summary'].map(part => [
+          `${kind}-${part}Contrast`, contrast(getComputedStyle(node.querySelector(`.${part}`)!).color, background),
+        ])
+      }))
       const control = getComputedStyle(document.querySelector('.react-flow__controls-button')!)
       const primary = getComputedStyle(document.querySelector('.topbar .button.primary')!)
       const label = getComputedStyle(document.querySelector('.react-flow__edge-text')!)
@@ -40,9 +45,7 @@ for (const theme of ['light', 'dark'] as const) {
         dotLight: luminance(dot.fill),
         textContrast: contrast(body.color, body.backgroundColor),
         inputContrast: contrast(input.color, input.backgroundColor),
-        nodeContrast: contrast(node.color, node.backgroundColor),
-        mutedContrast: contrast(muted.color, node.backgroundColor),
-        failureContrast: contrast(failureLabel.color, failure.backgroundColor),
+        ...nodeContrasts,
         primaryContrast: contrast(primary.color, primary.backgroundColor),
         edgeLabelContrast: contrast(label.fill, canvas.backgroundColor),
       }

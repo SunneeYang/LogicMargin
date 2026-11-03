@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { commentScope } from './ui.ts'
+import { commentScope, openInspector } from './ui.ts'
 
 const requirementTitle = '魔灵秘境 · 服务端逻辑评审'
 
@@ -38,7 +38,7 @@ for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080]]) {
     expect(original.bottom).toBeLessThanOrEqual(height + 1)
     expect(original.pageHeight).toBeLessThanOrEqual(height + 1)
     expect(original.pageWidth).toBeLessThanOrEqual(width)
-    await page.getByRole('button', { name: '步骤详情', exact: true }).click()
+    await openInspector(page, 'detail')
     const withDetails = await visibleCanvas(page)
     expect(withDetails.visibleHeight).toBeGreaterThanOrEqual(height - 130)
     expect(withDetails.height).toBeCloseTo(original.height, 0)
@@ -68,7 +68,7 @@ test('collapsing navigation, opening details, and focus mode retain the zoom and
   await expect(page.locator('.sidebar')).not.toBeVisible()
   await expect.poll(async () => (await viewport(page)).zoom).toBeCloseTo(reading.zoom, 3)
   await expect.poll(async () => (await viewport(page)).y).toBeCloseTo(reading.y, 0)
-  await page.getByRole('button', { name: '步骤详情', exact: true }).click()
+  await openInspector(page, 'detail')
   await expect(page.locator('.inspector.is-open')).toBeVisible()
   await expect.poll(async () => (await viewport(page)).zoom).toBeCloseTo(reading.zoom, 3)
   await expect.poll(async () => (await viewport(page)).y).toBeCloseTo(reading.y, 0)
@@ -124,12 +124,17 @@ for (const width of [320, 375, 414, 768]) {
     await expect(editor.getByRole('button', { name: '添加批注', exact: true })).toBeInViewport()
     await editor.getByRole('button', { name: '添加批注', exact: true }).click()
     await expect(editor).not.toBeVisible()
-    await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
-    const inspector = await page.locator('.inspector.is-open').boundingBox()
-    expect(inspector!.x).toBeGreaterThanOrEqual(0)
-    expect(inspector!.x + inspector!.width).toBeLessThanOrEqual(width)
-    expect(inspector!.y + inspector!.height).toBeLessThanOrEqual(813)
-    await page.getByRole('button', { name: '收起侧栏', exact: true }).click()
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme })
+      await expect(page.getByRole('button', { name: /^评审面板/ })).toBeInViewport({ ratio: 1 })
+      await openInspector(page, 'comments')
+      const inspector = await page.locator('.inspector.is-open').boundingBox()
+      expect(inspector!.x).toBeGreaterThanOrEqual(0)
+      expect(inspector!.x + inspector!.width).toBeLessThanOrEqual(width)
+      expect(inspector!.y + inspector!.height).toBeLessThanOrEqual(813)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+      await page.getByRole('button', { name: '收起侧栏', exact: true }).click()
+    }
     expect((await visibleCanvas(page)).height).toBeCloseTo(initial.height, 0)
   })
 }

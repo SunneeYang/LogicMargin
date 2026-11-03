@@ -59,7 +59,7 @@ async function canvasLayout(page: Page) {
   })
 }
 
-test('each round restores its zoom and reading position while the active discussion stays open', async ({ page, request }) => {
+test('each round restores its zoom and reading position when a discussion dialog is reopened', async ({ page, request }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   const { session, commentId } = await twoRoundSession(request)
@@ -72,10 +72,14 @@ test('each round restores its zoom and reading position while the active discuss
   await expect(current).toHaveAttribute('aria-pressed', 'true')
   expect((await canvasLayout(page)).visibleHeight).toBeGreaterThanOrEqual(770)
   await expect(page.locator('.graph-toolbar')).toHaveCSS('height', '44px')
-  await page.getByRole('button', { name: '批注：通灵功能是否开放？（1 条）', exact: true }).click()
-  const thread = page.locator(`#thread-${commentId}`)
+  const badge = page.getByRole('button', { name: '批注：通灵功能是否开放？（1 条）', exact: true })
+  const original = await viewport(page)
+  await badge.click()
+  const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })
+  const thread = discussion.locator(`#discussion-thread-${commentId}`)
   await expect(thread).toHaveClass(/is-active/)
   await expect(thread).toContainText('第二轮已同步规则，请核对当前图与原始意见。')
+  await expect.poll(() => viewport(page)).toEqual(original)
   const initial = await viewport(page)
   await page.getByRole('button', { name: '放大流程', exact: true }).click()
   await expect.poll(async () => (await viewport(page)).zoom).toBeCloseTo(initial.zoom * 1.2, 3)
@@ -89,6 +93,7 @@ test('each round restores its zoom and reading position while the active discuss
   await before.click()
   await expect(canvas).toHaveAttribute('data-readonly', 'true')
   await expect(canvas).toHaveAttribute('data-viewport-ready', 'true')
+  await badge.click()
   await expect(thread).toHaveClass(/is-active/)
   await expect(thread).toBeVisible()
   await expect(thread).toContainText('跨轮核对关闭功能时的拒绝出口。')
@@ -100,6 +105,7 @@ test('each round restores its zoom and reading position while the active discuss
   await expect.poll(async () => (await viewport(page)).zoom).toBeCloseTo(reading.zoom, 3)
   await expect.poll(async () => Math.abs((await viewport(page)).x - reading.x)).toBeLessThanOrEqual(1)
   await expect.poll(async () => Math.abs((await viewport(page)).y - reading.y)).toBeLessThanOrEqual(1)
+  await badge.click()
   await expect(thread).toHaveClass(/is-active/)
   await expect(thread).toContainText('第二轮已同步规则，请核对当前图与原始意见。')
   await expect(thread.getByRole('button', { name: '回复讨论', exact: true })).toBeEnabled()
@@ -116,12 +122,17 @@ test('mobile revision controls preserve canvas space and remain usable in system
   const canvas = page.getByLabel('业务流程画布', { exact: true })
   const current = page.getByRole('button', { name: '当前 R2', exact: true })
   const before = page.getByRole('button', { name: '修改前 R1', exact: true })
+  const tools = page.locator('summary[aria-label="画布工具"]')
+  const openTools = async () => {
+    if (!(await tools.evaluate(element => element.closest('details')?.open))) await tools.click()
+  }
   await expect(canvas).toHaveAttribute('data-viewport-ready', 'true')
   const light = await canvas.evaluate(element => getComputedStyle(element).backgroundColor)
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme })
     await expect(page.locator('.react-flow')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`))
     if (colorScheme === 'dark') await expect.poll(() => canvas.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(light)
+    await openTools()
     await expect(current).toHaveAttribute('aria-pressed', 'true')
     await expect(before).toBeInViewport({ ratio: 1 })
     await expect(current).toBeInViewport({ ratio: 1 })
@@ -131,6 +142,7 @@ test('mobile revision controls preserve canvas space and remain usable in system
     expect(currentLayout.visibleHeight).toBeGreaterThanOrEqual(570)
     expect(currentLayout.bottom).toBeLessThanOrEqual(845)
     await before.click()
+    await openTools()
     await expect(before).toHaveAttribute('aria-pressed', 'true')
     await expect(canvas).toHaveAttribute('data-readonly', 'true')
     await expect(canvas).toHaveAttribute('data-viewport-ready', 'true')
@@ -141,6 +153,7 @@ test('mobile revision controls preserve canvas space and remain usable in system
     expect(historicalLayout.bottom).toBeLessThanOrEqual(845)
     await expect(current).toBeInViewport({ ratio: 1 })
     await current.click()
+    await openTools()
     await expect(current).toHaveAttribute('aria-pressed', 'true')
     await expect(canvas).not.toHaveAttribute('data-readonly', 'true')
   }
