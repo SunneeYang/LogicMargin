@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn, execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { EventEmitter, once } from 'node:events'
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -15,6 +16,21 @@ import { sampleReview } from '../src/sample.ts'
 const execute = promisify(execFile)
 const native = process.env.LOGIC_MARGIN_TEST_NATIVE === '1'
 let packageDirectory, packagedRoot, packagedCli, packagedCommand
+
+const sourceText = '总等级升级不要求先解锁或上阵技能。\n失败时保留原等级、资格与上阵状态。\n'
+const sha256 = value => createHash('sha256').update(value).digest('hex')
+
+async function sourceReview(cwd, content = sourceText, previous = sampleReview) {
+  const review = structuredClone(previous)
+  review.comments = []
+  review.nodes.forEach(node => { node.evidence = [] })
+  const files = [{ path: 'logic.md', sha256: sha256(content) }]
+  const snippet = content.replaceAll('\r\n', '\n').replace(/\n$/, '')
+  review.nodes[0].evidence = [{ path: 'logic.md', symbol: '评审规则', startLine: 1, endLine: snippet.split('\n').length, digest: sha256(snippet) }]
+  review.snapshot = { ...review.snapshot, repository: cwd, commit: 'package-test-fixture', dirty: true, files, fingerprint: sha256(JSON.stringify(files)) }
+  await writeFile(join(cwd, 'logic.md'), content)
+  return review
+}
 
 before(async () => {
   packageDirectory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-native-package-'))
@@ -92,8 +108,7 @@ async function setup(t) {
 
 test('distributed CLI runs outside the repo and completes wait, reply, revision and recovery', async t => {
   const { cwd, call, run, poll } = await setup(t)
-  const review = structuredClone(sampleReview)
-  review.comments = []
+  const review = await sourceReview(cwd)
   await writeFile(join(cwd, 'review.json'), JSON.stringify(review))
   const started = await run(['start', 'review.json']).result
   assert.equal(started.code, 0, started.stderr)
@@ -122,12 +137,14 @@ test('distributed CLI runs outside the repo and completes wait, reply, revision 
   await writeFile(join(cwd, 'reply.txt'), '包级测试回应：已补充失败出口。\n请复核新版规则。')
   const replied = await run(['reply', identity.sessionId, comment.id, '--body-file', 'reply.txt']).result
   assert.equal(replied.code, 0, replied.stderr)
-  const next = structuredClone(review)
+  const next = await sourceReview(cwd, `${sourceText}失败时不扣升级费用。\n`, review)
   next.revision = 'package-test-v2'
-  next.snapshot.fingerprint = 'package-test-source-v2'
   next.nodes[0].detail += ' 包级测试补充规则。'
   await writeFile(join(cwd, 'next.json'), JSON.stringify(next))
-  const revised = await run(['revise', identity.sessionId, 'next.json']).result
+  const finalReply = '新版流程与依据已更新。\n请复核失败时不扣费。'
+  await writeFile(join(cwd, 'final-replies.json'), JSON.stringify([{ commentId: comment.id, body: finalReply }]))
+  const revised = await run(['revise', identity.sessionId, 'next.json', '--base-round', '1', '--summary', '补充失败时不扣升级费用的规则',
+    '--replies-file', 'final-replies.json']).result
   assert.equal(revised.code, 0, revised.stderr)
   assert.equal(JSON.parse(revised.stdout).round, 2)
   const resumed = await run(['resume', identity.sessionId]).result
@@ -139,7 +156,30 @@ test('distributed CLI runs outside the repo and completes wait, reply, revision 
   assert.equal(restored.review.comments[0].status, 'needs-review')
   assert.equal(restored.review.comments[0].revision, review.revision)
   assert.equal(restored.review.comments[0].replies[0].body, '包级测试回应：已补充失败出口。\n请复核新版规则。')
+  assert.equal(restored.review.comments[0].replies[1].body, finalReply)
+  assert.equal(restored.review.comments[0].replies[1].revision, next.revision)
+  assert.equal(restored.review.comments[0].replies[1].round, 2)
+  assert.equal(restored.snapshots[1].publication.baseRound, 1)
+  assert.deepEqual(restored.snapshots[1].publication.source.files, next.snapshot.files)
   assert.equal(restored.history.length, 1)
+})
+
+test('distributed verify checks real source files offline and rejects stale provenance', async t => {
+  const { cwd, run } = await setup(t)
+  const review = await sourceReview(cwd)
+  await writeFile(join(cwd, 'review.json'), JSON.stringify(review))
+  const env = { LOGIC_MARGIN_URL: 'http://127.0.0.1:1' }
+  const verified = await run(['verify', 'review.json'], env).result
+  assert.equal(verified.code, 0, verified.stderr)
+  const source = JSON.parse(verified.stdout)
+  assert.equal(source.algorithm, 'sha256-path-content-v1')
+  assert.equal(source.fingerprint, review.snapshot.fingerprint)
+  assert.deepEqual(source.files, review.snapshot.files)
+  await writeFile(join(cwd, 'logic.md'), `${sourceText}已修改但尚未重画流程。\n`)
+  const stale = await run(['verify', 'review.json'], env).result
+  assert.equal(stale.code, 1)
+  assert.match(stale.stderr, /来源文件已变化/)
+  assert.equal(stale.stdout, '')
 })
 
 test('packaged CLI honors explicit endpoint overrides and rejects malformed input', async t => {
@@ -147,8 +187,7 @@ test('packaged CLI honors explicit endpoint overrides and rejects malformed inpu
   const { cwd, base, call, run } = await setup(t)
   const help = await run(['--help']).result
   assert.equal(help.code, 0, help.stderr)
-  const review = structuredClone(sampleReview)
-  review.comments = []
+  const review = await sourceReview(cwd)
   await writeFile(join(cwd, 'valid.json'), JSON.stringify(review))
   const started = await run(['start', 'valid.json', '--url', base, '--public-url', 'http://100.64.0.10:5173'], {
     LOGIC_MARGIN_URL: 'http://127.0.0.1:1', LOGIC_MARGIN_PUBLIC_URL: 'http://100.64.0.11:5173',
@@ -180,8 +219,7 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
     await run(['server', 'stop'])
     await rm(directory, { recursive: true, force: true })
   })
-  const review = structuredClone(sampleReview)
-  review.comments = []
+  const review = await sourceReview(cwd)
   await writeFile(join(cwd, 'review.json'), JSON.stringify(review))
   const started = await run(['start', 'review.json'])
   assert.equal(started.code, 0, started.stderr)

@@ -1,12 +1,12 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import {
   ReactFlow, Background, Controls, Handle, Position, SelectionMode,
   MarkerType, useNodesState, useEdgesState,
 } from '@xyflow/react'
-import type { Edge, EdgeChange, Node, NodeProps, OnSelectionChangeParams, ReactFlowInstance } from '@xyflow/react'
+import type { Edge, EdgeChange, Node, NodeProps, OnSelectionChangeParams, ReactFlowInstance, Viewport } from '@xyflow/react'
 import { ChevronRight, MessageSquare, Pencil } from 'lucide-react'
-import type { ReviewChanges, ReviewDocument, ReviewNode, Target } from './types.ts'
-import { targetExists, targetLabel, targetSceneId } from './model.ts'
+import type { ReviewChanges, ReviewComment, ReviewDocument, ReviewEdge, ReviewNode, Target } from './types.ts'
+import { indexGraph, indexGraphComments, targetKey as keyOf } from './graph-index.ts'
 
 type Point = { x: number; y: number }
 type TargetRect = { left: number; right: number; top: number; bottom: number }
@@ -16,12 +16,16 @@ export interface GraphCanvasProps {
   sceneId: string
   selection: Target[]
   setSelection: (targets: Target[]) => void
-  changes: ReviewChanges
+  changes: ReviewChanges & { evidenceChanged?: Target[] }
   mode: 'pan' | 'select'
   onOpenComposer: (targets: Target[], point?: Point) => void
   onOpenThread: (commentId: string, point?: Point) => void
   onViewportChange?: () => void
   draftTargets?: Target[]
+  readOnly?: boolean
+  viewportKey?: string
+  changeSide?: 'before' | 'after'
+  commentOrder?: string[]
 }
 
 export interface GraphCanvasHandle {
@@ -33,21 +37,28 @@ export interface GraphCanvasHandle {
 type FlowNode = Node<{
   item: ReviewNode
   count: number
-  changed: boolean
+  change?: ChangeKind
+  readOnly: boolean
   hasBranch: boolean
   onComment: (target: Target, point: Point) => void
 }, 'review'>
 
 const kindLabels = { action: '操作', decision: '判断', result: '结果', failure: '失败出口' }
-const keyOf = (target: Target) => `${target.kind}:${target.id}`
+type ChangeKind = 'added' | 'changed' | 'removed' | 'evidence'
+const changeLabels: Record<ChangeKind, string> = { added: '新增', changed: '已修改', removed: '已移除', evidence: '依据更新' }
+const changeColors: Record<ChangeKind, string> = { added: 'var(--color-success)', changed: 'var(--color-warning)', removed: 'var(--color-error)', evidence: 'var(--color-accent)' }
+const savedViewports = new Map<string, { viewport: Viewport; width: number }>()
+const EMPTY_NODES: ReviewNode[] = []
+const EMPTY_EDGES: ReviewEdge[] = []
+const EMPTY_COMMENTS: ReviewComment[] = []
 
-function ReviewNodeView({ data }: NodeProps<FlowNode>) {
-  return <div className={`review-node kind-${data.item.kind} ${data.count ? 'has-comment' : ''} ${data.changed ? 'changed' : ''}`}>
+const ReviewNodeView = memo(function ReviewNodeView({ data }: NodeProps<FlowNode>) {
+  return <div className={`review-node kind-${data.item.kind} ${data.count ? 'has-comment' : ''} ${data.change ? `revision-${data.change}` : ''}`}>
     <Handle type="target" position={Position.Top} />
     <div className="node-topline">
       <span className="node-kind">{kindLabels[data.item.kind]}</span>
-      {data.changed && <span className="badge">已变化</span>}
-      <button className={`node-comment-button nodrag nopan ${data.count ? '' : 'is-empty'}`}
+      {data.change && <span className={`badge revision-badge revision-${data.change}`}>{changeLabels[data.change]}</span>}
+      {(!data.readOnly || data.count > 0) && <button className={`node-comment-button nodrag nopan ${data.count ? '' : 'is-empty'}`}
         aria-label={`批注：${data.item.title}${data.count ? `（${data.count} 条）` : ''}`}
         onClick={event => {
           event.stopPropagation()
@@ -55,7 +66,7 @@ function ReviewNodeView({ data }: NodeProps<FlowNode>) {
           data.onComment({ kind: 'node', id: data.item.id }, { x: rect.right, y: rect.bottom })
         }}>
         <MessageSquare size={13} /><span>{data.count || '批注'}</span>
-      </button>
+      </button>}
     </div>
     <strong className="node-title">{data.item.title}</strong>
     <p className="node-summary">{data.item.summary}</p>
@@ -63,7 +74,7 @@ function ReviewNodeView({ data }: NodeProps<FlowNode>) {
     <Handle type="source" position={Position.Bottom} />
     {data.hasBranch && <Handle id="branch" type="source" position={Position.Right} />}
   </div>
-}
+})
 
 const nodeTypes = { review: ReviewNodeView }
 const graphAriaLabels = {
@@ -74,9 +85,10 @@ const graphAriaLabels = {
   'edge.a11yDescription.default': '按回车或空格选择连线。按住 Shift 可多选。',
 }
 
-const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas({
+const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas({
   review, sceneId, selection, setSelection, changes, mode,
-  onOpenComposer, onOpenThread, onViewportChange, draftTargets = [],
+  onOpenComposer, onOpenThread, onViewportChange, draftTargets = [], readOnly = false,
+  viewportKey, changeSide = 'after', commentOrder,
 }, ref) {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([])
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([])
@@ -90,11 +102,32 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   const pendingFocus = useRef<string[] | null>(null)
   selectionRef.current = selection
 
-  const sceneNodes = useMemo(() => review.nodes.filter(node => node.sceneId === sceneId), [review.nodes, sceneId])
-  const multiObjectComments = review.comments.filter(comment => comment.targets.length > 1
-    && comment.targets.some(target => targetSceneId(review, target) === sceneId))
-  const hasSceneDraft = draftTargets.length > 0 && draftTargets.every(target => targetExists(review, target))
-    && draftTargets.some(target => target.kind === 'review' || targetSceneId(review, target) === sceneId)
+  const graphIndex = useMemo(() => indexGraph(review.nodes, review.edges, review.scenes), [review.nodes, review.edges, review.scenes])
+  const commentIndex = useMemo(() => indexGraphComments(review.comments, graphIndex.targetScenes), [review.comments, graphIndex])
+  const sceneNodes = graphIndex.nodesByScene.get(sceneId) ?? EMPTY_NODES
+  const sceneEdges = graphIndex.edgesByScene.get(sceneId) ?? EMPTY_EDGES
+  const multiObjectComments = commentIndex.multiObjectByScene.get(sceneId) ?? EMPTY_COMMENTS
+  const commentNumbers = useMemo(() => commentOrder
+    ? new Map(commentOrder.map((id, index) => [id, index + 1])) : commentIndex.numbers, [commentOrder, commentIndex])
+  const targetChanges = useMemo(() => {
+    const result = new Map<string, ChangeKind>()
+    for (const target of changes.evidenceChanged ?? []) result.set(keyOf(target), 'evidence')
+    for (const target of changes.changed) result.set(keyOf(target), 'changed')
+    for (const target of changeSide === 'after' ? changes.added : changes.removed) result.set(keyOf(target), changeSide === 'after' ? 'added' : 'removed')
+    return result
+  }, [changes.evidenceChanged, changes.changed, changes.added, changes.removed, changeSide])
+  const hasSceneDraft = draftTargets.length > 0 && draftTargets.every(target => target.kind === 'review'
+    ? target.id === review.id : graphIndex.targetScenes.has(keyOf(target)))
+    && draftTargets.some(target => target.kind === 'review' || graphIndex.targetScenes.get(keyOf(target)) === sceneId)
+
+  const saveViewport = useCallback(() => {
+    const flow = flowRef.current
+    const canvas = canvasRef.current
+    if (!viewportKey || !flow || !canvas || !layoutReady.current) return
+    savedViewports.delete(viewportKey)
+    savedViewports.set(viewportKey, { viewport: flow.getViewport(), width: canvas.clientWidth })
+    if (savedViewports.size > 200) savedViewports.delete(savedViewports.keys().next().value!)
+  }, [viewportKey])
 
   const updateLayout = useCallback(() => {
     const flow = flowRef.current
@@ -108,10 +141,15 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
       if (!items.length || items.some(node => !node.measured?.width || !node.measured?.height)) return
       layoutReady.current = true
       canvasSize.current = { width, height }
-      const markReady = () => { canvas.dataset.viewportReady = 'true' }
+      const markReady = () => { canvas.dataset.viewportReady = 'true'; saveViewport() }
       if (pendingFocus.current) {
         void flow.fitView({ nodes: pendingFocus.current.map(id => ({ id })), padding: 0.2, maxZoom: 0.9, duration: 0 }).then(markReady)
         pendingFocus.current = null
+        return
+      }
+      const saved = viewportKey ? savedViewports.get(viewportKey) : undefined
+      if (saved) {
+        void flow.setViewport({ ...saved.viewport, x: saved.viewport.x + (width - saved.width) / 2 }, { duration: 0 }).then(markReady)
         return
       }
       const zoom = 0.85
@@ -156,13 +194,19 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         y = Math.max(24 - rect.y * viewport.zoom, Math.min(y, height - 24 - (rect.y + rect.height) * viewport.zoom))
       }
     }
-    void flow.setViewport({ x, y, zoom: viewport.zoom }, { duration: 0 })
-  }, [])
+    void flow.setViewport({ x, y, zoom: viewport.zoom }, { duration: 0 }).then(saveViewport)
+  }, [viewportKey, saveViewport])
 
   const scheduleLayout = useCallback(() => {
     cancelAnimationFrame(layoutFrame.current)
     layoutFrame.current = requestAnimationFrame(updateLayout)
   }, [updateLayout])
+
+  useEffect(() => {
+    layoutReady.current = false
+    if (canvasRef.current) delete canvasRef.current.dataset.viewportReady
+    scheduleLayout()
+  }, [viewportKey, sceneId, scheduleLayout])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -178,42 +222,64 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   }, [nodes, scheduleLayout])
 
   const openComposer = useCallback((targets: Target[], point?: Point) => {
+    if (readOnly) return
     setSelection(targets)
     onOpenComposer(targets, point)
-  }, [setSelection, onOpenComposer])
+  }, [readOnly, setSelection, onOpenComposer])
 
   const openNodeComment = useCallback((target: Target, point: Point) => {
-    const latest = review.comments.findLast(comment => comment.targets.some(item => keyOf(item) === keyOf(target)))
-    if (latest) onOpenThread(latest.id, point)
+    const latest = commentIndex.latest.get(keyOf(target))
+    if (latest) onOpenThread(latest, point)
     else openComposer([target], point)
-  }, [review.comments, onOpenThread, openComposer])
+  }, [commentIndex, onOpenThread, openComposer])
+
+  const openContextComment = useCallback((target: Target, point: Point) => {
+    if (readOnly) openNodeComment(target, point)
+    else openComposer([target], point)
+  }, [readOnly, openNodeComment, openComposer])
 
   useEffect(() => {
-    const failureIds = new Set(review.nodes.filter(node => node.kind === 'failure').map(node => node.id))
-    const branchSources = new Set(review.edges.filter(edge => failureIds.has(edge.target)).map(edge => edge.source))
-    setNodes(sceneNodes.map(item => ({
-      id: item.id, type: 'review', position: item.position, ariaLabel: item.title,
-      selected: selectionRef.current.some(target => target.kind === 'node' && target.id === item.id),
-      data: {
-        item,
-        count: review.comments.filter(comment => comment.targets.some(target => target.kind === 'node' && target.id === item.id)).length,
-        changed: [...changes.added, ...changes.changed].some(target => target.kind === 'node' && target.id === item.id),
-        hasBranch: branchSources.has(item.id), onComment: openNodeComment,
-      },
-    })))
-    setEdges(review.edges.filter(edge => edge.sceneId === sceneId).map(item => ({
-      id: item.id, source: item.source, target: item.target,
-      sourceHandle: failureIds.has(item.target) ? 'branch' : undefined,
-      label: `${item.label}${review.comments.some(comment => comment.targets.some(target => target.kind === 'edge' && target.id === item.id)) ? ' · 有批注' : ''}`,
-      type: 'smoothstep', ariaLabel: `${targetLabel(review, { kind: 'node', id: item.source })}：${item.label}`,
-      selected: selectionRef.current.some(target => target.kind === 'edge' && target.id === item.id),
-      markerEnd: { type: MarkerType.ArrowClosed }, interactionWidth: 28,
-    })))
-  }, [sceneNodes, review, sceneId, changes, setNodes, setEdges, openNodeComment])
+    const selected = new Set(selectionRef.current.map(keyOf))
+    setNodes(sceneNodes.map(item => {
+      const key = `node:${item.id}`
+      const change = targetChanges.get(key)
+      return {
+        id: item.id, type: 'review', position: item.position, ariaLabel: `${item.title}${change ? `，${changeLabels[change]}` : ''}`,
+        selected: selected.has(key),
+        data: {
+          item,
+          count: commentIndex.counts.get(key) ?? 0,
+          change, readOnly,
+          hasBranch: graphIndex.branchSources.has(item.id), onComment: openNodeComment,
+        },
+      }
+    }))
+    setEdges(sceneEdges.map(item => {
+      const key = `edge:${item.id}`
+      const change = targetChanges.get(key)
+      return {
+        id: item.id, source: item.source, target: item.target,
+        sourceHandle: graphIndex.failureIds.has(item.target) ? 'branch' : undefined,
+        label: `${item.label}${change ? ` · ${changeLabels[change]}` : ''}${commentIndex.counts.has(key) ? ' · 有批注' : ''}`,
+        type: 'smoothstep', ariaLabel: `${graphIndex.nodesById.get(item.source)?.title ?? `已移除节点 · ${item.source}`}：${item.label}${change ? `，${changeLabels[change]}` : ''}`,
+        selected: selected.has(key),
+        className: change ? `revision-${change}` : undefined,
+        style: change ? { stroke: changeColors[change], strokeWidth: 2 } : undefined,
+        markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
+      }
+    }))
+  }, [sceneNodes, sceneEdges, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment])
 
   useEffect(() => {
-    setNodes(items => items.map(node => ({ ...node, selected: selection.some(target => target.kind === 'node' && target.id === node.id) })))
-    setEdges(items => items.map(edge => ({ ...edge, selected: selection.some(target => target.kind === 'edge' && target.id === edge.id) })))
+    const selected = new Set(selection.map(keyOf))
+    setNodes(items => {
+      const next = items.map(node => !!node.selected === selected.has(`node:${node.id}`) ? node : { ...node, selected: selected.has(`node:${node.id}`) })
+      return next.some((node, index) => node !== items[index]) ? next : items
+    })
+    setEdges(items => {
+      const next = items.map(edge => !!edge.selected === selected.has(`edge:${edge.id}`) ? edge : { ...edge, selected: selected.has(`edge:${edge.id}`) })
+      return next.some((edge, index) => edge !== items[index]) ? next : items
+    })
   }, [selection, setNodes, setEdges])
 
   const onEdgesChange = useCallback((edgeChanges: EdgeChange<Edge>[]) => {
@@ -224,6 +290,8 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   }, [applyEdgeChanges])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+    // React Flow emits an empty selection before a remounted graph has received its nodes.
+    if (!layoutReady.current) return
     const next: Target[] = [
       ...selectedNodes.map(node => ({ kind: 'node' as const, id: node.id })),
       ...selectedEdges.map(edge => ({ kind: 'edge' as const, id: edge.id })),
@@ -254,10 +322,10 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         sceneNodes.forEach(node => nodeIds.add(node.id))
       } else {
         targets.forEach(target => {
-          if (targetSceneId(review, target) !== sceneId) return
+          if (graphIndex.targetScenes.get(keyOf(target)) !== sceneId) return
           if (target.kind === 'node') nodeIds.add(target.id)
           if (target.kind === 'edge') {
-            const edge = review.edges.find(item => item.id === target.id)
+            const edge = graphIndex.edgesById.get(target.id)
             if (edge) { nodeIds.add(edge.source); nodeIds.add(edge.target) }
           }
         })
@@ -267,16 +335,16 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         else { pendingFocus.current = [...nodeIds]; scheduleLayout() }
       }
     },
-  }), [review, sceneId, sceneNodes, scheduleLayout])
+  }), [graphIndex, sceneId, sceneNodes, scheduleLayout])
 
-  return <div ref={canvasRef} className="canvas" aria-label="业务流程画布" onPointerCancelCapture={() => { marqueeRef.current = false }}>
+  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label="业务流程画布" data-readonly={readOnly || undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}>
     <ReactFlow<FlowNode, Edge> nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="system"
-      onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={onViewportChange}
+      onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={() => { saveViewport(); onViewportChange?.() }}
       onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onSelectionChange={onSelectionChange}
       onSelectionStart={() => { marqueeRef.current = true }} onSelectionEnd={() => { marqueeRef.current = false }}
-      onNodeContextMenu={(event, node) => { event.preventDefault(); openComposer([{ kind: 'node', id: node.id }], { x: event.clientX, y: event.clientY }) }}
-      onEdgeContextMenu={(event, edge) => { event.preventDefault(); openComposer([{ kind: 'edge', id: edge.id }], { x: event.clientX, y: event.clientY }) }}
-      onEdgeDoubleClick={(event, edge) => openComposer([{ kind: 'edge', id: edge.id }], { x: event.clientX, y: event.clientY })}
+      onNodeContextMenu={(event, node) => { event.preventDefault(); openContextComment({ kind: 'node', id: node.id }, { x: event.clientX, y: event.clientY }) }}
+      onEdgeContextMenu={(event, edge) => { event.preventDefault(); openContextComment({ kind: 'edge', id: edge.id }, { x: event.clientX, y: event.clientY }) }}
+      onEdgeDoubleClick={(event, edge) => openContextComment({ kind: 'edge', id: edge.id }, { x: event.clientX, y: event.clientY })}
       nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
       selectionOnDrag={mode === 'select'} selectionKeyCode={null} selectionMode={SelectionMode.Partial}
       panOnDrag={mode === 'pan' ? [0, 1, 2] : [1, 2]} multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
@@ -285,7 +353,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
       <Background gap={24} size={1} />
       <Controls showInteractive={false} />
     </ReactFlow>
-    {!!selection.length && <div className="canvas-selection-actions">
+    {!readOnly && !!selection.length && <div className="canvas-selection-actions">
       <button className="button primary" onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
         openComposer(selection, { x: rect.left, y: rect.bottom })
@@ -293,17 +361,17 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     </div>}
     {!!multiObjectComments.length && <nav className="canvas-comment-index" aria-label="多目标批注">
       {multiObjectComments.map(comment => <button key={comment.id} className={`button status-${comment.status}`}
-        aria-label={`批注 ${review.comments.indexOf(comment) + 1}，涉及 ${comment.targets.length} 项`}
+        aria-label={`批注 ${commentNumbers.get(comment.id)}，涉及 ${comment.targets.length} 项`}
         onClick={event => {
           const rect = event.currentTarget.getBoundingClientRect()
           onOpenThread(comment.id, { x: rect.right, y: rect.bottom })
-        }}><MessageSquare size={13} />#{review.comments.indexOf(comment) + 1} · {comment.targets.length} 项</button>)}
+        }}><MessageSquare size={13} />#{commentNumbers.get(comment.id)} · {comment.targets.length} 项</button>)}
     </nav>}
-    {hasSceneDraft && <button className="button canvas-draft-indicator" onClick={event => {
+    {!readOnly && hasSceneDraft && <button className="button canvas-draft-indicator" onClick={event => {
       const rect = event.currentTarget.getBoundingClientRect()
       openComposer(draftTargets, { x: rect.right, y: rect.bottom })
     }}><Pencil size={13} />继续草稿 · {draftTargets.length} 项</button>}
   </div>
-})
+}))
 
 export default GraphCanvas

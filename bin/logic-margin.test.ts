@@ -1,21 +1,42 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import type { IncomingMessage } from 'node:http'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import type { TestContext } from 'node:test'
 import { runCli } from './logic-margin.ts'
 import { addComment, parseReview } from '../src/model.ts'
 import { createApprovalRecord, createFeedbackPackage } from '../src/workspace.ts'
 import { sampleReview } from '../src/sample.ts'
-import type { ReviewSession } from '../src/session-types.ts'
+import type { ReviewSession, ReviseRequest } from '../src/session-types.ts'
 
 function fixture(): ReviewSession {
   const review = addComment(structuredClone(sampleReview), [{ kind: 'review', id: sampleReview.id }], '请核对扣费顺序')
   return { schemaVersion: 1, id: 'session-1', version: 1, round: 1, phase: 'awaiting-review',
     createdAt: '2026-11-02T00:00:00Z', updatedAt: '2026-11-02T00:00:00Z', review, history: [],
     snapshots: [{ round: 1, openedAt: '2026-11-02T00:00:00Z', review: structuredClone(review) }] }
+}
+
+async function revisionFixture(t: TestContext, current = fixture()) {
+  const dir = await mkdtemp(join(tmpdir(), 'logic-margin-cli-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const content = 'check()\nchargeAfterSuccess()\n'
+  const digest = (value: string) => createHash('sha256').update(value).digest('hex')
+  const files = [{ path: 'logic.ts', sha256: digest(content) }]
+  const next = structuredClone(current.review)
+  next.revision = 'next'
+  next.nodes.forEach(node => { node.evidence = [] })
+  next.nodes[0].evidence = [{ path: 'logic.ts', symbol: 'check', startLine: 1, endLine: 2, digest: digest(content.slice(0, -1)) }]
+  next.snapshot.files = files
+  next.snapshot.fingerprint = digest(JSON.stringify(files))
+  const review = parseReview(next)
+  const reviewFile = join(dir, 'next.json')
+  await writeFile(join(dir, 'logic.ts'), content)
+  await writeFile(reviewFile, JSON.stringify(review))
+  return { dir, reviewFile, next: review }
 }
 
 function output() {
@@ -174,16 +195,16 @@ test('resume waits for the published round and does not redeliver an old approva
 
 test('reply sends a multiline agent reply without a resolve mutation; revise publishes an exact version', async t => {
   const current = fixture()
-  const dir = await mkdtemp(join(tmpdir(), 'logic-margin-cli-'))
-  t.after(() => rm(dir, { recursive: true, force: true }))
-  const bodyFile = join(dir, 'reply.txt'), reviewFile = join(dir, 'next.json')
+  const { dir, reviewFile, next } = await revisionFixture(t, current)
+  const bodyFile = join(dir, 'reply.txt'), repliesFile = join(dir, 'replies.json')
   await writeFile(bodyFile, '已调整扣费时点。\n\n请复核失败出口。')
-  const next = { ...current.review, revision: 'next', snapshot: { ...current.review.snapshot, fingerprint: 'next-fingerprint' } }
-  await writeFile(reviewFile, JSON.stringify(next))
+  const replies = [{ commentId: current.review.comments[0].id, body: '已同步新流程。\n\n请在新版复核。' }]
+  await writeFile(repliesFile, JSON.stringify(replies))
   let mutations = 0, revisions = 0
   const server = await api(async request => {
     if (request.url?.endsWith('/mutations')) {
-      const payload = await bodyOf(request) as { revision: string; fingerprint: string; mutations: { kind: string; reply: { author: string; body: string } }[] }
+      const payload = await bodyOf(request) as { round: number; revision: string; fingerprint: string; mutations: { kind: string; reply: { author: string; body: string } }[] }
+      assert.equal(payload.round, current.round)
       assert.equal(payload.revision, current.review.revision)
       assert.equal(payload.fingerprint, current.review.snapshot.fingerprint)
       assert.equal(payload.mutations.length, 1)
@@ -194,7 +215,17 @@ test('reply sends a multiline agent reply without a resolve mutation; revise pub
       return { ...current, version: 2 }
     }
     if (request.url?.endsWith('/revise')) {
-      assert.deepEqual(await bodyOf(request), { expectedVersion: 1, review: parseReview(next) })
+      const payload = await bodyOf(request) as ReviseRequest
+      assert.equal(payload.expectedVersion, current.version)
+      assert.deepEqual(payload.review, next)
+      assert.equal(payload.publication.baseRound, current.round)
+      assert.equal(payload.publication.summary, '改为成功后扣费')
+      assert.equal(payload.publication.unchangedReason, '此项用于说明确认过的原有流程')
+      assert.equal(payload.publication.source.algorithm, 'sha256-path-content-v1')
+      assert.ok(Number.isFinite(Date.parse(payload.publication.source.checkedAt)))
+      assert.deepEqual(payload.publication.source.files, next.snapshot.files)
+      assert.equal(payload.publication.source.fingerprint, next.snapshot.fingerprint)
+      assert.deepEqual(payload.replies, replies)
       revisions++
       return { ...current, version: 2, round: 2, review: next }
     }
@@ -203,14 +234,64 @@ test('reply sends a multiline agent reply without a resolve mutation; revise pub
   t.after(server.close)
   await runCli(['reply', current.id, current.review.comments[0].id, '--body-file', bodyFile, '--url', server.url], output().io)
   const result = output()
-  await runCli(['revise', current.id, reviewFile, '--url', server.url], result.io)
+  await runCli(['revise', current.id, reviewFile, '--source-root', dir, '--base-round', '1', '--summary', ' 改为成功后扣费 ',
+    '--unchanged-reason', '此项用于说明确认过的原有流程', '--replies-file', repliesFile, '--url', server.url], result.io)
   assert.equal(mutations, 1)
   assert.equal(revisions, 1)
   assert.equal(result.value.round, 2)
 })
 
+test('verify checks source provenance offline and prints a complete manifest', async t => {
+  const { dir, reviewFile, next } = await revisionFixture(t)
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => { requests++; throw new Error('unexpected network access') })
+  const result = output()
+  await runCli(['verify', reviewFile, '--source-root', dir, '--url', 'http://127.0.0.1:1'], result.io)
+  assert.equal(requests, 0)
+  assert.equal(result.value.algorithm, 'sha256-path-content-v1')
+  assert.deepEqual(result.value.files, next.snapshot.files)
+  assert.equal(result.value.fingerprint, next.snapshot.fingerprint)
+  assert.equal(result.err, '')
+})
+
+test('revise rejects stale source and invalid final replies before contacting a service', async t => {
+  const { dir, reviewFile } = await revisionFixture(t)
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => { requests++; throw new Error('unexpected network access') })
+  await writeFile(join(dir, 'logic.ts'), 'oldGraphNoLongerMatches()\n')
+  const args = ['revise', 'session-1', reviewFile, '--source-root', dir, '--base-round', '1', '--summary', '改为成功后扣费', '--url', 'http://127.0.0.1:1']
+  await assert.rejects(runCli(args, output().io), /来源文件已变化/)
+  await writeFile(join(dir, 'logic.ts'), 'check()\nchargeAfterSuccess()\n')
+  const repliesFile = join(dir, 'replies.json')
+  await writeFile(repliesFile, JSON.stringify([{ commentId: 'comment-1', body: '  ' }]))
+  await assert.rejects(runCli([...args, '--replies-file', repliesFile], output().io), /发布回复须包含/)
+  assert.equal(requests, 0)
+})
+
+test('revise requires the reviewed round and refuses a stale draft before publication', async t => {
+  const { dir, reviewFile } = await revisionFixture(t)
+  await assert.rejects(runCli(['revise', 'session-1', reviewFile, '--summary', '改为成功后扣费'], output().io), /需要 --base-round/)
+  const current = fixture()
+  current.round = 2
+  current.snapshots.push({ ...structuredClone(current.snapshots[0]), round: 2 })
+  let publications = 0
+  const server = await api(request => {
+    if (request.method === 'POST') publications++
+    return current
+  })
+  t.after(server.close)
+  await assert.rejects(runCli(['revise', current.id, reviewFile, '--source-root', dir, '--base-round', '1',
+    '--summary', '改为成功后扣费', '--url', server.url], output().io), /基于第 1 轮.*会话已是第 2 轮/)
+  assert.equal(publications, 0)
+})
+
 test('CLI rejects unsupported commands and invalid options before contacting a server', async () => {
-  for (const args of [['resolve', 'id'], ['get', 'id', '--wait'], ['wait', 'id', '--timeout', '0'], ['get', 'id', '--url', 'file:///tmp/review']]) {
+  for (const args of [['resolve', 'id'], ['get', 'id', '--wait'], ['wait', 'id', '--timeout', '0'], ['get', 'id', '--url', 'file:///tmp/review'],
+    ['revise', 'id', 'review.json'], ['revise', 'id', 'review.json', '--base-round', '1', '--summary', '  '], ['verify', 'review.json', '--wait'],
+    ['get', 'id', '--source-root', '.'], ['get', 'id', '--summary', 'summary'], ['start', 'review.json', '--replies-file', 'replies.json'],
+    ['get', 'id', '--base-round', '1'], ['start', 'review.json', '--base-round', '1'], ['verify', 'review.json', '--base-round', '1'],
+    ['revise', 'id', 'review.json', '--base-round', '0'], ['revise', 'id', 'review.json', '--base-round', '1.5'],
+    ['revise', 'id', 'review.json', '--base-round', '51']]) {
     await assert.rejects(runCli(args, output().io))
   }
 })

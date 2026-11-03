@@ -48,6 +48,12 @@ function unique<T extends { id: string }>(values: T[], label: string): T[] {
   return values
 }
 
+function round(value: unknown, label: string) {
+  const result = number(value, label, true)
+  if (result > 50) throw new Error(`${label}最多 50 轮`)
+  return result
+}
+
 function targets(value: unknown): Target[] {
   const result = list(value, '批注目标', 500).map(value => {
     const target = object(value, '批注目标')
@@ -62,7 +68,8 @@ function replies(value: unknown): CommentReply[] {
   return unique(list(value, '批注回复', 500).map(value => {
     const reply = object(value, '批注回复')
     return { id: id(reply.id, '回复 ID'), author: choice(reply.author, ['reviewer', 'agent'] as const, '回复作者'),
-      body: text(reply.body, '回复内容', 10000, true), createdAt: date(reply.createdAt, '回复日期'), revision: id(reply.revision, '回复版本') }
+      body: text(reply.body, '回复内容', 10000, true), createdAt: date(reply.createdAt, '回复日期'), revision: id(reply.revision, '回复版本'),
+      ...(reply.round === undefined ? {} : { round: round(reply.round, '回复轮次') }) }
   }), '批注回复')
 }
 
@@ -115,6 +122,8 @@ export function parseReview(value: unknown): ReviewDocument {
       status: choice(comment.status, ['open', 'resolved', 'needs-review'] as const, '批注状态'),
       createdAt: date(comment.createdAt, '批注日期'), revision: id(comment.revision, '批注版本'),
       ...(comment.reviewedRevision === undefined ? {} : { reviewedRevision: id(comment.reviewedRevision, '人工复核版本') }),
+      ...(comment.originRound === undefined ? {} : { originRound: round(comment.originRound, '提出轮次') }),
+      ...(comment.reviewedRound === undefined ? {} : { reviewedRound: round(comment.reviewedRound, '复核轮次') }),
       ...(comment.replies === undefined ? {} : { replies: replies(comment.replies) }) }
   }), '批注')
   const revision = id(review.revision, '评审版本')
@@ -122,7 +131,8 @@ export function parseReview(value: unknown): ReviewDocument {
     schemaVersion: 1, id: id(review.id, '评审 ID'), title: text(review.title, '评审标题', 200, true),
     description: text(review.description, '评审说明', 10000), revision,
     snapshot: { repository: text(snapshot.repository, '仓库路径', 2000, true), commit: text(snapshot.commit, '代码提交', 200, true),
-      fingerprint: text(snapshot.fingerprint, '快照指纹', 200, true), capturedAt: date(snapshot.capturedAt, '快照日期'), dirty: snapshot.dirty },
+      fingerprint: text(snapshot.fingerprint, '快照指纹', 200, true), capturedAt: date(snapshot.capturedAt, '快照日期'), dirty: snapshot.dirty,
+      ...(snapshot.files === undefined ? {} : { files: parseSourceFiles(snapshot.files) }) },
     coverage: { included: list(coverage.included, '已覆盖范围', 100).map(value => text(value, '已覆盖说明')),
       excluded: list(coverage.excluded, '未覆盖范围', 100).map(value => text(value, '未覆盖说明')), note: text(coverage.note, '覆盖范围说明', 10000) },
     scenes, nodes, edges, comments,
@@ -133,6 +143,19 @@ export function parseReview(value: unknown): ReviewDocument {
   }))
   serializeReview(result)
   return result
+}
+
+export function parseSourceFiles(value: unknown) {
+  const files = list(value, '来源文件清单', 2000).map(value => {
+    const file = object(value, '来源文件')
+    const path = text(file.path, '来源路径', 2000, true)
+    if (path.startsWith('/') || path.includes('\\') || /^[a-zA-Z]:/.test(path) || path.split('/').some(part => !part || part === '.' || part === '..') || /[\x00-\x1f]/.test(path)) throw new Error('来源路径必须是工作区内的规范相对路径')
+    const sha256 = text(file.sha256, '来源文件摘要', 64, true)
+    if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('来源摘要必须是 SHA-256')
+    return { path, sha256 }
+  })
+  if (!files.length || new Set(files.map(file => file.path)).size !== files.length) throw new Error('来源文件清单不能为空或包含重复路径')
+  return files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
 }
 
 const targetKey = (target: Target) => `${target.kind}:${target.id}`

@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { SessionError, SessionStore } from './session-store.ts'
+import { sendJson } from './http-response.ts'
 
 const PREFIX = '/api/review-sessions'
 const MAX_BODY_BYTES = 11 * 1024 * 1024
@@ -17,10 +18,6 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) }
   catch { throw new SessionError('请求 JSON 无效') }
-}
-function json(response: ServerResponse, status: number, value: unknown) {
-  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
-  response.end(JSON.stringify(value))
 }
 function checkOrigin(request: IncomingMessage) {
   const origin = request.headers.origin
@@ -40,15 +37,22 @@ export function createSessionApi(options: { dataDir?: string } = {}) {
     if (path !== PREFIX && !path?.startsWith(`${PREFIX}/`)) { next(); return }
     void (async () => {
       const url = new URL(request.url!, 'http://localhost')
+      const view = url.searchParams.get('view') === 'current' ? 'current' : undefined
+      const json = (status: number, value: unknown) => sendJson(request, response, status, value)
       if (request.method === 'POST') checkOrigin(request)
       if (path === PREFIX && request.method === 'POST') {
         const body = await readBody(request)
         if (!body || typeof body !== 'object' || Array.isArray(body) || !('review' in body)) throw new SessionError('缺少评审流程')
-        json(response, 201, await store.create(body.review)); return
+        json(201, await store.create(body.review, view)); return
       }
-      const match = path!.match(/^\/api\/review-sessions\/([^/]+)(?:\/(mutations|finish|ack|revise))?$/)
+      const match = path!.match(/^\/api\/review-sessions\/([^/]+)(?:\/(mutations|finish|ack|revise)|\/(snapshots|records)\/([^/]+))?$/)
       if (!match) throw new SessionError('找不到此审查接口', 404)
-      const [, sessionId, action] = match
+      const [, sessionId, action, resource, resourceId] = match
+      if (resource) {
+        if (request.method !== 'GET') throw new SessionError('此接口仅支持读取', 405)
+        const value = resource === 'snapshots' ? await store.getSnapshot(sessionId, Number(resourceId)) : await store.getRecord(sessionId, decodeURIComponent(resourceId))
+        sendJson(request, response, 200, value); return
+      }
       if (!action && request.method === 'GET') {
         if (url.searchParams.has('afterVersion')) {
           const afterVersion = Number(url.searchParams.get('afterVersion'))
@@ -58,25 +62,25 @@ export function createSessionApi(options: { dataDir?: string } = {}) {
           const closed = () => controller.abort()
           response.on('close', closed)
           try {
-            const session = await store.waitForChange(sessionId, afterVersion, Math.min(waitMs, 25000), controller.signal)
-            if (!response.destroyed) { if (session) json(response, 200, session); else { response.writeHead(204, { 'Cache-Control': 'no-store' }); response.end() } }
+            const session = await store.waitForChange(sessionId, afterVersion, Math.min(waitMs, 25000), controller.signal, view)
+            if (!response.destroyed) { if (session) json(200, session); else { response.writeHead(204, { 'Cache-Control': 'no-store' }); response.end() } }
           } finally { response.off('close', closed) }
-        } else json(response, 200, await store.get(sessionId))
+        } else json(200, await store.get(sessionId, view))
         return
       }
       if (action && request.method === 'POST') {
         const body = await readBody(request)
-        const session = action === 'mutations' ? await store.mutate(sessionId, body)
-          : action === 'finish' ? await store.finish(sessionId, body)
-          : action === 'ack' ? await store.acknowledge(sessionId, body)
-          : await store.revise(sessionId, body)
-        json(response, 200, session); return
+        const session = action === 'mutations' ? await store.mutate(sessionId, body, view)
+          : action === 'finish' ? await store.finish(sessionId, body, view)
+          : action === 'ack' ? await store.acknowledge(sessionId, body, view)
+          : await store.revise(sessionId, body, view)
+        json(200, session); return
       }
       throw new SessionError('此接口不支持该方法', 405)
     })().catch(error => {
       if (response.destroyed || response.headersSent) return
       const status = error instanceof SessionError ? error.status : 400
-      json(response, status, { error: error instanceof Error ? error.message : '审查服务错误' })
+      sendJson(request, response, status, { error: error instanceof Error ? error.message : '审查服务错误' })
     })
   }
 }

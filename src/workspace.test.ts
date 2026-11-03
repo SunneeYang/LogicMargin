@@ -175,3 +175,13 @@ test('unchanged target reordering is not new feedback but a new human reply or o
   reordered.comments[0].body = '修订意见'
   assert.deepEqual(pendingFeedback(reordered, [feedback]), reordered.comments)
 })
+
+test('latest submitted content is indexed per thread and equal timestamps keep later record precedence', () => {
+  const one = addComment(fixture(), [{ kind: 'node', id: 'check' }], '第一条')
+  const first = createFeedbackPackage(one)
+  const updated = addReply(one, one.comments[0].id, '新的人类说明')
+  const sameTime = { ...createFeedbackPackage(updated), createdAt: first.createdAt }
+  const two = addComment(updated, [{ kind: 'scene', id: 'level' }], '第二条')
+  assert.deepEqual(pendingFeedback(two, [first, sameTime]).map(comment => comment.body), ['第二条'])
+  assert.deepEqual(pendingFeedback(two, [sameTime, first]).map(comment => comment.body), ['第一条', '第二条'])
+})

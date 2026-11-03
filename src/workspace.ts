@@ -142,26 +142,25 @@ export function parseRecordHistory(value: unknown): ReviewRecord[] {
   return [...byId.values()]
 }
 
-function humanFeedback(comment: ReviewComment): string {
+export function humanFeedback(comment: ReviewComment): string {
   return JSON.stringify([comment.body, comment.targets.map(target => [target.kind, target.id]).sort(),
     (comment.replies ?? []).filter(reply => reply.author === 'reviewer')
       .map(reply => [reply.id, reply.body, reply.createdAt, reply.revision]).sort()])
 }
 
 export function pendingFeedback(review: ReviewDocument, history: ReviewRecord[]): ReviewComment[] {
+  const latestByComment = new Map<string, { record: ReviewRecord; comment: ReviewComment; time: number }>()
+  for (const record of history) {
+    if (record.kind !== 'logic-margin-feedback' || record.review.id !== review.id) continue
+    const time = Date.parse(record.createdAt)
+    for (const comment of record.review.comments) {
+      if (time >= (latestByComment.get(comment.id)?.time ?? -Infinity)) latestByComment.set(comment.id, { record, comment, time })
+    }
+  }
   return review.comments.filter(comment => {
     if (comment.status !== 'open') return false
-    let latest: ReviewRecord | undefined
-    let submitted: ReviewComment | undefined
-    for (const item of history) {
-      if (item.kind !== 'logic-margin-feedback' || item.review.id !== review.id) continue
-      const match = item.review.comments.find(candidate => candidate.id === comment.id)
-      if (match && (!latest || Date.parse(item.createdAt) >= Date.parse(latest.createdAt))) {
-        latest = item
-        submitted = match
-      }
-    }
-    return !latest || !submitted || latest.review.revision !== review.revision ||
-      latest.review.snapshot.fingerprint !== review.snapshot.fingerprint || humanFeedback(submitted) !== humanFeedback(comment)
+    const submitted = latestByComment.get(comment.id)
+    return !submitted || submitted.record.review.revision !== review.revision ||
+      submitted.record.review.snapshot.fingerprint !== review.snapshot.fingerprint || humanFeedback(submitted.comment) !== humanFeedback(comment)
   })
 }

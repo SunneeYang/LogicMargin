@@ -1,12 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, unlink, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { createHash } from 'node:crypto'
 import { SessionStore } from './session-store.ts'
 import { sampleReview } from '../src/sample.ts'
 import { addComment, addReply } from '../src/model.ts'
-import type { ReviewSession } from '../src/session-types.ts'
+import type { RevisionPublication, ReviewSession } from '../src/session-types.ts'
+import type { ReviewDocument } from '../src/types.ts'
 
 async function setup(t: { after: (run: () => Promise<void>) => void }) {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-store-'))
@@ -19,16 +21,26 @@ async function setup(t: { after: (run: () => Promise<void>) => void }) {
 }
 function commentBatch(state: ReviewSession, body = '此校验是否应在扣费之前？') {
   const next = addComment(state.review, [{ kind: 'node', id: state.review.nodes[0].id }], body)
-  return { revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint, mutations: [{ kind: 'add-comment', comment: next.comments.at(-1)! }] }
+  return { round: state.round, revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint, mutations: [{ kind: 'add-comment', comment: next.comments.at(-1)! }] }
 }
 function statusBatch(state: ReviewSession, status: 'open' | 'resolved' | 'needs-review') {
-  return { revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint, expectedVersion: state.version,
+  return { round: state.round, revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint, expectedVersion: state.version,
     mutations: [{ kind: 'set-status', commentId: state.review.comments[0].id, from: state.review.comments[0].status, status, reviewedRevision: state.review.revision }] }
 }
 function replyBatch(state: ReviewSession, body = '已调整校验顺序') {
   const next = addReply(state.review, state.review.comments[0].id, body, 'agent')
-  return { revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint,
+  return { round: state.round, revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint,
     mutations: [{ kind: 'add-reply', commentId: state.review.comments[0].id, reply: next.comments[0].replies!.at(-1)! }] }
+}
+function revision(state: ReviewSession, review: ReviewDocument = structuredClone(state.review)) {
+  const digest = createHash('sha256').update('verified fixture source\n').digest('hex')
+  const files = [{ path: 'source.ts', sha256: digest }]
+  const fingerprint = createHash('sha256').update(JSON.stringify(files)).digest('hex')
+  review.snapshot = { ...review.snapshot, files, fingerprint }
+  review.nodes = review.nodes.map((node, index) => ({ ...node, evidence: index ? [] : [{ path: 'source.ts', symbol: 'fixture', startLine: 1, endLine: 1, digest }] }))
+  const publication: RevisionPublication = { baseRound: state.round, summary: '根据本轮意见重新核对来源并发布',
+    source: { algorithm: 'sha256-path-content-v1', checkedAt: new Date().toISOString(), files, fingerprint }, unchangedReason: '本轮补充说明，已核对业务流程未变' }
+  return { expectedVersion: state.version, review, publication }
 }
 
 test('saving is separate from Finish; submissions, acknowledgement and opinions survive restart', async t => {
@@ -39,6 +51,7 @@ test('saving is separate from Finish; submissions, acknowledgement and opinions 
   const submitted = await store.finish(session.id, { expectedVersion: saved.version, kind: 'feedback', submissionId: 'finish-1' })
   assert.equal(submitted.phase, 'feedback-ready')
   assert.equal(submitted.history[0].review.comments.length, 1)
+  await assert.rejects(store.mutate(session.id, statusBatch(submitted, 'resolved')), /尚未发布/)
   const acknowledged = await store.acknowledge(session.id, { submissionId: 'finish-1' })
   assert.equal(acknowledged.phase, 'agent-working')
   assert.deepEqual(await store.acknowledge(session.id, { submissionId: 'finish-1' }), acknowledged)
@@ -65,14 +78,22 @@ test('concurrent appends merge, retry does not duplicate, conflicts and batches 
 test('agent replies require human recheck; unseen replies prevent stale resolution and approval', async t => {
   const { store, session } = await setup(t)
   const saved = await store.mutate(session.id, commentBatch(session))
+  const replyAndResolve = replyBatch(saved)
+  await assert.rejects(store.mutate(session.id, { ...replyAndResolve, expectedVersion: saved.version,
+    mutations: [...replyAndResolve.mutations, { ...statusBatch(saved, 'resolved').mutations[0], from: 'needs-review' }] }), /尚未发布/)
+  assert.deepEqual(await store.get(session.id), saved)
   const firstReply = await store.mutate(session.id, replyBatch(saved))
   assert.equal(firstReply.review.comments[0].status, 'needs-review')
+  assert.equal(firstReply.phase, 'agent-working')
   const attemptedResolution = statusBatch(firstReply, 'resolved')
   const secondReply = await store.mutate(session.id, replyBatch(firstReply, '补充说明'))
   await assert.rejects(store.mutate(session.id, attemptedResolution), /最新回复/)
   await assert.rejects(store.finish(session.id, { kind: 'approval', expectedVersion: firstReply.version }), /已有更新/)
   await assert.rejects(store.finish(session.id, { kind: 'approval', expectedVersion: secondReply.version }), /不能确认/)
-  const resolved = await store.mutate(session.id, statusBatch(secondReply, 'resolved'))
+  await assert.rejects(store.mutate(session.id, statusBatch(secondReply, 'resolved')), /尚未发布/)
+  const published = await store.revise(session.id, revision(secondReply))
+  const resolved = await store.mutate(session.id, statusBatch(published, 'resolved'))
+  assert.equal(resolved.review.comments[0].reviewedRound, 2)
   const approved = await store.finish(session.id, { kind: 'approval', expectedVersion: resolved.version })
   assert.equal(approved.phase, 'approved')
   const restored = await store.mutate(session.id, statusBatch(approved, 'open'))
@@ -87,18 +108,163 @@ test('publishing a new round preserves all opinions and immutable submissions', 
   const before = structuredClone(finished.history)
   const incoming = structuredClone(session.review)
   incoming.revision = 'revision-two'
-  incoming.snapshot.fingerprint = 'fingerprint-two'
-  const next = await store.revise(session.id, { expectedVersion: finished.version, review: incoming })
+  const next = await store.revise(session.id, revision(finished, incoming))
   assert.equal(next.round, 2)
   assert.equal(next.phase, 'awaiting-review')
   assert.equal(next.snapshots.length, 2)
   assert.equal(next.review.comments[0].status, 'needs-review')
   assert.equal(next.review.comments[0].revision, session.review.revision)
+  assert.equal(next.review.comments[0].originRound, 1)
+  assert.deepEqual(next.review.comments[0].targets, saved.review.comments[0].targets)
   assert.deepEqual(next.history, before)
   await assert.rejects(store.acknowledge(session.id, { submissionId: finished.history[0].id }), /已结束的轮次/)
   await assert.rejects(store.mutate(session.id, commentBatch(session)), /流程已更新/)
   const foreign = structuredClone(incoming); foreign.id = 'other-document'
   await assert.rejects(store.revise(session.id, { expectedVersion: next.version, review: foreign }), /相同评审/)
+})
+
+test('publication requires consistent verified sources and an explicit reason for unchanged logic', async t => {
+  const { store, session } = await setup(t)
+  await assert.rejects(store.revise(session.id, { expectedVersion: session.version, review: session.review }), /缺少来源核验/)
+  const noReason = revision(session)
+  delete noReason.publication.unchangedReason
+  await assert.rejects(store.revise(session.id, noReason), /没有逻辑变化/)
+  const wrongHash = revision(session)
+  wrongHash.publication.source.fingerprint = '0'.repeat(64)
+  await assert.rejects(store.revise(session.id, wrongHash), /指纹不一致/)
+  const noManifest = revision(session)
+  delete noManifest.review.snapshot.files
+  await assert.rejects(store.revise(session.id, noManifest), /来源文件清单/)
+  const otherFile = revision(session)
+  otherFile.review.nodes[0].evidence[0].path = 'outside.ts'
+  await assert.rejects(store.revise(session.id, otherFile), /流程依据/)
+  const badDigest = revision(session)
+  badDigest.review.nodes[0].evidence[0].digest = 'old-digest'
+  await assert.rejects(store.revise(session.id, badDigest), /流程依据/)
+  const staleBase = revision(session)
+  staleBase.publication.baseRound = 2
+  await assert.rejects(store.revise(session.id, staleBase), /发布基线/)
+  assert.deepEqual(await store.get(session.id), session)
+  const changed = revision(session)
+  changed.review.nodes[0].summary += ' 新增业务条件'
+  delete changed.publication.unchangedReason
+  assert.equal((await store.revise(session.id, changed)).round, 2)
+})
+
+test('final replies and graph publish atomically; removed anchors and frozen history remain intact', async t => {
+  const { store, directory, session } = await setup(t)
+  const saved = await store.mutate(session.id, commentBatch(session))
+  const submitted = await store.finish(session.id, { kind: 'feedback', expectedVersion: saved.version })
+  const original = structuredClone(submitted.review.comments[0])
+  const request = revision(submitted)
+  const removed = request.review.nodes[0].id
+  request.review.nodes = request.review.nodes.filter(node => node.id !== removed)
+  request.review.edges = request.review.edges.filter(edge => edge.source !== removed && edge.target !== removed)
+  const replies = [{ commentId: original.id, body: '校验已移至结算阶段，请复核新版' }]
+  const path = join(directory, `${session.id}.json`)
+  const before = await readFile(path, 'utf8')
+  await assert.rejects(store.revise(session.id, { ...request, replies: [...replies, { commentId: 'missing', body: '不会单独留下第一条回复' }] }), /找不到此批注/)
+  assert.equal(await readFile(path, 'utf8'), before)
+  const next = await store.revise(session.id, { ...request, replies })
+  assert.equal(next.round, 2)
+  assert.equal(next.phase, 'awaiting-review')
+  assert.equal(next.review.comments[0].body, original.body)
+  assert.deepEqual(next.review.comments[0].targets, original.targets)
+  assert.equal(next.review.comments[0].originRound, 1)
+  assert.equal(next.review.comments[0].revision, original.revision)
+  assert.equal(next.review.comments[0].replies?.[0].round, 2)
+  assert.equal(next.review.comments[0].replies?.[0].revision, next.review.revision)
+  assert.equal(next.review.comments[0].status, 'needs-review')
+  assert.deepEqual(next.snapshots[0], submitted.snapshots[0])
+  assert.deepEqual(next.history, submitted.history)
+  assert.deepEqual(next.snapshots[1].publication, request.publication)
+  assert.deepEqual(next.snapshots[1].review, next.review)
+  assert.deepEqual(await new SessionStore(directory).get(session.id), next)
+})
+
+test('round metadata remains precise when source revision is reused across publications', async t => {
+  const { store, session } = await setup(t)
+  const first = await store.mutate(session.id, commentBatch(session))
+  const two = await store.revise(session.id, revision(first))
+  const humanChecked = await store.mutate(session.id, statusBatch(two, 'resolved'))
+  const second = await store.mutate(session.id, commentBatch(humanChecked, '第二轮的新意见'))
+  const three = await store.revise(session.id, revision(second))
+  assert.equal(three.review.revision, session.review.revision)
+  assert.deepEqual(three.review.comments.map(comment => comment.originRound), [1, 2])
+  assert.equal(three.review.comments[0].reviewedRound, 2)
+  const saved = await store.mutate(session.id, { ...commentBatch(three), round: 3 })
+  assert.equal(saved.review.comments.at(-1)?.originRound, 3)
+  await assert.rejects(store.mutate(session.id, { ...commentBatch(saved), round: 2 }), /轮次已更新/)
+  assert.deepEqual(await store.get(session.id), saved)
+})
+
+test('later rounds reject missing or stale round numbers even when revision and fingerprint are unchanged', async t => {
+  const { store, directory, session } = await setup(t)
+  const { round: _initialRound, ...legacy } = commentBatch(session)
+  const first = await store.mutate(session.id, legacy)
+  assert.equal(first.review.comments.length, 1)
+  const two = await store.revise(session.id, revision(first))
+  const { round: _secondRound, ...missingRound } = commentBatch(two, '不得误写入后续轮次')
+  const path = join(directory, `${session.id}.json`)
+  const secondRaw = await readFile(path, 'utf8')
+  await assert.rejects(store.mutate(session.id, missingRound), { status: 409, message: /轮次/ })
+  assert.equal(await readFile(path, 'utf8'), secondRaw)
+  const staleRound = commentBatch(two)
+  const three = await store.revise(session.id, revision(two))
+  assert.equal(three.review.revision, two.review.revision)
+  assert.equal(three.review.snapshot.fingerprint, two.review.snapshot.fingerprint)
+  const thirdRaw = await readFile(path, 'utf8')
+  for (const batch of [missingRound, staleRound]) {
+    await assert.rejects(store.mutate(session.id, batch), { status: 409, message: /轮次/ })
+    assert.equal(await readFile(path, 'utf8'), thirdRaw)
+  }
+  assert.deepEqual(await store.get(session.id), three)
+})
+
+test('agent reply retry is idempotent and cannot reopen an approved round', async t => {
+  const { store, session } = await setup(t)
+  const saved = await store.mutate(session.id, commentBatch(session))
+  const batch = replyBatch(saved)
+  const replied = await store.mutate(session.id, batch)
+  assert.deepEqual(await store.mutate(session.id, batch), replied)
+  const published = await store.revise(session.id, revision(replied))
+  const resolved = await store.mutate(session.id, statusBatch(published, 'resolved'))
+  const approved = await store.finish(session.id, { kind: 'approval', expectedVersion: resolved.version })
+  const retry = { ...batch, round: approved.round, revision: approved.review.revision, fingerprint: approved.review.snapshot.fingerprint }
+  assert.deepEqual(await store.mutate(session.id, retry), approved)
+})
+
+test('legacy sessions stay readable and preserve missing origin metadata on publication', async t => {
+  const { store, directory, session } = await setup(t)
+  const saved = await store.mutate(session.id, commentBatch(session))
+  const legacy = structuredClone(saved)
+  delete legacy.review.comments[0].originRound
+  const path = join(directory, `${session.id}.json`)
+  await writeFile(path, JSON.stringify(legacy))
+  const loaded = await new SessionStore(directory).get(session.id)
+  assert.equal(loaded.review.comments[0].originRound, undefined)
+  const request = revision(loaded)
+  request.review.comments[0].originRound = 2
+  const next = await store.revise(session.id, request)
+  assert.equal(next.review.comments[0].originRound, undefined)
+  assert.equal(next.snapshots[0].publication, undefined)
+})
+
+test('corrupted persisted publication and future comment rounds are rejected without replacement', async t => {
+  const { store, directory, session } = await setup(t)
+  const published = await store.revise(session.id, revision(session))
+  const path = join(directory, `${session.id}.json`)
+  const broken = structuredClone(published)
+  broken.snapshots[1].publication!.source.fingerprint = '0'.repeat(64)
+  const raw = JSON.stringify(broken)
+  await writeFile(path, raw)
+  await assert.rejects(store.get(session.id), /原文件已保留.*指纹不一致/)
+  assert.equal(await readFile(path, 'utf8'), raw)
+  const future = structuredClone(published)
+  future.review = addComment(future.review, [{ kind: 'review', id: future.review.id }], '非法未来轮次')
+  future.review.comments[0].originRound = 3
+  await writeFile(path, JSON.stringify(future))
+  await assert.rejects(store.get(session.id), /轮次超出/)
 })
 
 test('Finish packages only new human feedback, and does not resubmit unchanged open opinions', async t => {
@@ -133,4 +299,81 @@ test('long polling observes actual versions and handles timeout and abort', asyn
   const aborted = store.waitForChange(session.id, saved.version, 1000, controller.signal)
   controller.abort()
   assert.equal(await aborted, null)
+})
+
+test('current views retain submission identity across status changes and return independent values', async t => {
+  const { store, session } = await setup(t)
+  const saved = await store.mutate(session.id, commentBatch(session))
+  const submitted = await store.finish(session.id, { kind: 'feedback', expectedVersion: saved.version })
+  const checked = await store.mutate(session.id, statusBatch(submitted, 'needs-review'))
+  const view = await store.get(session.id, 'current')
+  assert.equal(view.view, 'current')
+  assert.deepEqual(view.submittedCommentIds, [saved.review.comments[0].id])
+  assert.deepEqual(view.commentOrigins, [{ commentId: saved.review.comments[0].id, round: 1, exact: true }])
+  view.review.comments[0].body = '不得篡改缓存'
+  view.snapshots[0].openedAt = 'invalid'
+  const full = await store.get(session.id)
+  full.review.nodes[0].title = '也不得篡改完整接口的缓存'
+  full.history[0].review.comments[0].body = '不得改写固定记录'
+  assert.deepEqual(await store.get(session.id), checked)
+  const snapshot = await store.getSnapshot(session.id, 1)
+  snapshot.review.nodes[0].title = '不得改写原图'
+  assert.deepEqual(await store.getSnapshot(session.id, 1), checked.snapshots[0])
+  const record = await store.getRecord(session.id, checked.history[0].id)
+  record.review.comments[0].body = '不得改写意见包'
+  assert.deepEqual(await store.getRecord(session.id, record.id), checked.history[0])
+  const next = addReply(checked.review, checked.review.comments[0].id, '新增人类内容尚未提交', 'reviewer')
+  await store.mutate(session.id, { round: checked.round, revision: checked.review.revision, fingerprint: checked.review.snapshot.fingerprint,
+    mutations: [{ kind: 'add-reply', commentId: checked.review.comments[0].id, reply: next.comments[0].replies![0] }] })
+  assert.deepEqual((await store.get(session.id, 'current')).submittedCommentIds, [])
+})
+
+test('cached sessions detect external edits, same-size corruption and deletion', async t => {
+  const { store, directory, session } = await setup(t)
+  const path = join(directory, `${session.id}.json`)
+  await store.get(session.id)
+  const external = structuredClone(session)
+  external.review.title = '外部合法更新'
+  await writeFile(path, JSON.stringify(external))
+  assert.equal((await store.get(session.id)).review.title, '外部合法更新')
+  const previous = await stat(path)
+  const damaged = Buffer.alloc(previous.size, ' ')
+  await writeFile(path, damaged)
+  await utimes(path, previous.atime, previous.mtime)
+  await assert.rejects(store.get(session.id, 'current'), /原文件已保留/)
+  await assert.rejects(store.mutate(session.id, commentBatch(external)), /原文件已保留/)
+  assert.deepEqual(await readFile(path), damaged)
+  await writeFile(path, JSON.stringify(external))
+  assert.equal((await store.get(session.id, 'current')).review.title, '外部合法更新')
+  await unlink(path)
+  await assert.rejects(store.get(session.id), { status: 404 })
+})
+
+test('a rejected oversized commit leaves both cached state and the persisted file unchanged', async t => {
+  const { store, directory, session } = await setup(t)
+  const review = structuredClone(session.review)
+  const prototype = commentBatch(session).mutations[0].comment
+  review.comments = Array.from({ length: 110 }, (_, index) => ({ ...prototype, id: `size-comment-${index}`, originRound: 1, body: 'x' }))
+  const seeded = { ...session, round: 30, review, snapshots: Array.from({ length: 30 }, (_, index) => ({
+    round: index + 1, openedAt: session.createdAt, review: structuredClone(review),
+  })) }
+  const targetBytes = 32 * 1024 * 1024 - 1000
+  const reviews = [seeded.review, ...seeded.snapshots.map(snapshot => snapshot.review)]
+  const slots = reviews.length * review.comments.length
+  const bodyLength = 1 + Math.floor((targetBytes - Buffer.byteLength(JSON.stringify(seeded))) / slots)
+  for (const item of reviews) for (const comment of item.comments) comment.body = 'x'.repeat(bodyLength)
+  let remaining = targetBytes - Buffer.byteLength(JSON.stringify(seeded))
+  for (const comment of review.comments) {
+    const extra = Math.min(remaining, 10000 - comment.body.length)
+    comment.body += 'x'.repeat(extra); remaining -= extra
+  }
+  assert.equal(remaining, 0)
+  const raw = JSON.stringify(seeded)
+  assert.equal(Buffer.byteLength(raw), targetBytes)
+  const path = join(directory, `${session.id}.json`)
+  await writeFile(path, raw)
+  const before = await store.get(session.id, 'current')
+  await assert.rejects(store.mutate(session.id, commentBatch(seeded, 'x'.repeat(10000)), 'current'), /会话超过 32 MB/)
+  assert.deepEqual(await store.get(session.id, 'current'), before)
+  assert.equal(createHash('sha256').update(await readFile(path)).digest('hex'), createHash('sha256').update(raw).digest('hex'))
 })

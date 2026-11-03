@@ -1,0 +1,57 @@
+.revision-controls, .revision-switch { display: flex; align-items: center; flex: 0 0 auto; gap: var(--space-xs); white-space: nowrap; }
+.revision-switch { gap: 0; padding: 2px; border: var(--rule-width) solid var(--color-rule); border-radius: var(--radius-md); background: var(--color-surface-muted); }
+.app-shell .graph-toolbar .revision-switch .button { min-height: 28px; padding: var(--space-xs) var(--space-sm); border: 0; background: var(--color-clear); }
+.app-shell .graph-toolbar .revision-switch .button[aria-pressed="true"] { background: var(--color-surface); color: var(--color-accent); box-shadow: 0 1px 2px var(--color-selection); font-weight: 600; }
+.revision-readonly { display: inline-flex; align-items: center; gap: var(--space-xs); color: var(--color-muted); font-size: var(--text-xs); }
+.revision-readonly svg { flex-shrink: 0; }
+.historical-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.historical-banner, .publication-pending { flex: 0 0 auto; padding: var(--space-sm) var(--space-md); font-size: var(--text-xs); }
+.historical-banner .button { min-height: 28px; padding: var(--space-xs) var(--space-sm); font-size: var(--text-xs); }
+.comment-location-note { margin-top: var(--space-sm); font-size: var(--text-xs); color: var(--color-warning); }
+.origin-location { margin-top: var(--space-xs); }
+.publication-summary p { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (min-width: 901px) {
+  .app-shell .graph-toolbar:has(.revision-controls) .clear-selection { display: none; }
+}
+.review-node.revision-added { border-color: var(--color-success); }
+.review-node.revision-changed { border-color: var(--color-warning-rule); }
+.review-node.revision-removed { border-color: var(--color-error); }
+.review-node.revision-evidence { border-color: var(--color-accent); }
+.revision-badge.revision-added { color: var(--color-success); background: var(--color-success-paper); border-color: var(--color-success); }
+.revision-badge.revision-changed { color: var(--color-warning); background: var(--color-warning-paper); border-color: var(--color-warning-rule); }
+.revision-badge.revision-removed { color: var(--color-error); background: var(--color-error-paper); border-color: var(--color-error); }
+.revision-badge.revision-evidence { color: var(--color-accent); background: var(--color-accent-paper); border-color: var(--color-accent); }
+.react-flow__edge.revision-added .react-flow__edge-text { fill: var(--color-success); }
+.react-flow__edge.revision-changed .react-flow__edge-text { fill: var(--color-warning); }
+.react-flow__edge.revision-removed .react-flow__edge-text { fill: var(--color-error); }
+.revision-changes-panel { min-width: 0; font-size: var(--text-sm); }
+.revision-panel-heading { display: grid; gap: var(--space-sm); margin-bottom: var(--space-lg); }
+.revision-panel-heading h3 { font-size: var(--text-base); }
+.revision-panel-heading p, .revision-unchanged { font-size: var(--text-xs); }
+.revision-unchanged { padding: var(--space-md); border: var(--rule-width) solid var(--color-rule); border-radius: var(--radius-md); background: var(--color-surface-muted); }
+.revision-change-group { margin-top: var(--space-xl); }
+.revision-change-group h4 { display: flex; align-items: center; gap: var(--space-sm); margin: 0 0 var(--space-md); color: var(--color-ink); font-size: var(--text-sm); font-weight: 600; }
+.revision-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-accent); }
+.revision-dot.revision-added { background: var(--color-success); }
+.revision-dot.revision-changed { background: var(--color-warning-rule); }
+.revision-dot.revision-removed { background: var(--color-error); }
+.revision-change-entry { min-width: 0; margin-top: var(--space-md); padding: var(--space-md); border: var(--rule-width) solid var(--color-rule); border-radius: var(--radius-md); }
+.revision-change-entry > strong { display: block; color: var(--color-ink); font-weight: 600; overflow-wrap: anywhere; }
+.revision-locate-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+.revision-locate-actions .button { min-height: 30px; padding: var(--space-xs) var(--space-sm); font-size: var(--text-xs); }
+.revision-entry-summary { margin-top: var(--space-sm); color: var(--color-muted); font-size: var(--text-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.revision-field-changes { margin: var(--space-md) 0 0; font-size: var(--text-xs); }
+.revision-field-changes > div + div { margin-top: var(--space-lg); }
+.revision-field-changes dt { margin-bottom: var(--space-xs); color: var(--color-muted); font-weight: 600; }
+.revision-field-changes dd { margin: 0; padding: var(--space-sm); border-left: 2px solid var(--color-rule-strong); background: var(--color-surface-muted); }
+.revision-field-changes dd + dd { margin-top: var(--space-xs); }
+.revision-field-changes .revision-before { border-left-color: var(--color-error); }
+.revision-field-changes .revision-after { border-left-color: var(--color-success); }
+.revision-field-changes dd > span { display: block; margin-bottom: var(--space-xs); color: var(--color-muted); }
+.revision-field-changes dd > p { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .historical-banner { padding-block: var(--space-xs); }
+  .app-shell .graph-toolbar .revision-controls { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .app-shell .graph-toolbar .revision-controls .button { min-height: 32px; }
+  .revision-controls { gap: var(--space-sm); }
+}

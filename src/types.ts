@@ -37,6 +37,7 @@ export interface CommentReply {
   body: string
   createdAt: string
   revision: string
+  round?: number
 }
 
 export interface ReviewComment {
@@ -47,6 +48,8 @@ export interface ReviewComment {
   createdAt: string
   revision: string
   reviewedRevision?: string
+  originRound?: number
+  reviewedRound?: number
   replies?: CommentReply[]
 }
 
@@ -62,6 +65,7 @@ export interface ReviewDocument {
     fingerprint: string
     capturedAt: string
     dirty: boolean
+    files?: SourceFile[]
   }
   coverage: { included: string[]; excluded: string[]; note: string }
   scenes: { id: string; title: string; description: string }[]
@@ -69,6 +73,8 @@ export interface ReviewDocument {
   edges: ReviewEdge[]
   comments: ReviewComment[]
 }
+
+export interface SourceFile { path: string; sha256: string }
 
 export interface ReviewChanges {
   added: Target[]

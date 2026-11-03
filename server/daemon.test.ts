@@ -61,7 +61,7 @@ test('a custom data directory survives a restart without repeating the original 
   await stopService({ home })
   const restarted = await start()
   const restored = await request(restarted.url, `/api/review-sessions/${created.id}`) as { review: typeof review }
-  assert.deepEqual(restored.review.comments, review.comments)
+  assert.deepEqual(restored.review.comments, review.comments.map(comment => ({ ...comment, originRound: 1 })))
 })
 
 test('concurrent agent processes start one daemon, reuse it and recover opinions after stop', async t => {
@@ -83,7 +83,7 @@ test('concurrent agent processes start one daemon, reuse it and recover opinions
   const restarted = await start()
   assert.equal(restarted.url, url)
   const restored = await request(restarted.url, `/api/review-sessions/${created.id}`) as { review: typeof review }
-  assert.deepEqual(restored.review.comments, review.comments)
+  assert.deepEqual(restored.review.comments, review.comments.map(comment => ({ ...comment, originRound: 1 })))
 })
 
 test('a crashed daemon and stale owner lock can be reclaimed concurrently without losing data', async t => {

@@ -1,8 +1,65 @@
 import { test, expect } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import { sampleReview } from '../src/sample.ts'
 import { addComment, addReply } from '../src/model.ts'
-import type { ReviewSession } from '../src/session-types.ts'
+import type { CurrentSession, ReviewSession } from '../src/session-types.ts'
+import type { ReviewDocument } from '../src/types.ts'
+import type { APIRequestContext, Download } from '@playwright/test'
 import { commentScope, expectRevision, openMenu } from './ui.ts'
+
+function revisionPayload(state: ReviewSession, review: ReviewDocument) {
+  const digest = createHash('sha256').update(`verified fixture for round ${state.round + 1}\n`).digest('hex')
+  const files = [{ path: 'fixture.ts', sha256: digest }]
+  const fingerprint = createHash('sha256').update(JSON.stringify(files)).digest('hex')
+  review.snapshot = { ...review.snapshot, files, fingerprint }
+  review.nodes = review.nodes.map(node => ({ ...node, evidence: [] }))
+  return { expectedVersion: state.version, review, publication: { baseRound: state.round, summary: '测试夹具：重新核对来源并发布本轮流程',
+    source: { algorithm: 'sha256-path-content-v1', checkedAt: new Date().toISOString(), files, fingerprint }, unchangedReason: '测试夹具：未改变的流程已重新核对' } }
+}
+
+async function revisionSession(request: APIRequestContext) {
+  const review = structuredClone(sampleReview)
+  review.id = 'revision-e2e-fixture'
+  review.revision = 'shared-source-revision'
+  review.scenes = [review.scenes[0]]
+  review.nodes = review.nodes.slice(0, 3).map((node, index) => ({ ...node, evidence: [], position: { x: 0, y: index * 180 } }))
+  const nodes = new Set(review.nodes.map(node => node.id))
+  review.edges = review.edges.filter(edge => nodes.has(edge.source) && nodes.has(edge.target))
+  review.comments = []
+  const createdResponse = await request.post('/api/review-sessions', { data: { review } })
+  expect(createdResponse.ok()).toBeTruthy()
+  const created: ReviewSession = await createdResponse.json()
+  const path = `/api/review-sessions/${created.id}`
+  const comment = addComment(review, [{ kind: 'node', id: 'upgrade-toggle' }], '原开关步骤调整后，仍需要核对拒绝出口。').comments[0]
+  const savedResponse = await request.post(`${path}/mutations`, { data: { round: 1, revision: review.revision, fingerprint: review.snapshot.fingerprint,
+    mutations: [{ kind: 'add-comment', comment }] } })
+  expect(savedResponse.ok()).toBeTruthy()
+  return { path, state: await savedResponse.json() as ReviewSession }
+}
+
+async function publishFixture(request: APIRequestContext, path: string, state: ReviewSession, review: ReviewDocument, body = '已同步新版流程与本轮回应。') {
+  const response = await request.post(`${path}/revise`, { data: { ...revisionPayload(state, review), replies: [{ commentId: state.review.comments[0].id, body }] } })
+  expect(response.ok()).toBeTruthy()
+  return await response.json() as ReviewSession
+}
+
+function replaceGate(state: ReviewSession): ReviewDocument {
+  const next = structuredClone(state.review)
+  next.nodes = next.nodes.filter(node => node.id !== 'upgrade-toggle').map((node, index) => ({ ...node, position: { x: 0, y: index * 180 } }))
+  next.edges = next.edges.filter(edge => edge.source !== 'upgrade-toggle' && edge.target !== 'upgrade-toggle')
+  next.nodes[0].summary = '新版规则：进入前先核对本轮资格。'
+  next.nodes.push({ ...next.nodes[1], id: 'settlement-check', title: '结算前核对拒绝出口', summary: '结算时再次核对资格，拒绝时保留原状态。', position: { x: 0, y: 360 } })
+  next.edges.push({ id: 'new-entry-check', sceneId: 'upgrade', source: 'upgrade-start', target: 'upgrade-level', label: '资格通过', detail: '通过本轮资格后继续' })
+  return next
+}
+
+async function downloadedJson(download: Download) {
+  const stream = await download.createReadStream()
+  expect(stream).not.toBeNull()
+  const chunks: Buffer[] = []
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk))
+  return JSON.parse(Buffer.concat(chunks).toString()) as unknown
+}
 
 test('shared session preserves local mode and completes feedback, revision, recovery and human approval', async ({ page, request, browser }) => {
   const errors: string[] = []
@@ -17,6 +74,11 @@ test('shared session preserves local mode and completes feedback, revision, reco
   expect(created.ok()).toBeTruthy()
   const session: ReviewSession = await created.json()
   const path = `/api/review-sessions/${session.id}`
+  const browserRequests: URL[] = []
+  page.on('request', request => {
+    const url = new URL(request.url())
+    if (url.pathname === path || url.pathname === `${path}/mutations` || url.pathname === `${path}/finish`) browserRequests.push(url)
+  })
   const get = async (): Promise<ReviewSession> => (await request.get(path)).json()
   await page.goto(`/?session=${session.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
@@ -36,14 +98,14 @@ test('shared session preserves local mode and completes feedback, revision, reco
   const beforeReply = await get()
   const responseReview = addReply(beforeReply.review, beforeReply.review.comments[0].id, '测试代理：已补充失败出口。', 'agent')
   expect((await request.post(`${path}/mutations`, { data: {
-    revision: beforeReply.review.revision, fingerprint: beforeReply.review.snapshot.fingerprint,
+    round: beforeReply.round, revision: beforeReply.review.revision, fingerprint: beforeReply.review.snapshot.fingerprint,
     mutations: [{ kind: 'add-reply', commentId: beforeReply.review.comments[0].id, reply: responseReview.comments[0].replies![0] }],
   } })).ok()).toBeTruthy()
   const beforeRevision = await get()
   const next = structuredClone(sampleReview)
-  next.revision = 'session-test-v2'; next.snapshot.fingerprint = 'session-test-source-v2'
+  next.revision = 'session-test-v2'
   next.nodes[0].detail += ' 测试夹具补充失败出口。'
-  expect((await request.post(`${path}/revise`, { data: { expectedVersion: beforeRevision.version, review: next } })).ok()).toBeTruthy()
+  expect((await request.post(`${path}/revise`, { data: revisionPayload(beforeRevision, next) })).ok()).toBeTruthy()
   await expectRevision(page, next.revision)
   await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
   const card = page.getByRole('article', { name: '意见 1', exact: true })
@@ -69,6 +131,10 @@ test('shared session preserves local mode and completes feedback, revision, reco
   await page.getByRole('button', { name: '添加批注', exact: true }).click()
   await expect.poll(async () => (await get()).review.comments.length).toBe(2)
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:review:${id}`)!), sampleReview.id)).toEqual(localReview)
+  expect(browserRequests.some(url => url.searchParams.has('afterVersion'))).toBe(true)
+  expect(browserRequests.some(url => url.pathname === `${path}/mutations`)).toBe(true)
+  expect(browserRequests.some(url => url.pathname === `${path}/finish`)).toBe(true)
+  expect(browserRequests.every(url => url.searchParams.get('view') === 'current')).toBe(true)
   expect(errors).toEqual([])
 })
 
@@ -76,7 +142,7 @@ test('unsent session comments survive offline reload and replay without duplicat
   const created: ReviewSession = await (await request.post('/api/review-sessions', { data: { review: sampleReview } })).json()
   await page.goto(`/?session=${created.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
-  await page.route('**/api/review-sessions/*/mutations', route => route.abort())
+  await page.route('**/api/review-sessions/*/mutations*', route => route.abort())
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('断线期间的意见仍需保留。')
   await page.getByRole('button', { name: '添加批注', exact: true }).click()
@@ -84,12 +150,66 @@ test('unsent session comments survive offline reload and replay without duplicat
   await page.reload()
   await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
   await expect(page.locator('.comment-body')).toContainText('断线期间的意见仍需保留。')
-  await page.unroute('**/api/review-sessions/*/mutations')
+  await page.unroute('**/api/review-sessions/*/mutations*')
   await page.getByRole('button', { name: '重新连接', exact: true }).click()
   await expect.poll(async () => ((await (await request.get(`/api/review-sessions/${created.id}`)).json()) as ReviewSession).review.comments.length).toBe(1)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
   await page.reload()
   await expect(page.locator('.canvas-caption')).toContainText('1 条待处理意见')
+})
+
+test('an offline human reply to submitted feedback remains pending after reload and replays only once', async ({ page, request }) => {
+  const { path, state } = await revisionSession(request)
+  const finishedResponse = await request.post(`${path}/finish`, { data: { expectedVersion: state.version, kind: 'feedback' } })
+  expect(finishedResponse.ok()).toBeTruthy()
+  const get = async (): Promise<ReviewSession> => (await request.get(path)).json()
+  const remote: CurrentSession = await (await request.get(`${path}?view=current`)).json()
+  expect(remote.phase).toBe('feedback-ready')
+  expect(remote.submittedCommentIds).toEqual([state.review.comments[0].id])
+  await page.goto(`/?session=${state.id}`)
+  await expect(page.locator('.save-state')).toHaveText('已保存到会话')
+  await expect(page.locator('.topbar').getByRole('button', { name: '提交本轮', exact: true })).toBeDisabled()
+  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  const card = page.getByRole('article', { name: '意见 1', exact: true })
+  const replyBody = '补充：关闭功能时请保留原资源和记录。'
+  await page.route(`**${path}/mutations*`, route => route.abort())
+  await card.getByRole('button', { name: '回复讨论', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: '回复讨论', exact: true })
+  await editor.getByLabel('补充说明').fill(replyBody)
+  await editor.getByRole('button', { name: '保存回复', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText(/fetch|Failed|network|网络/i)
+  expect((await get()).review.comments[0].replies ?? []).toEqual([])
+  await page.reload()
+  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  await expect(card.locator('.reply-card')).toHaveCount(1)
+  await expect(card.locator('.reply-card')).toContainText(replyBody)
+  const submit = page.locator('.topbar').getByRole('button', { name: '提交本轮（1）', exact: true })
+  await expect(submit).toBeVisible()
+  await expect(submit).toBeDisabled()
+  const pending = await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:session:${id}:pending`)!), state.id)
+  expect(pending.batches).toHaveLength(1)
+  expect(pending.review.comments[0].replies).toHaveLength(1)
+  expect((await get()).review.comments[0].replies ?? []).toEqual([])
+  expect((await get()).history).toHaveLength(1)
+
+  await page.unroute(`**${path}/mutations*`)
+  await page.getByRole('button', { name: '重新连接', exact: true }).click()
+  await expect.poll(async () => (await get()).review.comments[0].replies?.length ?? 0).toBe(1)
+  await expect(page.locator('.save-state')).toHaveText('已保存到会话')
+  expect((await get()).review.comments[0].replies![0]).toMatchObject({
+    id: pending.review.comments[0].replies[0].id, author: 'reviewer', body: replyBody,
+  })
+  expect(await page.evaluate(id => localStorage.getItem(`logic-margin:session:${id}:pending`), state.id)).toBeNull()
+  await expect(submit).toBeEnabled()
+  await submit.click()
+  await page.getByRole('button', { name: '提交给代理', exact: true }).click()
+  await expect.poll(async () => (await get()).history.length).toBe(2)
+  const submitted = await get()
+  expect(submitted.round).toBe(1)
+  expect(submitted.review.comments[0].replies).toHaveLength(1)
+  expect(submitted.history[0].review.comments[0].replies ?? []).toEqual([])
+  expect(submitted.history[1].review.comments[0].replies![0].body).toBe(replyBody)
+  await expect(page.locator('.topbar').getByRole('button', { name: '提交本轮', exact: true })).toBeDisabled()
 })
 
 test('file menu creates a session without changing the local review', async ({ page }) => {
@@ -110,13 +230,13 @@ test('failed Finish preserves saved draft comments without converting them twice
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('转换后提交失败也不要重复生成。')
   await page.getByRole('button', { name: '稍后继续', exact: true }).click()
-  await page.route(`**${path}/finish`, route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: '测试：提交暂时不可用' }) }))
+  await page.route(`**${path}/finish*`, route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: '测试：提交暂时不可用' }) }))
   await page.locator('.topbar').getByRole('button', { name: '提交本轮', exact: true }).click()
   await page.getByRole('button', { name: '保存草稿并提交', exact: true }).click()
   await expect(page.getByRole('alert').first()).toContainText('测试：提交暂时不可用')
   expect((await (await request.get(path)).json()).review.comments).toHaveLength(1)
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:session:${id}:drafts`)!), created.id)).toEqual([])
-  await page.unroute(`**${path}/finish`)
+  await page.unroute(`**${path}/finish*`)
   await page.getByRole('button', { name: '重新连接', exact: true }).click()
   await page.getByRole('button', { name: '提交给代理', exact: true }).click()
   await expect.poll(async () => (await (await request.get(path)).json()).history.length).toBe(1)
@@ -128,21 +248,295 @@ test('source conflict keeps unsent opinions exportable before explicit remote re
   const path = `/api/review-sessions/${created.id}`
   await page.goto(`/?session=${created.id}`)
   await expect(page.locator('.save-state')).toHaveText('已保存到会话')
-  await page.route('**/api/review-sessions/*/mutations', route => route.abort())
+  await page.route('**/api/review-sessions/*/mutations*', route => route.abort())
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('只属于旧版本的未同步意见。')
   await page.getByRole('button', { name: '添加批注', exact: true }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   const next = structuredClone(sampleReview)
-  next.revision = 'conflict-new'; next.snapshot.fingerprint = 'conflict-new-source'
-  expect((await request.post(`${path}/revise`, { data: { expectedVersion: created.version, review: next } })).ok()).toBeTruthy()
-  await page.unroute('**/api/review-sessions/*/mutations')
+  next.revision = 'conflict-new'
+  expect((await request.post(`${path}/revise`, { data: revisionPayload(created, next) })).ok()).toBeTruthy()
+  await page.unroute('**/api/review-sessions/*/mutations*')
   await page.getByRole('button', { name: '重新连接', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('流程已更新')
+  await expect(page.getByRole('alert')).toContainText('流程轮次已更新')
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: '备份未同步意见并恢复服务端版本', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('logic-margin-unsent.json')
   await expectRevision(page, next.revision)
   await expect(page.locator('.canvas-caption')).toContainText('0 条待处理意见')
   expect((await (await request.get(path)).json()).review.comments).toEqual([])
+})
+
+test('agent discussion keeps the published graph visible and cannot be confirmed before publication', async ({ page, request }) => {
+  const { path, state } = await revisionSession(request)
+  await page.goto(`/?session=${state.id}`)
+  await expect(page.locator('.save-state')).toHaveText('已保存到会话')
+  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  const card = page.getByRole('article', { name: '意见 1', exact: true })
+  await expect(card.getByRole('button', { name: '确认解决', exact: true })).toBeEnabled()
+  const response = addReply(state.review, state.review.comments[0].id, '正在修改实现，流程图尚未发布。', 'agent')
+  expect((await request.post(`${path}/mutations`, { data: { round: state.round, revision: state.review.revision, fingerprint: state.review.snapshot.fingerprint,
+    mutations: [{ kind: 'add-reply', commentId: state.review.comments[0].id, reply: response.comments[0].replies![0] }] } })).ok()).toBeTruthy()
+  await expect(card).toContainText('正在修改实现，流程图尚未发布。')
+  await expect(page.locator('.publication-pending')).toContainText('修改中，新版尚未发布')
+  await expect(card.getByRole('button', { name: '复核并确认解决', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '确认整轮通过', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '当前 R1', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-toggle"]')).toBeVisible()
+  expect((await (await request.get(path)).json()).round).toBe(1)
+  const working: ReviewSession = await (await request.get(path)).json()
+  const next = structuredClone(working.review)
+  next.nodes[1].summary = '新版：关闭时不进入扣费阶段，并保留原资源。'
+  const published = await publishFixture(request, path, working, next, '实现与新版图已同步，请核对拒绝出口。')
+  await expect(page.getByRole('button', { name: '当前 R2', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-toggle"]')).toContainText(next.nodes[1].summary)
+  await expect(card).toContainText('实现与新版图已同步，请核对拒绝出口。')
+  await expect(card.getByRole('button', { name: '复核并确认解决', exact: true })).toBeEnabled()
+  await card.getByRole('button', { name: '复核并确认解决', exact: true }).click()
+  await expect.poll(async () => (await (await request.get(path)).json()).review.comments[0].reviewedRound).toBe(2)
+  expect(published.snapshots[0].review.nodes[1].summary).toBe(state.review.nodes[1].summary)
+})
+
+test('removed targets remain on their original graph; history is read-only and fixed changes survive reload', async ({ page, request }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  const { path, state } = await revisionSession(request)
+  const published = await publishFixture(request, path, state, replaceGate(state), '原开关步骤已移除，请核对新的拒绝出口。')
+  await page.goto(`/?session=${state.id}`)
+  const current = page.getByRole('button', { name: '当前 R2', exact: true })
+  const before = page.getByRole('button', { name: '修改前 R1', exact: true })
+  const canvas = page.getByLabel('业务流程画布', { exact: true })
+  const removed = page.locator('.react-flow__node[data-id="upgrade-toggle"]')
+  const added = page.locator('.react-flow__node[data-id="settlement-check"]')
+  await expect(current).toHaveAttribute('aria-pressed', 'true')
+  await expect(removed).toHaveCount(0)
+  await expect(added).toContainText('新增')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-start"]')).toContainText('已修改')
+  await expect(page.locator('.react-flow__edge[data-id="new-entry-check"]')).toHaveClass(/revision-added/)
+  await page.getByRole('button', { name: '本轮变化', exact: true }).click()
+  const panel = page.getByRole('region', { name: '本轮变化', exact: true })
+  await expect(panel).toBeVisible()
+  await expect(panel.getByRole('region', { name: '修改项', exact: true })).toContainText('新版规则：进入前先核对本轮资格。')
+  await expect(panel.getByRole('region', { name: '新增项', exact: true })).toContainText('结算前核对拒绝出口')
+  await panel.getByRole('button', { name: '定位原位置：通灵功能是否开放？', exact: true }).click()
+  await expect(before).toHaveAttribute('aria-pressed', 'true')
+  await expect(canvas).toHaveAttribute('data-readonly', 'true')
+  await expect(removed).toContainText('已移除')
+  await expect(added).toHaveCount(0)
+  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  const card = page.getByRole('article', { name: '意见 1', exact: true })
+  await expect(card).toContainText('原开关步骤调整后，仍需要核对拒绝出口。')
+  await expect(card.getByRole('button', { name: '复核并确认解决', exact: true })).toBeDisabled()
+  await expect(card.getByRole('button', { name: '回复讨论', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '批注：通灵功能是否开放？（1 条）', exact: true })).toBeVisible()
+  const scope = await openMenu(page, '.scope-actions')
+  await expect(scope.getByRole('button', { name: '批注此场景', exact: true })).toBeDisabled()
+  await expect(scope.getByRole('button', { name: '批注整个评审', exact: true })).toBeDisabled()
+  await scope.locator(':scope > summary').click()
+  await page.locator('.react-flow__node[data-id="upgrade-start"]').hover()
+  await expect(page.getByRole('button', { name: '批注：发起总等级升级', exact: true })).toHaveCount(0)
+  await page.locator('.react-flow__node[data-id="upgrade-start"] .node-title').click({ button: 'right' })
+  await expect(page.getByRole('dialog', { name: '流程批注', exact: true })).toHaveCount(0)
+  await current.click()
+  await expect(canvas).not.toHaveAttribute('data-readonly', 'true')
+  await expect(removed).toHaveCount(0)
+  await expect(card).toContainText('原目标已移除')
+  await card.getByRole('button', { name: '查看提出时流程', exact: true }).click()
+  await expect(before).toHaveAttribute('aria-pressed', 'true')
+  await expect(removed).toBeVisible()
+  await current.click()
+  await card.getByRole('button', { name: '复核并确认解决', exact: true }).click()
+  await expect.poll(async () => (await (await request.get(path)).json()).review.comments[0].status).toBe('resolved')
+  await expect(page.getByRole('button', { name: '确认整轮通过', exact: true })).toBeEnabled()
+  await before.click()
+  await expect(card.getByRole('button', { name: '重新打开', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '确认整轮通过', exact: true })).toBeDisabled()
+  await current.click()
+  await page.reload()
+  await expect(current).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-start"]')).toContainText('已修改')
+  await page.getByRole('button', { name: '本轮变化', exact: true }).click()
+  await expect(panel.getByRole('region', { name: '移除项', exact: true })).toContainText('通灵功能是否开放？')
+  await expect(panel.getByRole('region', { name: '新增项', exact: true })).toContainText('结算前核对拒绝出口')
+  const recovered: ReviewSession = await (await request.get(path)).json()
+  expect(recovered.snapshots).toEqual(published.snapshots)
+  expect(recovered.review.comments[0]).toMatchObject({ originRound: 1, reviewedRound: 2, targets: [{ kind: 'node', id: 'upgrade-toggle' }] })
+  expect(errors).toEqual([])
+})
+
+test('a round-three comment thread can return to round one even when every round reuses the revision', async ({ page, request }) => {
+  const { path, state } = await revisionSession(request)
+  const two = await publishFixture(request, path, state, replaceGate(state))
+  const next = structuredClone(two.review)
+  next.nodes.find(node => node.id === 'settlement-check')!.summary = '第三轮：结算被拒绝时不修改资源与记录。'
+  const three = await publishFixture(request, path, two, next, '第三轮继续核对同一条原始意见。')
+  expect(three.review.revision).toBe(state.review.revision)
+  expect(three.review.comments[0].originRound).toBe(1)
+  await page.goto(`/?session=${state.id}`)
+  const current = page.getByRole('button', { name: '当前 R3', exact: true })
+  const before = page.getByRole('button', { name: '修改前 R2', exact: true })
+  await expect(current).toHaveAttribute('aria-pressed', 'true')
+  await expect(before).toBeVisible()
+  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  const card = page.getByRole('article', { name: '意见 1', exact: true })
+  await card.getByRole('button', { name: '查看提出时流程', exact: true }).click()
+  await expect(page.locator('.revision-readonly')).toContainText('提出时 R1')
+  await expect(page.getByLabel('业务流程画布', { exact: true })).toHaveAttribute('data-readonly', 'true')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-toggle"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: '批注：通灵功能是否开放？（1 条）', exact: true })).toBeVisible()
+  await expect(card).toContainText('第三轮继续核对同一条原始意见。')
+  await before.click()
+  await expect(before).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-toggle"]')).toHaveCount(0)
+  await expect(page.locator('.react-flow__node[data-id="settlement-check"]')).toContainText('结算时再次核对资格')
+  await current.click()
+  await expect(page.locator('.react-flow__node[data-id="settlement-check"]')).toContainText('第三轮：结算被拒绝时不修改资源与记录。')
+  await page.reload()
+  await expect(current).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: '本轮变化', exact: true }).click()
+  const panel = page.getByRole('region', { name: '本轮变化', exact: true })
+  await expect(panel.getByRole('region', { name: '修改项', exact: true })).toContainText('第三轮：结算被拒绝时不修改资源与记录。')
+  await expect(panel.getByRole('region', { name: '移除项', exact: true })).toHaveCount(0)
+})
+
+test('current view loads only the comparison graph until an original graph, record or full backup is requested', async ({ page, request }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  const { path, state } = await revisionSession(request)
+  const finishedResponse = await request.post(`${path}/finish`, { data: { expectedVersion: state.version, kind: 'feedback' } })
+  expect(finishedResponse.ok()).toBeTruthy()
+  const finished: ReviewSession = await finishedResponse.json()
+  const record = finished.history[0]
+  const two = await publishFixture(request, path, finished, replaceGate(finished))
+  const next = structuredClone(two.review)
+  next.nodes.find(node => node.id === 'settlement-check')!.summary = '第三轮：进一步核对结算时的拒绝出口。'
+  const three = await publishFixture(request, path, two, next)
+  const browserRequests: URL[] = []
+  page.on('request', request => {
+    const url = new URL(request.url())
+    if (url.pathname === path || url.pathname.startsWith(`${path}/`)) browserRequests.push(url)
+  })
+  const snapshots = () => browserRequests.filter(url => url.pathname.startsWith(`${path}/snapshots/`)).map(url => url.pathname)
+  const records = () => browserRequests.filter(url => url.pathname.startsWith(`${path}/records/`)).map(url => url.pathname)
+  const fullReads = () => browserRequests.filter(url => url.pathname === path && url.searchParams.get('view') !== 'current')
+  const currentResponse = page.waitForResponse(response => {
+    const url = new URL(response.url())
+    return url.pathname === path && url.searchParams.get('view') === 'current' && !url.searchParams.has('afterVersion') && response.status() === 200
+  })
+  const baselineResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${path}/snapshots/2` && response.status() === 200)
+  await page.goto(`/?session=${state.id}`)
+  const currentView: CurrentSession = await (await currentResponse).json()
+  expect(currentView.view).toBe('current')
+  expect(currentView.review).toEqual(three.review)
+  expect(currentView.snapshots).toHaveLength(3)
+  expect(currentView.history).toHaveLength(1)
+  for (const snapshot of currentView.snapshots) expect(snapshot).not.toHaveProperty('review')
+  for (const historicalRecord of currentView.history) expect(historicalRecord).not.toHaveProperty('review')
+  await baselineResponse
+  await expect(page.getByLabel('业务流程画布', { exact: true })).toHaveAttribute('data-viewport-ready', 'true')
+  const current = page.getByRole('button', { name: '当前 R3', exact: true })
+  await expect(current).toHaveAttribute('aria-pressed', 'true')
+  expect(snapshots()).toEqual([`${path}/snapshots/2`])
+  expect(records()).toEqual([])
+  expect(fullReads()).toEqual([])
+  await expect.poll(() => browserRequests.some(url => url.searchParams.has('afterVersion') && url.searchParams.get('view') === 'current')).toBe(true)
+
+  await page.locator('.graph-toolbar').getByRole('button', { name: '批注 1', exact: true }).click()
+  const card = page.getByRole('article', { name: '意见 1', exact: true })
+  await expect(card).toBeVisible()
+  expect(snapshots()).toEqual([`${path}/snapshots/2`])
+  expect(records()).toEqual([])
+  const originResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${path}/snapshots/1` && response.status() === 200)
+  await card.getByRole('button', { name: '查看提出时流程', exact: true }).click()
+  expect((await (await originResponse).json()).review).toEqual(state.snapshots[0].review)
+  await expect(page.locator('.revision-readonly')).toContainText('提出时 R1')
+  await expect(page.locator('.react-flow__node[data-id="upgrade-toggle"]')).toBeVisible()
+  expect(snapshots()).toEqual([`${path}/snapshots/2`, `${path}/snapshots/1`])
+  await current.click()
+  await card.getByRole('button', { name: '查看提出时流程', exact: true }).click()
+  await expect(page.locator('.revision-readonly')).toContainText('提出时 R1')
+  expect(snapshots()).toEqual([`${path}/snapshots/2`, `${path}/snapshots/1`])
+
+  await page.locator('.record-list > summary').click()
+  const recordButton = page.getByRole('button', { name: '下载固定记录', exact: true })
+  await expect(recordButton).toBeVisible()
+  expect(records()).toEqual([])
+  const recordResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${path}/records/${record.id}` && response.status() === 200)
+  const recordDownload = page.waitForEvent('download')
+  await recordButton.click()
+  expect(await (await recordResponse).json()).toEqual(record)
+  expect(await downloadedJson(await recordDownload)).toEqual(record)
+  expect(records()).toEqual([`${path}/records/${record.id}`])
+  expect(fullReads()).toEqual([])
+
+  await openMenu(page, '.review-tools')
+  const backupResponse = page.waitForResponse(response => {
+    const url = new URL(response.url())
+    return url.pathname === path && !url.searchParams.has('view') && response.status() === 200
+  })
+  const backupDownload = page.waitForEvent('download')
+  await page.getByRole('button', { name: '备份完整会话', exact: true }).click()
+  const backup: ReviewSession = await (await backupResponse).json()
+  expect(backup).toEqual(three)
+  expect(await downloadedJson(await backupDownload)).toEqual(three)
+  expect(backup.snapshots.every(snapshot => !!snapshot.review.nodes.length)).toBe(true)
+  expect(backup.history[0].review).toEqual(record.review)
+  expect(fullReads()).toHaveLength(1)
+  expect(errors).toEqual([])
+})
+
+test('stale pending review cannot replace a newer graph with matching revision and fingerprint', async ({ page, request }) => {
+  for (const mode of ['explicit round one', 'legacy without round']) await test.step(mode, async () => {
+    const review = structuredClone(sampleReview)
+    review.id = `pending-round-${mode.replaceAll(' ', '-')}`
+    review.scenes = [review.scenes[0]]
+    review.nodes = review.nodes.slice(0, 3).map((node, index) => ({ ...node, evidence: [], position: { x: 0, y: index * 180 } }))
+    const ids = new Set(review.nodes.map(node => node.id))
+    review.edges = review.edges.filter(edge => ids.has(edge.source) && ids.has(edge.target))
+    review.comments = []
+    const digest = createHash('sha256').update('verified fixture for round 2\n').digest('hex')
+    const files = [{ path: 'fixture.ts', sha256: digest }]
+    review.snapshot = { ...review.snapshot, files, fingerprint: createHash('sha256').update(JSON.stringify(files)).digest('hex') }
+    const createdResponse = await request.post('/api/review-sessions', { data: { review } })
+    expect(createdResponse.ok()).toBeTruthy()
+    const created: ReviewSession = await createdResponse.json()
+    const path = `/api/review-sessions/${created.id}`
+    const localReview = addComment(created.review, [{ kind: 'node', id: 'upgrade-toggle' }], `第一轮离线意见：${mode}`)
+    const pending = { schemaVersion: 1, review: localReview, batches: [{
+      ...(mode === 'explicit round one' ? { round: 1 } : {}), revision: review.revision, fingerprint: review.snapshot.fingerprint,
+      mutations: [{ kind: 'add-comment', comment: localReview.comments[0] }],
+    }] }
+    const publishedResponse = await request.post(`${path}/revise`, { data: revisionPayload(created, replaceGate(created)) })
+    expect(publishedResponse.ok()).toBeTruthy()
+    const published: ReviewSession = await publishedResponse.json()
+    expect(published.review.revision).toBe(created.review.revision)
+    expect(published.review.snapshot.fingerprint).toBe(created.review.snapshot.fingerprint)
+    const key = `logic-margin:session:${created.id}:pending`
+    await page.goto('/')
+    await page.evaluate(({ key, pending }) => localStorage.setItem(key, JSON.stringify(pending)), { key, pending })
+    await page.goto(`/?session=${created.id}`)
+    const current = page.getByRole('button', { name: '当前 R2', exact: true })
+    await expect(current).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.save-state')).toHaveText('同步暂停')
+    await expect(page.getByRole('alert')).toContainText('流程轮次已更新')
+    await expect(page.locator('.react-flow__node[data-id="upgrade-start"]')).toContainText('新版规则：进入前先核对本轮资格。')
+    await expect(page.locator('.react-flow__node[data-id="settlement-check"]')).toContainText('结算前核对拒绝出口')
+    await expect(page.locator('.react-flow__node[data-id="upgrade-toggle"]')).toHaveCount(0)
+    await expect(page.locator('.canvas-caption')).toContainText('0 条待处理意见')
+    expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), key)).toEqual(pending)
+    expect((await (await request.get(path)).json()).review.comments).toEqual([])
+    const downloadEvent = page.waitForEvent('download')
+    await page.getByRole('button', { name: '备份未同步意见并恢复服务端版本', exact: true }).click()
+    const download = await downloadEvent
+    expect(download.suggestedFilename()).toBe('logic-margin-unsent.json')
+    const stream = await download.createReadStream()
+    const chunks: Buffer[] = []
+    for await (const chunk of stream!) chunks.push(Buffer.from(chunk))
+    expect(JSON.parse(Buffer.concat(chunks).toString())).toEqual(pending)
+    await expect(page.locator('.save-state')).toHaveText('已保存到会话')
+    expect(await page.evaluate(key => localStorage.getItem(key), key)).toBeNull()
+    await expect(current).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.react-flow__node[data-id="upgrade-start"]')).toContainText('新版规则：进入前先核对本轮资格。')
+    expect(await (await request.get(path)).json()).toEqual(published)
+  })
 })
