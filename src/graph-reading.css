@@ -1,0 +1,34 @@
+.edge-crossing-gap { stroke: var(--color-paper); pointer-events: none; stroke-linejoin: round; stroke-linecap: round; }
+.react-flow__edge .react-flow__edge-path { stroke-linejoin: round; stroke-linecap: round; }
+.react-flow__node.selected .review-node.kind-decision { border-style: dashed; }
+.react-flow__edge.is-unrelated { opacity: .22; }
+.react-flow__edge.is-related .react-flow__edge-path { stroke-width: 2.5; }
+.edge-flow-light { stroke-width: 3; stroke-linecap: round; stroke-dasharray: 8 42; pointer-events: none; animation: edge-flow 1.8s linear infinite; filter: drop-shadow(0 0 3px currentColor); }
+@keyframes edge-flow { to { stroke-dashoffset: -50; } }
+.canvas-reading-guide { position: absolute; bottom: 28px; right: 12px; z-index: 5; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-sm); max-width: calc(100% - 64px); }
+.canvas-legend { position: relative; }
+.canvas-legend > summary { list-style: none; cursor: pointer; }
+.canvas-legend > summary::-webkit-details-marker { display: none; }
+.canvas-legend[open] > summary { border-color: var(--color-accent); color: var(--color-accent); }
+.canvas-legend-panel { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(320px, calc(100vw - 40px)); max-height: min(520px, 70dvh); overflow-y: auto; padding: var(--space-lg); border: var(--rule-width) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-body); box-shadow: 0 8px 24px var(--color-selection); font-size: var(--text-xs); }
+.canvas-legend-panel h3 { font-size: var(--text-sm); margin-bottom: var(--space-sm); }
+.canvas-legend-panel h3:not(:first-child) { margin-top: var(--space-lg); }
+.canvas-legend-panel dl { margin: 0; }
+.canvas-legend-panel dl > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-top: var(--space-sm); }
+.canvas-legend-panel dt { display: flex; align-items: center; gap: var(--space-sm); white-space: nowrap; }
+.canvas-legend-panel dd { margin: 0; color: var(--color-muted); }
+.canvas-legend-panel p + p { margin-top: var(--space-sm); }
+.legend-node { display: inline-block; width: 24px; height: 16px; border: 1px solid var(--color-rule-strong); border-radius: 3px; background: var(--color-surface); }
+.legend-node.decision { border-style: dashed; }
+.legend-node.result { border-color: var(--color-success); }
+.legend-node.failure { border-color: var(--color-warning-rule); background: var(--color-warning-paper); }
+.legend-crossing { display: block; width: 140px; height: 42px; margin-bottom: var(--space-xs); }
+.legend-crossing .edge-crossing-gap { stroke: var(--color-surface); }
+.legend-wire { fill: none; stroke: var(--color-edge); stroke-width: 2; }
+.legend-revisions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-sm); }
+.flow-focus-guide { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border: var(--rule-width) solid var(--color-rule); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-muted); font-size: var(--text-xs); }
+.flow-key { white-space: nowrap; font-weight: 600; }
+.flow-key.incoming { color: var(--color-accent); }
+.flow-key.outgoing { color: var(--color-success); }
+@media (prefers-reduced-motion: reduce) { .edge-flow-light { animation: none; filter: none; } }
+@media (max-width: 600px) { .flow-focus-guide { gap: var(--space-xs); padding: var(--space-sm); } }

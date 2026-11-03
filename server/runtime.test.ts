@@ -92,7 +92,7 @@ test('standalone runtime serves embedded UI, HEAD and SPA routes without exposin
 test('health identifies the service and session writes retain origin protection', async t => {
   const service = await setup(t)
   const response = await fetch(`${service.url}/api/health`)
-  assert.deepEqual(await response.json(), { service: 'logic-margin', apiVersion: 1, version: '0.2.0', instanceId: 'runtime-instance', pid: process.pid, managed: true })
+  assert.deepEqual(await response.json(), { service: 'logic-margin', apiVersion: 1, version: '0.2.0', instanceId: 'runtime-instance', pid: process.pid, managed: true, mcp: true })
   const create = (origin: string) => fetch(`${service.url}/api/review-sessions`, { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify({ review: sampleReview }) })
   assert.equal((await create('https://different.example')).status, 403)
   const created = await create(service.url)

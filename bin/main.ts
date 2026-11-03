@@ -3,6 +3,7 @@ import { runCli } from './logic-margin.ts'
 import { ensureService, getServiceStatus, runDaemon, runtimeVersion, stopService } from '../server/daemon.ts'
 import { loadUiAssets } from '../server/ui-assets.ts'
 import type { EmbeddedAssets } from '../server/runtime.ts'
+import { configureCodexMcp } from './mcp-config.ts'
 
 interface Runtime { command: string[]; assets: EmbeddedAssets }
 function flags(args: string[], allowed: string[]) {
@@ -33,16 +34,20 @@ export async function runMain(args: string[], runtime?: Runtime) {
   }
   if (args[0] === 'server') {
     const action = args[1]
-    if (!['start', 'status', 'stop'].includes(action)) throw new Error('用法：server start [--host HOST] [--port PORT] | server status | server stop')
-    const values = flags(args.slice(2), action === 'start' ? ['--host', '--port'] : [])
-    const result = action === 'start' ? await ensureService({ command, host: values['--host'], port: port(values['--port']) })
-      : action === 'status' ? await getServiceStatus() : { stopped: await stopService() }
+    if (!['start', 'setup', 'status', 'stop'].includes(action)) throw new Error('用法：server start/setup [--host HOST] [--port PORT] | server status | server stop')
+    const values = flags(args.slice(2), ['start', 'setup'].includes(action) ? ['--host', '--port'] : [])
+    let result: unknown
+    if (action === 'start' || action === 'setup') {
+      const service = await ensureService({ command, host: values['--host'], port: port(values['--port']), requireMcp: true })
+      const mcpUrl = `${service.url}/mcp`
+      result = { ...service, mcpUrl, ...(action === 'setup' ? { mcp: await configureCodexMcp(mcpUrl) } : {}) }
+    } else result = action === 'status' ? await getServiceStatus() : { stopped: await stopService() }
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
     return
   }
-  if (!args.length || args.includes('--help') || args[0] === 'help') {
+  if (!args.length || args[0] === '--help' || args[0] === 'help') {
     await runCli(['--help'])
-    process.stdout.write('\n  server start [--host HOST] [--port PORT]\n  server status\n  server stop\n\nLocal service starts automatically; explicit --url never starts a local service.\n')
+    process.stdout.write('\n  server start [--host HOST] [--port PORT]\n  server setup [--host HOST] [--port PORT]  (register HTTP MCP in this Codex home)\n  server status\n  server stop\n\nOne daemon serves HTTP MCP, review API and embedded UI. CLI commands exit when complete.\n')
     return
   }
   await runCli(args, undefined, command)

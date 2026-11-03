@@ -13,10 +13,6 @@
 @media (min-width: 901px) {
   .app-shell .graph-toolbar:has(.revision-controls) .clear-selection { display: none; }
 }
-.review-node.revision-added { border-color: var(--color-success); }
-.review-node.revision-changed { border-color: var(--color-warning-rule); }
-.review-node.revision-removed { border-color: var(--color-error); }
-.review-node.revision-evidence { border-color: var(--color-accent); }
 .revision-badge.revision-added { color: var(--color-success); background: var(--color-success-paper); border-color: var(--color-success); }
 .revision-badge.revision-changed { color: var(--color-warning); background: var(--color-warning-paper); border-color: var(--color-warning-rule); }
 .revision-badge.revision-removed { color: var(--color-error); background: var(--color-error-paper); border-color: var(--color-error); }

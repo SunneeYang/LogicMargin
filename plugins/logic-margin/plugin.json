@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "logic-margin",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Review source-backed logic diagrams with human annotations, agent replies and resumable review rounds.",
   "extensions": {
     "com.openai": {
@@ -9,8 +9,13 @@
         "displayName": "LogicMargin · 逻辑旁批",
         "shortDescription": "在流程图上评审逻辑，供代理等待、回应与发布新版",
         "category": "Productivity",
-        "capabilities": ["Read", "Write"],
-        "defaultPrompt": ["用 LogicMargin 为当前功能发起逻辑评审，并等待我的批注。"]
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "用 LogicMargin 为当前功能发起逻辑评审，并等待我的批注。"
+        ]
       }
     }
   }

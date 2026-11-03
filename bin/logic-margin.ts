@@ -16,6 +16,7 @@ const HELP = `LogicMargin agent review CLI
   comments <sessionId>
   get <sessionId>
   reply <sessionId> <commentId> --body-file <text-file>
+  ack <sessionId> <submissionId>
   revise <sessionId> <review.json> --base-round <number> --summary <text> [--wait]
   verify <review.json> [--source-root <directory>]
   resume <sessionId> [--wait]
@@ -28,7 +29,9 @@ Options: --url <API base URL> (explicit remote service; otherwise auto-start loc
 New review: --context <thread/workflow> --purpose <review purpose>
             --cleanup-on-approval (archive after the agent receives approval)
 Waiting: --cleanup-on-approval also enables archival for this wait/resume call.
-Revision: --source-root <directory> (default current working directory)
+Sources: --source-root <directory> (verify/start/revise; default current working directory)
+Reply: --body <text> may replace --body-file.
+Revision:
           --base-round <number> (round reviewed by the agent; obtain with wait/get)
           --unchanged-reason <text> (required when graph logic is unchanged)
           --replies-file <JSON file> (final replies published with the new graph)
@@ -39,9 +42,10 @@ JSON goes to stdout; review links and waiting status go to stderr.
 `
 
 interface IO { out(text: string): void; err(text: string): void }
+interface ExecutionOptions { signal?: AbortSignal; consumeSubmission?: boolean }
 interface Options {
   wait: boolean; url: string; publicUrl: string; explicitUrl: boolean; explicitPublicUrl: boolean
-  after?: string; timeout?: number; bodyFile?: string; sourceRoot?: string; baseRound?: number; summary?: string; unchangedReason?: string; repliesFile?: string
+  after?: string; timeout?: number; bodyFile?: string; body?: string; sourceRoot?: string; baseRound?: number; summary?: string; unchangedReason?: string; repliesFile?: string
   context?: string; purpose?: string; cleanupOnApproval: boolean; force: boolean; mode?: 'archive' | 'delete'; state?: 'active' | 'archived' | 'all'
 }
 
@@ -56,17 +60,18 @@ function baseUrl(raw: string): string {
 function argumentsFor(args: string[]) {
   const positional: string[] = []
   const values = new Map<string, string>()
-  let wait = false, cleanupOnApproval = false, force = false
+  let wait = false, cleanupOnApproval = false, force = false, help = false
   for (let index = 0; index < args.length; index++) {
     const item = args[index]
+    if (item === '--help') { help = true; continue }
     if (item === '--wait') { wait = true; continue }
     if (item === '--cleanup-on-approval') { cleanupOnApproval = true; continue }
     if (item === '--force') { force = true; continue }
     if (!item.startsWith('-')) { positional.push(item); continue }
-    if (!['--url', '--public-url', '--after', '--timeout', '--body-file', '--source-root', '--base-round', '--summary', '--unchanged-reason', '--replies-file', '--context', '--purpose', '--mode', '--state'].includes(item)) throw new Error(`未知参数 ${item}`)
+    if (!['--url', '--public-url', '--after', '--timeout', '--body-file', '--body', '--source-root', '--base-round', '--summary', '--unchanged-reason', '--replies-file', '--context', '--purpose', '--mode', '--state'].includes(item)) throw new Error(`未知参数 ${item}`)
     if (values.has(item)) throw new Error(`重复参数 ${item}`)
     const value = args[++index]
-    if (!value || value.startsWith('--')) throw new Error(`${item} 缺少值`)
+    if (!value || (item !== '--body' && value.startsWith('--'))) throw new Error(`${item} 缺少值`)
     values.set(item, value)
   }
   const providedUrl = values.get('--url') ?? process.env.LOGIC_MARGIN_URL
@@ -75,6 +80,7 @@ function argumentsFor(args: string[]) {
   const options: Options = { wait, cleanupOnApproval, force, url, publicUrl: baseUrl(providedPublicUrl ?? url), explicitUrl: providedUrl !== undefined, explicitPublicUrl: providedPublicUrl !== undefined }
   if (values.has('--after')) options.after = values.get('--after')
   if (values.has('--body-file')) options.bodyFile = values.get('--body-file')
+  if (values.has('--body')) options.body = values.get('--body')
   if (values.has('--source-root')) options.sourceRoot = values.get('--source-root')
   if (values.has('--summary')) options.summary = values.get('--summary')
   if (values.has('--unchanged-reason')) options.unchangedReason = values.get('--unchanged-reason')
@@ -106,7 +112,7 @@ function argumentsFor(args: string[]) {
     options.timeout = Number(values.get('--timeout'))
     if (!Number.isFinite(options.timeout) || options.timeout <= 0) throw new Error('--timeout 必须是大于 0 的秒数')
   }
-  return { positional, options }
+  return { positional, options, help }
 }
 
 async function textFile(path: string, maxBytes: number): Promise<string> {
@@ -158,12 +164,12 @@ class HttpError extends Error {
   constructor(status: number, message: string) { super(`HTTP ${status}: ${message}`); this.status = status }
 }
 
-async function requestPayload(base: string, path: string, body?: unknown, timeout = 30000): Promise<unknown> {
+async function requestPayload(base: string, path: string, body?: unknown, timeout = 30000, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(`${base}/api/review-sessions${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    signal: AbortSignal.timeout(Math.max(1, Math.ceil(timeout))),
+    signal: AbortSignal.any([AbortSignal.timeout(Math.max(1, Math.ceil(timeout))), ...(signal ? [signal] : [])]),
   })
   if (response.status === 204) return null
   const payload: unknown = await response.json().catch(() => null)
@@ -174,8 +180,8 @@ async function requestPayload(base: string, path: string, body?: unknown, timeou
   return payload
 }
 
-async function request(base: string, path: string, body?: unknown, timeout = 30000): Promise<ReviewSession | null> {
-  const value = await requestPayload(base, path, body, timeout)
+async function request(base: string, path: string, body?: unknown, timeout = 30000, signal?: AbortSignal): Promise<ReviewSession | null> {
+  const value = await requestPayload(base, path, body, timeout, signal)
   return value === null ? null : session(value)
 }
 
@@ -213,23 +219,30 @@ function compactSubmission(current: ReviewSession, submission: ReviewRecord) {
   const submissionIndex = current.history.findIndex(item => item.id === submission.id)
   const snapshot = [...current.snapshots].reverse().find(item => submissionIndex >
     (item.afterSubmission === undefined ? -1 : current.history.findIndex(record => record.id === item.afterSubmission)))
+  const approved = submission.kind === 'logic-margin-approval'
+  const source = submission.review.snapshot
   return {
     sessionId: current.id,
     ...(current.scope === undefined ? {} : { scope: current.scope }),
     ...(current.cleanupPolicy === undefined ? {} : { cleanupPolicy: current.cleanupPolicy }),
     round: snapshot?.round ?? current.round,
-    approved: submission.kind === 'logic-margin-approval',
+    approved,
     submission: { id: submission.id, kind: submission.kind, createdAt: submission.createdAt,
       review: { id: submission.review.id, title: submission.review.title, revision: submission.review.revision,
-        snapshot: submission.review.snapshot, comments: submission.review.comments } },
+        ...(approved ? {
+          snapshot: { repository: source.repository, commit: source.commit, fingerprint: source.fingerprint,
+            capturedAt: source.capturedAt, dirty: source.dirty },
+          resolvedCommentCount: submission.review.comments.length,
+        } : { snapshot: source, comments: submission.review.comments }) } },
   }
 }
 
-async function waitForSubmission(initial: ReviewSession, options: Options, io: IO) {
+async function waitForSubmission(initial: ReviewSession, options: Options, io: IO, execution: ExecutionOptions = {}) {
   let current = initial
   const deadline = options.timeout === undefined ? Infinity : Date.now() + options.timeout * 1000
   io.err(`等待本轮提交：${reviewLink(options.publicUrl, current.id)}\n`)
   while (true) {
+    execution.signal?.throwIfAborted()
     const boundary = current.snapshots.at(-1)?.afterSubmission
     const acknowledged = current.acknowledgedSubmission
     const boundaryIndex = current.history.findIndex(record => record.id === boundary)
@@ -240,14 +253,18 @@ async function waitForSubmission(initial: ReviewSession, options: Options, io: I
     const unread = current.history.slice(cursor + 1)
     const submission = unread.at(-1)
     if (submission) {
-      if (submission.kind === 'logic-margin-feedback') {
+        if (submission.kind === 'logic-margin-feedback' && execution.consumeSubmission !== false) {
         await requiredRequest(options.url, `/${encodeURIComponent(current.id)}/ack`, { submissionId: submission.id })
       }
       const result = compactSubmission(current, submission)
-      io.out(`${JSON.stringify({ ...result, ...(unread.length > 1 ? {
-        earlierSubmissions: unread.slice(0, -1).map(record => compactSubmission(current, record)),
-      } : {}) }, null, 2)}\n`)
-      if (submission.kind === 'logic-margin-approval' && (options.cleanupOnApproval || current.cleanupPolicy === 'archive-on-approval')) {
+        io.out(`${JSON.stringify({ ...result,
+          ...(execution.consumeSubmission === false && submission.kind === 'logic-margin-feedback' ? { requiresAcknowledgement: true } : {}),
+          ...(execution.consumeSubmission === false && submission.kind === 'logic-margin-approval' && (options.cleanupOnApproval || current.cleanupPolicy === 'archive-on-approval') ? { cleanupPending: true } : {}),
+          ...(unread.length > 1 ? result.approved
+            ? { earlierSubmissionIds: unread.slice(0, -1).map(record => record.id) }
+            : { earlierSubmissions: unread.slice(0, -1).map(record => compactSubmission(current, record)) }
+            : {}) }, null, 2)}\n`)
+        if (execution.consumeSubmission !== false && submission.kind === 'logic-margin-approval' && (options.cleanupOnApproval || current.cleanupPolicy === 'archive-on-approval')) {
         if (current.phase !== 'approved' || result.round !== current.round || submission.review.revision !== current.review.revision ||
           submission.review.snapshot.fingerprint !== current.review.snapshot.fingerprint) {
           io.err('通过记录不属于当前已通过轮次，保留会话并跳过自动归档。\n')
@@ -265,7 +282,7 @@ async function waitForSubmission(initial: ReviewSession, options: Options, io: I
     try {
       const updated = await request(options.url,
         `/${encodeURIComponent(current.id)}?afterVersion=${current.version}&waitMs=${Math.min(25000, Math.ceil(remaining))}`,
-        undefined, Math.min(30000, remaining))
+          undefined, Math.min(30000, remaining), execution.signal)
       if (updated) current = updated
     } catch (error) {
       if (Date.now() >= deadline || (remaining <= 30000 && error instanceof Error && error.name === 'TimeoutError')) {
@@ -276,16 +293,19 @@ async function waitForSubmission(initial: ReviewSession, options: Options, io: I
   }
 }
 
-export async function runCli(args: string[], io: IO = { out: text => process.stdout.write(text), err: text => process.stderr.write(text) }, runtimeCommand = [process.execPath, fileURLToPath(new URL('./entry.ts', import.meta.url))]) {
-  if (!args.length || args.includes('--help') || args[0] === 'help') { io.out(HELP); return }
-  const { positional, options } = argumentsFor(args)
+export async function runCli(args: string[], io: IO = { out: text => process.stdout.write(text), err: text => process.stderr.write(text) }, runtimeCommand = [process.execPath, fileURLToPath(new URL('./entry.ts', import.meta.url))], execution: ExecutionOptions = {}) {
+  execution.signal?.throwIfAborted()
+  if (!args.length || args[0] === 'help') { io.out(HELP); return }
+  const { positional, options, help } = argumentsFor(args)
+  if (help) { io.out(HELP); return }
   const [command, id, argument] = positional
-  const arity = command === 'list' ? 1 : ['reply', 'revise'].includes(command) ? 3 : 2
-  if (!['start', 'wait', 'comments', 'get', 'reply', 'revise', 'resume', 'verify', 'list', 'cleanup', 'restore'].includes(command) || positional.length !== arity) {
+  const arity = command === 'list' ? 1 : ['reply', 'revise', 'ack'].includes(command) ? 3 : 2
+  if (!['start', 'wait', 'comments', 'get', 'reply', 'revise', 'resume', 'verify', 'list', 'cleanup', 'restore', 'ack'].includes(command) || positional.length !== arity) {
     throw new Error('命令或参数数量无效；使用 --help 查看用法')
   }
-  if (options.bodyFile && command !== 'reply') throw new Error('--body-file 仅用于 reply')
-  if (options.sourceRoot && !['revise', 'verify'].includes(command)) throw new Error('--source-root 仅用于 revise 或 verify')
+  if ((options.bodyFile || options.body !== undefined) && command !== 'reply') throw new Error('--body-file 和 --body 仅用于 reply')
+  if (options.bodyFile && options.body !== undefined) throw new Error('--body-file 与 --body 不能同时使用')
+  if (options.sourceRoot && !['start', 'revise', 'verify'].includes(command)) throw new Error('--source-root 仅用于 start、revise 或 verify')
   if (options.baseRound !== undefined && command !== 'revise') throw new Error('--base-round 仅用于 revise')
   if (command === 'revise' && options.baseRound === undefined) throw new Error('revise 需要 --base-round <agent 实际审阅的轮次>，请从 wait 或 get 获取')
   if ((options.summary !== undefined || options.unchangedReason !== undefined || options.repliesFile !== undefined) && command !== 'revise') throw new Error('发布说明与最终回复参数仅用于 revise')
@@ -303,9 +323,10 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
   if (options.cleanupOnApproval && command === 'resume' && !options.wait) throw new Error('resume 的 --cleanup-on-approval 需要 --wait')
   const preparedReview = command === 'start' || command === 'verify' ? await reviewFile(id) : command === 'revise' ? await reviewFile(argument) : undefined
   let source: SourceVerification | undefined
-  if (command === 'revise' || command === 'verify') source = await verifyReviewSources(preparedReview!, options.sourceRoot ?? process.cwd())
+  if (command === 'revise' || command === 'verify' || (command === 'start' && options.sourceRoot)) source = await verifyReviewSources(preparedReview!, options.sourceRoot ?? process.cwd())
   const finalReplies = options.repliesFile === undefined ? undefined : await publicationReplies(options.repliesFile)
   if (command === 'verify') { io.out(`${JSON.stringify(source, null, 2)}\n`); return }
+  execution.signal?.throwIfAborted()
   const service = await ensureService({ url: options.explicitUrl ? options.url : undefined, command: runtimeCommand })
   options.url = service.url
   if (!options.explicitPublicUrl) options.publicUrl = service.url
@@ -333,6 +354,10 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
     current = await requiredRequest(options.url, `/${encodeURIComponent(id)}`)
   }
   const path = `/${encodeURIComponent(current.id)}`
+  execution.signal?.throwIfAborted()
+  if (command === 'ack') {
+    current = await requiredRequest(options.url, `${path}/ack`, { submissionId: argument })
+  }
   if (command === 'cleanup') {
     io.out(`${JSON.stringify(await cleanup(options.url, current, options.mode ?? 'archive', options.force), null, 2)}\n`); return
   }
@@ -340,8 +365,8 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
     current = await requiredRequest(options.url, `${path}/restore`, { expectedVersion: current.version })
   }
   if (command === 'reply') {
-    if (!options.bodyFile) throw new Error('reply 需要 --body-file <text-file>')
-    const body = (await textFile(options.bodyFile, 40000)).trim()
+    if (!options.bodyFile && options.body === undefined) throw new Error('reply 需要 --body-file <text-file> 或 --body <text>')
+    const body = (options.body ?? await textFile(options.bodyFile!, 40000)).trim()
     if (!body || body.length > 10000) throw new Error('回复须为非空文本，最多 10000 字符')
     if (!current.review.comments.some(comment => comment.id === argument)) throw new Error(`批注不存在：${argument}`)
     const reply = { id: newId(), author: 'agent', body, createdAt: new Date().toISOString(), revision: current.review.revision }
@@ -360,7 +385,7 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
       ...(finalReplies === undefined ? {} : { replies: finalReplies }) })
   }
   if (['start', 'revise', 'resume', 'restore'].includes(command)) io.err(`审查地址：${reviewLink(options.publicUrl, current.id)}\n`)
-  if (command === 'wait' || options.wait) { await waitForSubmission(current, options, io); return }
+  if (command === 'wait' || options.wait) { await waitForSubmission(current, options, io, execution); return }
   if (command === 'get') { io.out(`${JSON.stringify(current, null, 2)}\n`); return }
   if (command === 'comments') {
     io.out(`${JSON.stringify({ sessionId: current.id, round: current.round, phase: current.phase, ...(current.scope === undefined ? {} : { scope: current.scope }),

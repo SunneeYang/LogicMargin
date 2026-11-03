@@ -12,6 +12,8 @@ import { packageAgent } from './package-agent.mjs'
 import { createSessionApi } from '../server/api.ts'
 import { addComment } from '../src/model.ts'
 import { sampleReview } from '../src/sample.ts'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 const execute = promisify(execFile)
 const native = process.env.LOGIC_MARGIN_TEST_NATIVE === '1'
@@ -299,4 +301,96 @@ test('distributed CLI isolates purposes and archives, restores and deletes only 
   const after = JSON.parse((await run(['list', '--context', 'package-context', '--state', 'all']).result).stdout)
   assert.deepEqual(after.sessions.map(item => item.id), [sibling])
   assert.equal((await call(`/${sibling}`)).review.comments.length, 0)
+})
+
+test('one packaged daemon serves UI, API and multiple MCP clients and restores a disconnected wait', { timeout: 30000 }, async t => {
+  const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-mcp-package-'))
+  const home = join(directory, 'service home')
+  const cwd = join(directory, 'review project')
+  await mkdir(cwd)
+  const clients = []
+  const env = { ...process.env, LOGIC_MARGIN_HOME: home }
+  delete env.LOGIC_MARGIN_URL
+  delete env.LOGIC_MARGIN_PUBLIC_URL
+  const run = args => execute(packagedCommand[0], [...packagedCommand.slice(1), ...args], {
+    cwd, env, timeout: 15000,
+  })
+  t.after(async () => {
+    await Promise.allSettled(clients.map(client => client.close()))
+    await run(['server', 'stop']).catch(() => {})
+    await rm(directory, { recursive: true, force: true })
+  })
+  const connect = async url => {
+    const client = new Client({ name: 'packaged-review-test', version: '1.0.0' })
+    clients.push(client)
+    await client.connect(new StreamableHTTPClientTransport(new URL(url)))
+    return client
+  }
+  const tool = async (client, name, args) => {
+    const result = await client.callTool({ name, arguments: args })
+    assert.notEqual(result.isError, true, JSON.stringify(result))
+    return JSON.parse(result.content.find(item => item.type === 'text').text)
+  }
+  const first = JSON.parse((await run(['server', 'start'])).stdout)
+  assert.equal(first.mcpUrl, `${first.url}/mcp`)
+  const health = await (await fetch(`${first.url}/api/health`)).json()
+  const client = await connect(first.mcpUrl)
+  const sibling = await connect(first.mcpUrl)
+  assert.equal((await client.listTools()).tools.length, 10)
+  const review = await sourceReview(cwd)
+  const reviewFile = join(cwd, 'review.json')
+  await writeFile(reviewFile, JSON.stringify(review))
+  const created = await tool(client, 'start_review', { review_file: reviewFile, source_root: cwd, purpose: '打包后 MCP 恢复' })
+  const found = await tool(sibling, 'get_review', { session_id: created.sessionId })
+  assert.equal(found.id, created.sessionId)
+  assert.equal((await (await fetch(`${first.url}/api/health`)).json()).pid, health.pid)
+  assert.equal((await fetch(first.url)).status, 200)
+  let returned = false
+  const waiting = tool(client, 'wait_review', { session_id: created.sessionId }).finally(() => { returned = true })
+  const comment = addComment(review, [{ kind: 'review', id: review.id }], '同一个后台承载网页和 MCP。').comments.at(-1)
+  const save = async (base, body) => {
+    const response = await fetch(`${base}/api/review-sessions/${created.sessionId}/mutations`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    assert.equal(response.status, 200)
+    return response.json()
+  }
+  const submit = async (base, version) => {
+    const response = await fetch(`${base}/api/review-sessions/${created.sessionId}/finish`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedVersion: version, kind: 'feedback' }),
+    })
+    assert.equal(response.status, 200)
+    return response.json()
+  }
+  const saved = await save(first.url, { revision: review.revision, fingerprint: review.snapshot.fingerprint,
+    mutations: [{ kind: 'add-comment', comment }] })
+  await tool(sibling, 'get_review', { session_id: created.sessionId })
+  assert.equal(returned, false, 'Saving a comment must not complete the MCP wait')
+  await submit(first.url, saved.version)
+  const feedback = await waiting
+  assert.equal(feedback.requiresAcknowledgement, true)
+  assert.equal((await tool(sibling, 'get_review', { session_id: created.sessionId })).phase, 'feedback-ready')
+  await tool(client, 'acknowledge_review', { session_id: created.sessionId, submission_id: feedback.submission.id })
+
+  const interrupted = client.callTool({ name: 'wait_review', arguments: { session_id: created.sessionId, after_submission: feedback.submission.id } },
+    undefined, { timeout: 5000 }).then(result => ({ result }), error => ({ error }))
+  await tool(sibling, 'get_review', { session_id: created.sessionId })
+  await run(['server', 'stop'])
+  const stopped = await interrupted
+  assert.ok(stopped.error || stopped.result?.isError, 'Stopping the daemon must fail a pending MCP wait')
+  const status = JSON.parse((await run(['server', 'status'])).stdout)
+  assert.equal(status.running, false)
+  assert.equal(status.processRunning, false)
+  const restarted = JSON.parse((await run(['server', 'start'])).stdout)
+  assert.equal(restarted.url, first.url)
+  const recovered = await connect(restarted.mcpUrl)
+  assert.equal((await tool(recovered, 'get_review', { session_id: created.sessionId })).history[0].id, feedback.submission.id)
+  const pending = tool(recovered, 'wait_review', { session_id: created.sessionId, after_submission: feedback.submission.id })
+  const nextComment = addComment(review, [{ kind: 'review', id: review.id }], '重连后读取新的提交。').comments.at(-1)
+  const next = await save(restarted.url, { revision: review.revision, fingerprint: review.snapshot.fingerprint,
+    mutations: [{ kind: 'add-comment', comment: nextComment }] })
+  await submit(restarted.url, next.version)
+  const nextFeedback = await pending
+  assert.notEqual(nextFeedback.submission.id, feedback.submission.id)
+  assert.equal(nextFeedback.submission.review.comments[0].id, nextComment.id)
 })

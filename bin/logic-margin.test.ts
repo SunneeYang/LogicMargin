@@ -91,6 +91,10 @@ test('start validates a review and prints a Tailscale session link without putti
 
 test('wait ignores saved comments, then acknowledges only explicitly submitted feedback', async t => {
   const current = fixture()
+  current.review.comments[0].replies = [{ id: 'reviewer-supplement', author: 'reviewer', body: '失败时也要保留资源。',
+    createdAt: current.createdAt, revision: current.review.revision }]
+  current.review.snapshot.files = [{ path: 'logic.ts', sha256: 'a'.repeat(64) }]
+  current.review.snapshot.fingerprint = createHash('sha256').update(JSON.stringify(current.review.snapshot.files)).digest('hex')
   const submitted = createFeedbackPackage(current.review)
   let reads = 0, acknowledged = 0
   const server = await api(async request => {
@@ -112,6 +116,7 @@ test('wait ignores saved comments, then acknowledges only explicitly submitted f
   assert.equal(result.value.approved, false)
   assert.equal(result.value.submission.id, submitted.id)
   assert.deepEqual(result.value.submission.review.comments, current.review.comments)
+  assert.deepEqual(result.value.submission.review.snapshot, current.review.snapshot)
   assert.equal('nodes' in result.value.submission.review, false)
 })
 
@@ -374,6 +379,55 @@ test('get and cleanup read an archived session after 410, and restore uses its e
   await runCli(['cleanup', current.id, '--mode', 'delete', '--url', 'http://local.test'], output().io)
   await runCli(['restore', current.id, '--url', 'http://local.test'], output().io)
   assert.equal(requests.filter(url => url.endsWith('/archive')).length, 3)
+})
+
+test('approval returns only summary and record indexes while complete discussions remain readable', async t => {
+  const current = fixture()
+  current.scope = { context: 'thread:approval', purpose: '最终验收' }
+  current.review.comments[0].body = '供留档的已解决意见。'.repeat(300)
+  current.review.comments[0].replies = [{ id: 'long-agent-response', author: 'agent', body: '已修改并核验对应分支。'.repeat(300),
+    createdAt: current.createdAt, revision: current.review.revision }]
+  current.review.snapshot.files = [{ path: 'logic.ts', sha256: 'a'.repeat(64) }]
+  current.review.snapshot.fingerprint = createHash('sha256').update(JSON.stringify(current.review.snapshot.files)).digest('hex')
+  const feedback = createFeedbackPackage(current.review)
+  current.review.comments[0].status = 'resolved'
+  const approval = createApprovalRecord(current.review)
+  current.history = [feedback, approval]
+  current.phase = 'approved'
+  t.mock.method(globalThis, 'fetch', async (_url: string, init?: RequestInit) => {
+    assert.equal(init?.method ?? 'GET', 'GET', 'Delivering approval must not acknowledge feedback or mutate the record')
+    return Response.json(current)
+  })
+  const result = output()
+  await runCli(['wait', current.id, '--url', 'http://local.test'], result.io)
+  const summary = result.value.submission.review
+  assert.equal(summary.resolvedCommentCount, 1)
+  assert.equal(result.value.approved, true)
+  assert.equal(result.value.sessionId, current.id)
+  assert.equal(result.value.round, current.round)
+  assert.deepEqual(result.value.scope, current.scope)
+  assert.equal(result.value.submission.id, approval.id)
+  assert.equal(result.value.submission.kind, 'logic-margin-approval')
+  assert.equal(result.value.submission.createdAt, approval.createdAt)
+  assert.equal(summary.id, current.review.id)
+  assert.equal(summary.title, current.review.title)
+  assert.equal(summary.revision, current.review.revision)
+  const { repository, commit, fingerprint, capturedAt, dirty } = current.review.snapshot
+  assert.deepEqual(summary.snapshot, { repository, commit, fingerprint, capturedAt, dirty })
+  assert.equal('comments' in summary, false)
+  assert.equal('earlierSubmissions' in result.value, false)
+  assert.deepEqual(result.value.earlierSubmissionIds, [feedback.id])
+  assert.equal(result.out.includes(current.review.comments[0].body), false)
+  assert.equal(result.out.includes(current.review.comments[0].replies![0].body), false)
+  const single = output()
+  await runCli(['wait', current.id, '--after', feedback.id, '--url', 'http://local.test'], single.io)
+  assert.equal('earlierSubmissionIds' in single.value, false)
+  assert.equal('earlierSubmissions' in single.value, false)
+  const complete = output()
+  await runCli(['get', current.id, '--url', 'http://local.test'], complete.io)
+  assert.deepEqual(complete.value.history, [feedback, approval])
+  assert.deepEqual(complete.value.review.comments, current.review.comments)
+  assert.deepEqual(complete.value.review.snapshot.files, current.review.snapshot.files)
 })
 
 test('approval is output before automatic archival with the read version and scope', async t => {

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.5.0-2563eb?style=flat-square" alt="Version 0.5.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2563eb?style=flat-square" alt="Version 0.6.0" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Requires Node.js 22.18 or later" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -75,11 +75,41 @@ The interface follows your system's light or dark theme and works on desktop and
 
 ## Quickstart
 
-Requires **Node.js 22.18+**; 24+ is recommended. Running from source also requires npm. Building a plugin package requires the system `zip` command.
+Requires **Node.js 22.18+**; 24+ is recommended. Online Codex installation also requires Git. You do not need to clone this repository, install its npm dependencies, or build the plugin.
+
+### Use it with an agent
+
+Register the remote marketplace and install the prebuilt plugin:
+
+```sh
+codex plugin marketplace add SunneeYang/LogicMargin --ref main --sparse .agents/plugins --sparse plugins/logic-margin
+codex plugin add logic-margin@logic-margin-local
+```
+
+Codex manages the Git checkout and checks out the plugin directories. Start a new agent session in the project you want to review:
+
+```text
+$logic-margin:logic-margin
+Start a logic review for the current feature. Focus on whether failures
+can still deduct a fee, and wait for my feedback.
+```
+
+The agent starts one background process for HTTP MCP, the review API, and the bundled web UI. On first use, `server setup` registers its local MCP address and long tool timeout in Codex; reconnect or reload MCP in your host and verify that its tools are available. The agent then reads the sources, prepares the diagram, and gives you a review link. Later reviews reuse the same process. Your business project does not need LogicMargin's npm dependencies.
+
+To update, ask your agent to run:
+
+```sh
+codex plugin marketplace upgrade logic-margin-local
+codex plugin add logic-margin@logic-margin-local
+```
+
+Then start a new session to load the updated skill and CLI path. Review data is stored separately from the plugin cache. This updates to the prebuilt version on `main`; it does not poll for updates during a review.
+
+For installation without Git, download the small Node ZIP and its SHA-256 file from [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest). See the [plugin guide](docs/agent-plugin.md) for ZIP installation, migration from a local marketplace, service restarts, and optional native packages. The detailed guides are currently in Chinese.
 
 ### Try it in your browser
 
-From the repository root:
+For source development, clone the repository and run from its root:
 
 ```sh
 npm ci
@@ -89,29 +119,6 @@ npm run dev
 Open **http://127.0.0.1:5173**. Browse the built-in examples, or choose “File → Import review” (currently “文件 → 导入评审”) and select the [order demo JSON](docs/examples/order-review.logic-margin.json) to try diagram annotations, replies, and human verification.
 
 The demo is for learning the interface. A real review should be generated from actual code or documents and include source evidence.
-
-### Use it with an agent
-
-Build and install the local Codex plugin from this repository:
-
-```sh
-npm ci
-npm run package:agent
-codex plugin marketplace add .
-codex plugin add logic-margin@logic-margin-local
-```
-
-Then ask the agent in the project you want to review:
-
-```text
-$logic-margin:logic-margin
-Start a logic review for the current feature. Focus on whether failures
-can still deduct a fee, and wait for my feedback.
-```
-
-The agent reads the actual sources, prepares the diagram, and gives you a review link. The complete plugin starts its background service on first use and reuses it afterward. Your business project does not need LogicMargin's npm dependencies.
-
-The default distribution is a single Node module containing the web UI and server. See the [plugin guide](docs/agent-plugin.md) for offline installation, CLI use with other agents, and optional native packages. The detailed guides are currently in Chinese.
 
 ## Review workflow
 
@@ -125,11 +132,11 @@ The default distribution is a single Node module containing the web UI and serve
 
 **Saving a comment and submitting a round are separate actions.** Saved session comments remain available before submission; the waiting agent continues after an explicit submission. A reply does not automatically resolve an issue. The reviewer makes the final decision.
 
-The agent reads sources, changes code, and prepares diagrams. LogicMargin displays, discusses, stores, and tracks the review. Its server does not execute project code or shell commands, and it has no built-in language model.
+The agent reads sources, changes code, and prepares diagrams. LogicMargin displays, discusses, stores, and tracks the review. Its MCP wait tool holds the request until a submission, approval, or terminal error; ordinary comment saves and connection keep-alives require no model checks. Its server does not execute project code or shell commands, and it has no built-in language model.
 
 ## Independent reviews and cleanup
 
-Continue the original review for changes serving the same purpose. Start a new review when the subject or purpose changes. Use `--context` to associate reviews with an agent conversation and `--purpose` to describe what each review checks.
+Continue the original review for changes serving the same purpose. Start a new review when the subject or purpose changes. Use MCP `context` to associate reviews with an agent conversation and `purpose` to describe what each review checks. The following compatibility CLI commands remain available for scripts; normal agent reviews use the corresponding MCP tools.
 
 ```sh
 # List active and archived reviews in one context
@@ -147,7 +154,7 @@ npm run review -- cleanup <sessionId> --mode delete
 
 “File → Manage review tasks” (currently “文件 → 管理评审任务”) also provides creation, backup, archive, restore, and deletion actions. By default, only approved reviews can be cleaned up. See the [agent workflow](docs/agent-workflow.md#查询归档与删除) for explicit cleanup of unfinished reviews, command options, and concurrency checks.
 
-With `--cleanup-on-approval`, the agent receives the current round's final approval before archival runs. New feedback arriving in the meantime prevents cleanup using the old version. Rounds, comments, and history have no fixed business count limits; individual content and single-request resource checks still apply.
+MCP `wait_review` does not claim feedback or archive reviews. After reading feedback, the agent calls `acknowledge_review`. With `cleanup_on_approval`, it calls `cleanup_review` only after receiving final approval; new feedback prevents cleanup using an old version. Rounds, comments, and history have no fixed business count limits; individual content and single-request resource checks still apply.
 
 <details>
 <summary><strong>Where is the data stored? How do I access it from another device?</strong></summary>
@@ -155,7 +162,8 @@ With `--cleanup-on-approval`, the agent receives the current round's final appro
 - **Shared reviews:** diagrams, comments, replies, and history live on the service machine. Managed services default to `~/.logic-margin/sessions`; the development server uses `.logic-margin/sessions` in the repository. The actual directory is configurable.
 - **Browser data:** unfinished drafts, pending operations, and standalone file reviews are stored in the current browser for the current origin. They do not automatically appear on other devices.
 - **Private network access:** the development server listens on `0.0.0.0:5173` by default. Other LAN devices can use the machine's LAN address. With Tailscale, set the review link's public address to the service machine's Tailscale address.
-- **Current boundaries:** the service is intended for a trusted local machine or private network and has no account or permission management yet. Source digest verification also does not replace human verification of the diagram's meaning.
+- **MCP access:** the MCP endpoint accepts loopback connections only, even when the review page is shared over a private network. The MCP service and source workspace are on the same machine.
+- **Current boundaries:** the review API is intended for a trusted local machine or private network and has no account or permission management yet. Source digest verification also does not replace human verification of the diagram's meaning.
 
 </details>
 

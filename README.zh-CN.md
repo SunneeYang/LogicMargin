@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.5.0-2563eb?style=flat-square" alt="版本 0.5.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2563eb?style=flat-square" alt="版本 0.6.0" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="需要 Node.js 22.18 或更高版本" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -75,11 +75,40 @@ LogicMargin 是一个本地运行的逻辑评审工具，供策划、产品和�
 
 ## 快速开始
 
-需要 **Node.js 22.18+**，推荐 24+。从源码运行还需要 npm；打包插件需要系统 `zip`。
+需要 **Node.js 22.18+**，推荐 24+。Codex 在线安装还需要 Git；无需手动克隆仓库、安装本工程的 npm 依赖或构建插件。
+
+### 交给 Agent 使用
+
+注册远程 marketplace，安装已构建的插件：
+
+```sh
+codex plugin marketplace add SunneeYang/LogicMargin --ref main --sparse .agents/plugins --sparse plugins/logic-margin
+codex plugin add logic-margin@logic-margin-local
+```
+
+Codex 管理 Git 检出，只展开插件目录。在需要评审的业务工程中新开 Agent 会话：
+
+```text
+$logic-margin:logic-margin
+为当前功能发起逻辑评审，重点检查失败时是否会扣费，并等待我的批注。
+```
+
+Agent 启动一个后台进程，同时提供 HTTP MCP、评审 API 和内嵌网页。首次用 `server setup` 注册本机 MCP 地址和长工具超时，再按宿主提示重载或重连 MCP，核实工具可用后读取来源、整理流程图并给出评审链接。后续评审复用同一后台，业务工程无需安装 LogicMargin 的 npm 依赖。
+
+更新时，可以让 Agent 执行：
+
+```sh
+codex plugin marketplace upgrade logic-margin-local
+codex plugin add logic-margin@logic-margin-local
+```
+
+随后新开会话，加载新版技能和 CLI 路径。评审数据独立于插件缓存保存。这会更新到 `main` 上已构建的版本；评审过程中不会后台轮询升级。
+
+不想依赖 Git 时，可从 [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest) 下载 Node 小包及 SHA-256 校验文件。ZIP 安装、从本地 marketplace 迁移、服务重启与可选原生包见 [插件安装文档](docs/agent-plugin.md)。
 
 ### 在浏览器中体验
 
-在本仓库根目录运行：
+进行源码开发时，克隆仓库后在根目录运行：
 
 ```sh
 npm ci
@@ -89,28 +118,6 @@ npm run dev
 打开 **http://127.0.0.1:5173**。可直接浏览内置样例，或从“文件 → 导入评审”选择 [订单演示 JSON](docs/examples/order-review.logic-margin.json)，体验图上批注、回复和人工复核。
 
 演示数据用于熟悉交互；真实评审应从实际代码或文档生成流程，并补齐来源依据。
-
-### 交给 Agent 使用
-
-从本仓库构建并安装 Codex 本地插件：
-
-```sh
-npm ci
-npm run package:agent
-codex plugin marketplace add .
-codex plugin add logic-margin@logic-margin-local
-```
-
-安装后，在需要评审的业务工程中对 Agent 说：
-
-```text
-$logic-margin:logic-margin
-为当前功能发起逻辑评审，重点检查失败时是否会扣费，并等待我的批注。
-```
-
-Agent 会读取实际来源、整理流程图，并给出评审链接。完整插件首次使用时自动启动后台服务，后续复用；业务工程无需安装 LogicMargin 的 npm 依赖。
-
-默认交付是包含网页和服务端的单文件 Node 包。离线安装、其他 Agent 的 CLI 用法与可选原生包见 [插件安装文档](docs/agent-plugin.md)。
 
 ## 评审如何进行
 
@@ -124,11 +131,11 @@ Agent 会读取实际来源、整理流程图，并给出评审链接。完整�
 
 **保存批注与提交本轮是两个动作。** 已保存的会话批注不会因未提交而消失；等待中的 Agent 在收到明确提交后才继续。回复也不会自动解决意见，最终确认由评审者完成。
 
-Agent 负责读源、改代码和整理流程；LogicMargin 负责呈现、讨论、保存与复核。服务端不执行项目代码或 shell，也没有内置大模型。
+Agent 负责读源、改代码和整理流程；LogicMargin 负责呈现、讨论、保存与复核。MCP 等待工具持续挂起，直到人工提交、确认通过或终态错误；普通批注保存与连接保活不需要模型反复检查。服务端不执行项目代码或 shell，也没有内置大模型。
 
 ## 独立任务与清理
 
-同一目的的修改沿用原任务的轮次；更换审查对象或目的时，新建任务。CLI 可用 `--context` 关联同一段 Agent 对话，用 `--purpose` 明确本次核对什么。
+同一目的的修改沿用原任务的轮次；更换审查对象或目的时，新建任务。MCP 用 `context` 关联同一段 Agent 对话，用 `purpose` 明确本次核对什么。以下兼容 CLI 命令供脚本使用，正常 Agent 评审使用对应 MCP 工具。
 
 ```sh
 # 查询同一上下文中的活动与归档任务
@@ -146,7 +153,7 @@ npm run review -- cleanup <sessionId> --mode delete
 
 网页“文件 → 管理评审任务”也提供建立、备份、归档、恢复和删除入口。默认仅清理已通过的任务；未完成任务的显式清理、命令参数与并发保护见 [Agent 工作流](docs/agent-workflow.md#查询归档与删除)。
 
-启用 `--cleanup-on-approval` 后，Agent 先取得当前轮最终通过结果，再执行归档；期间出现新意见会阻止旧版本清理。轮次、批注和历史不设固定业务条数上限，仍保留单条内容及单次请求的资源校验。
+MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknowledge_review` 领取。设置 `cleanup_on_approval` 后，实际取得最终批准才调用 `cleanup_review`；期间出现新意见会阻止旧版本清理。轮次、批注和历史不设固定业务条数上限，仍保留单条内容及单次请求的资源校验。
 
 <details>
 <summary><strong>数据保存在哪里？如何从另一台设备访问？</strong></summary>
@@ -154,7 +161,8 @@ npm run review -- cleanup <sessionId> --mode delete
 - **共享任务**：流程、批注、回复与历史保存在服务所在机器。托管服务默认使用 `~/.logic-margin/sessions`，开发服务使用工程的 `.logic-margin/sessions`；可配置实际目录。
 - **浏览器内容**：尚未添加的草稿、待同步操作和独立文件模式的数据保存在当前浏览器、当前访问地址，不会自动出现在其他设备上。
 - **私有网络访问**：开发服务默认监听 `0.0.0.0:5173`；局域网设备可使用本机的局域网地址。使用 Tailscale 时，将评审链接地址设置为服务机器的 Tailscale 地址。
-- **使用边界**：当前服务面向受信任的本机或私有网络，尚未提供账号和权限管理。来源摘要校验也不能代替对流程语义的人工复核。
+- **MCP 访问**：即使网页分享到私有网络，MCP 也只接受本机回环连接，与需核验的源码工作区位于同一机器。
+- **使用边界**：评审 API 面向受信任的本机或私有网络，尚未提供账号和权限管理。来源摘要校验也不能代替对流程语义的人工复核。
 
 </details>
 

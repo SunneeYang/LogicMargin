@@ -120,6 +120,10 @@ export default function App() {
   const currentDrafts = drafts.filter(draft => draft.documentId === review.id && draft.revision === review.revision && draft.fingerprint === review.snapshot.fingerprint)
   const validDrafts = currentDrafts.filter(draft => draft.replyTo ? review.comments.some(comment => comment.id === draft.replyTo) : draft.targets.every(target => targetExists(review, target)))
   const visibleComments = useMemo(() => review.comments.filter(comment => filter === 'all' || comment.status === filter), [review.comments, filter])
+  const selectedComments = useMemo(() => {
+    const targets = new Set(selection.map(keyOf))
+    return review.comments.filter(comment => comment.targets.some(target => targets.has(keyOf(target))))
+  }, [review.comments, selection])
   const commentOrder = useMemo(() => review.comments.map(comment => comment.id), [review.comments])
   const reviewIdentity = useMemo(() => SESSION_ID ? '' : JSON.stringify(parseReview(review)), [review])
   const localApproved = useMemo(() => history.some(record => record.kind === 'logic-margin-approval' && JSON.stringify(record.review) === reviewIdentity), [history, reviewIdentity])
@@ -156,11 +160,16 @@ export default function App() {
   const publication = session.session?.snapshots.find(snapshot => snapshot.round === session.session!.round)?.publication
   const publicationPending = session.session?.phase === 'agent-working' || session.session?.phase === 'feedback-ready'
   const scene = displayReview.scenes.find(item => item.id === sceneId) ?? displayReview.scenes[0]
+  const canvasKey = JSON.stringify([SESSION_ID ?? review.id, session.session ? activeRound : [review.revision, review.snapshot.fingerprint], scene.id])
   const selectedNode = selection.length === 1 && selection[0].kind === 'node' ? displayReview.nodes.find(node => node.id === selection[0].id) : undefined
   const selectedEdge = selection.length === 1 && selection[0].kind === 'edge' ? displayReview.edges.find(edge => edge.id === selection[0].id) : undefined
   const displaySaveState = SESSION_ID ? session.saveState : saveState
   const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction || session.availability !== 'active')
   const reviewBlocked = sessionBlocked || historical || publicationPending
+  const needsReviewCount = unresolved.filter(comment => comment.status === 'needs-review').length
+  const hasFeedback = pending.length > 0
+  const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
+  const finishLabel = hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
   const sceneDraftKey = historical ? '' : validDrafts.find(draft => !draft.replyTo && draft.targets.some(target => target.kind === 'review' || targetSceneId(review, target) === scene.id))?.key ?? ''
   // A draft key freezes its anchors, so body edits keep the canvas props stable.
   const canvasDraftTargets = useMemo(() => validDrafts.find(draft => draft.key === sceneDraftKey)?.targets ?? EMPTY_TARGETS, [sceneDraftKey])
@@ -246,7 +255,7 @@ export default function App() {
   }, [!!composer, docked, focusMode, submitting, navOpen])
   useEffect(() => {
     if (panelOpen && threadId) document.getElementById(`thread-${threadId}`)?.scrollIntoView({ block: 'nearest' })
-  }, [threadId, panelOpen])
+  }, [threadId, panelOpen, tab, selection])
   useEffect(() => {
     if (!SESSION_ID && new URLSearchParams(window.location.search).get('review') === 'spirit-sanctum') void openSpiritSanctum(true)
     return () => { importSequence.current++; exampleController.current?.abort() }
@@ -348,6 +357,10 @@ export default function App() {
     if (matchMedia('(max-width: 900px)').matches) setNavOpen(false)
   }
   function openPanel(nextTab: typeof tab) { setFocusMode(false); setPanelOpen(true); setTab(nextTab) }
+  const openNodeDetails = useCallback((target: Target) => {
+    setSelection([target]); setThreadId(null); setTab('detail'); setFocusMode(false); setPanelOpen(true); setDocked(false)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.inspector-body')?.scrollTo({ top: 0 }))
+  }, [])
   function toggleFocus() {
     closeMenus()
     if (!focusMode && docked) setDocked(false)
@@ -355,8 +368,11 @@ export default function App() {
   }
   async function switchRound(round: number) {
     try {
-      if (round !== session.session?.round) await session.loadSnapshot(round)
-      setViewRound(round); setSelection([]); closeComposer(false); setContinuous(false); setSubmitting(false)
+      const document = round !== session.session?.round ? await session.loadSnapshot(round) : review
+      const keepThread = panelOpen && tab === 'detail' && selectedComments.some(comment => comment.id === threadId)
+      const targets = keepThread ? selection.filter(target => targetExists(document, target)) : []
+      if (keepThread && !targets.length) { setTab('comments'); setFilter('all') }
+      setViewRound(round); setSelection(targets); closeComposer(false); setContinuous(false); setSubmitting(false)
     } catch (error) { setNotice(`读取历史流程失败：${error instanceof Error ? error.message : '请重试'}`) }
   }
   const showTargets = useCallback(async (targets: Target[], round = activeRound) => {
@@ -381,11 +397,19 @@ export default function App() {
       setStatus('')
     } catch (error) { setNotice(error instanceof Error ? error.message : '无法打开编辑器') }
   }, [review, historical])
-  const openThread = useCallback((id: string) => {
+  const openThread = useCallback((id: string, _at?: { x: number; y: number }, target?: Target) => {
     const comment = review.comments.find(item => item.id === id)
     if (!comment) return
-    closeComposer(false); setThreadId(id); setFilter('all'); setTab('comments'); setFocusMode(false); setPanelOpen(true); showTargets(comment.targets)
+    closeComposer(false); setThreadId(id); setFilter('all'); setTab(target ? 'detail' : 'comments'); setFocusMode(false); setPanelOpen(true)
+    if (target) setContinuous(false)
+    void showTargets(target ? [target] : comment.targets)
   }, [review, closeComposer, showTargets])
+  function startReview() {
+    if (!unresolved.length) return
+    const ordered = [...unresolved.filter(item => item.status === 'needs-review'), ...unresolved.filter(item => item.status === 'open')]
+    reviewQueue.current = ordered.map(item => item.id)
+    setSubmitting(false); setContinuous(!reviewBlocked); openThread(ordered[0].id)
+  }
   function saveComposer(): string | null {
     if (historical || sessionBlocked) return '请回到当前版本并等待同步完成后保存'
     if (!composer) return '请先选择批注位置'
@@ -535,14 +559,13 @@ export default function App() {
     if (reviewBlocked) return
     setSessionAction(true)
     try {
-      if (currentDrafts.length) throw new Error('还有本版本草稿，请先保存并处理后再确认整轮通过。')
       if (SESSION_ID) await session.finish('approval')
       else {
         const record = createApprovalRecord(review)
         setHistory(parseRecordHistory([...history, record]))
         download(JSON.stringify(record, null, 2), `${filename(review.id)}-${record.id}.approval.json`)
       }
-      setStatus('已记录整轮通过。此记录仅对应当前流程快照。')
+      setSubmitting(false); setStatus('已记录整轮通过。此记录仅对应当前流程快照。')
     } catch (error) { setNotice(error instanceof Error ? error.message : '通过记录生成失败') }
     finally { setSessionAction(false) }
   }
@@ -578,6 +601,12 @@ export default function App() {
   if (SESSION_ID && session.availability !== 'active') return <main className="session-loading"><h1>{session.availability === 'archived' ? '评审任务已归档' : '评审任务不存在或已删除'}</h1><p>{session.availability === 'archived' ? '活动评审已清理。可以在评审任务中下载备份或恢复归档。' : '这个链接不会重新建立任务。请从评审任务列表打开其他任务。'}</p><button className="button" onClick={openTasks}>管理评审任务</button>{drafts.length > 0 && <button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>导出本机草稿</button>}{session.pendingRecovery && <button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button>}<a href="/">打开本机评审</a>{taskManager}</main>
   if (SESSION_ID && !session.ready) return <main className="session-loading"><h1>LogicMargin</h1><p role={session.error ? 'alert' : 'status'}>{session.error || '正在恢复评审会话…'}</p><button className="button" onClick={session.retry}>重新连接</button>{session.pendingRecovery && <><button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button><button className="button" disabled={session.busy} onClick={() => void backupAndRecoverSession()}>备份未同步意见并恢复服务端版本</button></>}<a href="/">打开本机评审</a>{taskManager}</main>
 
+  const threadProps = {
+    review, session: session.session, snapshots: session.snapshots, changes,
+    threadId, continuous, historical, reviewBlocked, sessionBlocked,
+    setThreadId, showTargets, openComposer, closeComposer, reviewNext,
+  }
+
   return <div className={`app-shell ${focusMode ? 'is-focused' : ''}`}>
     <header className="topbar">
       <button className="button icon-button nav-toggle" data-keep-composer aria-label={navOpen ? '收起场景导航' : '展开场景导航'} aria-expanded={navOpen} aria-controls="scene-navigation" onClick={() => setNavOpen(current => !current)}>{navOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}</button>
@@ -604,7 +633,7 @@ export default function App() {
           {SESSION_ID && <a className="button" href="/">返回本机评审</a>}
         </div></details>
         <button className="button desktop-file-action" onClick={() => download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`)}><ArrowDownToLine size={15} />导出评审</button>
-        <button className="button primary" disabled={sessionBlocked || historical || (!pending.length && !currentDrafts.length)} onClick={() => { closeComposer(false); setSubmitting(true) }}>提交本轮{pending.length ? `（${pending.length}）` : ''}</button>
+        <button className="button primary" disabled={sessionBlocked || historical || sessionAction || (!hasFeedback && !unresolved.length && !canApprove)} onClick={() => { closeComposer(false); if (!hasFeedback && unresolved.length) startReview(); else setSubmitting(true) }}>{finishLabel}{pending.length ? `（${pending.length}）` : ''}</button>
       </div>
     </header>
     {taskManager}
@@ -634,15 +663,29 @@ export default function App() {
             <button className="button focus-toggle" data-keep-composer aria-label={focusMode ? '退出专注' : '专注画布'} aria-pressed={focusMode} onClick={toggleFocus}><Maximize2 size={15} /><span className="focus-label">{focusMode ? '退出专注' : '专注画布'}</span></button>
           </div>
         </div>
-        {submitting && <section className="feedback-summary" aria-label="提交本轮意见"><h3>{SESSION_ID ? '提交本轮意见' : '生成本轮意见包'}</h3><p>{pending.length} 条新意见 · {currentDrafts.length} 份本版本草稿。{SESSION_ID ? '提交会固定当前流程与源码版本，并通知等待中的代理。' : '意见包固定当前流程与源码版本，生成后需要交给代理。'}</p>{currentDrafts.length > 0 && <p>草稿可以先保存后提交，也可以留到下一轮；旧版本草稿始终保留。</p>}<div className="tool-group">{currentDrafts.length > 0 && <button className="button primary" disabled={sessionAction} onClick={() => void generateFeedback(true)}>保存草稿并提交</button>}<button className={`button ${currentDrafts.length ? '' : 'primary'}`} disabled={sessionAction || !pending.length} onClick={() => void generateFeedback(false)}>{sessionAction ? '正在提交…' : currentDrafts.length ? '仅提交已保存意见' : SESSION_ID ? '提交给代理' : '生成意见包'}</button><button className="button" onClick={() => setSubmitting(false)}>取消</button></div></section>}
+        {submitting && <section className="feedback-summary" aria-label={hasFeedback ? '提交本轮意见' : finishLabel}>
+          <h3>{hasFeedback ? SESSION_ID ? '提交本轮意见' : '生成本轮意见包' : finishLabel}</h3>
+          {hasFeedback && <p>{pending.length} 条新意见 · {currentDrafts.length} 份本版本草稿。</p>}
+          {hasFeedback && <p>{SESSION_ID ? '提交会固定当前流程与源码版本，并通知等待中的代理。' : '意见包固定当前流程与源码版本，生成后需要交给代理。'}</p>}
+          {needsReviewCount > 0 && <p>{needsReviewCount} 条意见待复核。请核对新版流程与代理回复，再确认已解决或仍需处理。仍需处理的意见可再次提交给代理。</p>}
+          {currentDrafts.length > 0 && <p>{hasFeedback ? '草稿可以先保存后提交，也可以留到下一轮；旧版本草稿始终保留。' : `${currentDrafts.length} 份草稿将继续保留，不会随本次完成审查提交或清除。`}</p>}
+          {!unresolved.length && <p>当前流程没有尚待处理的意见。确认后将保存本轮通过记录{SESSION_ID ? '，并通知等待中的代理。' : '。'}</p>}
+          <div className="tool-group">
+            {needsReviewCount > 0 && <button className="button primary" disabled={reviewBlocked} onClick={startReview}>开始逐条复核</button>}
+            {hasFeedback && currentDrafts.length > 0 && <button className="button primary" disabled={sessionBlocked || historical || sessionAction} onClick={() => void generateFeedback(true)}>保存草稿并提交</button>}
+            {hasFeedback && <button className={`button ${currentDrafts.length ? '' : 'primary'}`} disabled={sessionBlocked || historical || sessionAction || !pending.length} onClick={() => void generateFeedback(false)}>{sessionAction ? '正在提交…' : currentDrafts.length ? '仅提交已保存意见' : SESSION_ID ? '提交给代理' : '生成意见包'}</button>}
+            {!unresolved.length && <button className="button primary" disabled={!canApprove} onClick={() => void approve()}>{sessionAction ? '正在确认…' : '确认整轮通过'}</button>}
+            <button className="button" onClick={() => setSubmitting(false)}>取消</button>
+          </div>
+        </section>}
         {publicationPending && <div className="revision-banner publication-pending" role="status"><strong>修改中，新版尚未发布</strong><p>当前仍是 R{session.session?.round} 的流程图。代理交流回复不代表修改已完成；新版发布后才能确认处理结果。</p></div>}
         {historical && <div className="revision-banner historical-banner"><span>正在查看 R{activeRound} 的历史流程 · 只读；讨论栏显示当前处理状态。</span><button className="button" onClick={() => switchRound(session.session!.round)}>返回当前流程</button></div>}
-        <GraphCanvas ref={graph} key={`${review.id}:${scene.id}:${session.session ? activeRound : review.revision}`} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode}
-          readOnly={historical} viewportKey={`${SESSION_ID ?? review.id}:${activeRound}:${scene.id}`} changeSide={historical ? 'before' : 'after'} commentOrder={commentOrder}
-          onOpenComposer={openComposer} onOpenThread={openThread} onViewportChange={reposition} draftTargets={canvasDraftTargets} />
+        <GraphCanvas ref={graph} key={canvasKey} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode}
+          readOnly={historical} viewportKey={canvasKey} changeSide={historical ? 'before' : 'after'} commentOrder={commentOrder}
+          onOpenComposer={openComposer} onOpenThread={openThread} onOpenDetails={openNodeDetails} onViewportChange={reposition} draftTargets={canvasDraftTargets} />
         <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help" title="右键批注 · Shift / ⌘ 多选 · 框选只选节点 · 连线可单独加入">纵向阅读 · 右键批注 · 滚轮缩放</span><span>{session.session && `第 ${session.session.round} 轮 · ${phaseLabels[session.session.phase]} · `}{unresolved.length} 条待处理意见{approved ? ' · 本轮已通过' : ''}</span></div>
       </main>
-      <aside className={`inspector ${panelOpen ? 'is-open' : ''}`} aria-label="步骤详情与批注">
+      <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}`} aria-label="步骤详情与批注">
         <div className="inspector-tabs"><button className={tab === 'detail' ? 'active' : ''} aria-pressed={tab === 'detail'} onClick={() => setTab('detail')}>详情</button><button className={tab === 'comments' ? 'active' : ''} aria-pressed={tab === 'comments'} onClick={() => setTab('comments')}>讨论 {review.comments.length}</button><button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => setTab('drafts')}>草稿 {drafts.length}</button>{baseline && <button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => setTab('changes')}>变化</button>}<button className="button icon-button" aria-label="收起侧栏" onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
         <div className="inspector-body" hidden={!!composer && docked}>
           {tab === 'changes' && !baseline && <div className="empty-state"><p>正在读取修改前流程…</p><button className="button" onClick={() => void session.loadSnapshot(baselineRound).catch(error => setNotice(error instanceof Error ? error.message : '历史读取失败'))}>重新读取</button></div>}
@@ -655,16 +698,18 @@ export default function App() {
             {selectedNode && <><section className="detail-section"><h3>这里发生什么</h3><p>{selectedNode.detail}</p></section><section className="detail-section"><h3>数据变化</h3><div className="state-change"><div><span>执行前</span><strong>{selectedNode.input}</strong></div><ArrowRight size={16} /><div><span>执行后</span><strong>{selectedNode.output}</strong></div></div></section><details className="evidence"><summary>源码依据 · {selectedNode.evidence.length} 处</summary>{selectedNode.evidence.map(item => <div key={`${item.path}:${item.startLine}`} className="source-item"><code>{item.symbol}</code><small>{item.path}:{item.startLine}–{item.endLine}</small><small title={item.digest}>SHA-256 {item.digest.slice(0, 12)}</small></div>)}{!selectedNode.evidence.length && <p>此步骤尚未提供源码依据。</p>}</details></>}
             {selectedEdge && <section className="detail-section"><h3>流转条件</h3><p>{selectedEdge.detail}</p><p>{targetLabel(displayReview, { kind: 'node', id: selectedEdge.source })} → {targetLabel(displayReview, { kind: 'node', id: selectedEdge.target })}</p></section>}
             {selection.length > 1 && <div className="selection-list">{selection.map(target => <div className="selection-item" key={keyOf(target)}><span>{targetLabel(displayReview, target)}</span><button className="button icon-button" aria-label={`移除选择：${targetLabel(displayReview, target)}`} onClick={() => setSelection(current => current.filter(item => keyOf(item) !== keyOf(target)))}><X size={13} /></button></div>)}</div>}
+            {!!selection.length && <section className="detail-section target-discussions" aria-label="所选对象的相关讨论">
+              <div className="target-discussions-heading"><h3>相关讨论 · {selectedComments.length}</h3><button className="button subtle" onClick={() => { setFilter('all'); setTab('comments') }}>查看全部讨论</button></div>
+              {selectedComments.length ? <CommentThreads {...threadProps} comments={selectedComments} /> : <p className="muted">此处尚无批注。</p>}
+            </section>}
             <details className="detail-section" open><summary>本场景的步骤与连线</summary><div className="selection-list">{displayReview.nodes.filter(node => node.sceneId === scene.id).map(node => <button key={node.id} className={`selection-item ${selection.some(target => target.kind === 'node' && target.id === node.id) ? 'active' : ''}`} onClick={event => selectTarget({ kind: 'node', id: node.id }, event.shiftKey || event.metaKey || event.ctrlKey)}><span>{node.title}</span><small>{kindLabels[node.kind]}</small></button>)}{displayReview.edges.filter(edge => edge.sceneId === scene.id).map(edge => <button key={edge.id} className={`selection-item ${selection.some(target => target.kind === 'edge' && target.id === edge.id) ? 'active' : ''}`} onClick={event => selectTarget({ kind: 'edge', id: edge.id }, event.shiftKey || event.metaKey || event.ctrlKey)}><span>{edge.label || '继续'}</span><small>连线</small></button>)}</div></details>
             <details className="detail-section coverage-note"><summary>本次展示的范围</summary><h3>已展示</h3><ul className="coverage-list">{displayReview.coverage.included.map(item => <li key={item}>{item}</li>)}</ul><h3>尚未覆盖</h3><ul className="coverage-list">{displayReview.coverage.excluded.map(item => <li key={item}>{item}</li>)}</ul><p>{displayReview.coverage.note}</p><p>采集于 {new Date(displayReview.snapshot.capturedAt).toLocaleString('zh-CN')}<br />快照指纹 <code title={displayReview.snapshot.fingerprint}>{displayReview.snapshot.fingerprint.slice(0, 16)}</code></p><p>当前网页不会实时读取仓库；代码变化后需生成并导入新版评审。</p></details>
           </>}
           {tab === 'comments' && <>
-            <div className="review-navigation"><p>{unresolved.length} 条尚未确认 · {pending.length} 条可提交</p><button className="button" disabled={reviewBlocked || !unresolved.length} onClick={() => { const ordered = [...unresolved.filter(item => item.status === 'needs-review'), ...unresolved.filter(item => item.status === 'open')]; reviewQueue.current = ordered.map(item => item.id); setContinuous(true); openThread(ordered[0].id) }}>开始逐条复核</button><button className="button" disabled={reviewBlocked || !!unresolved.length || !!currentDrafts.length || approved} onClick={() => void approve()}>{approved ? '本轮已通过' : '确认整轮通过'}</button>{continuous && <button className="button subtle" onClick={() => setContinuous(false)}>退出连续复核</button>}</div>
+            <div className="review-navigation"><p>{unresolved.length} 条尚未确认 · {pending.length} 条可提交</p><button className="button" disabled={reviewBlocked || !unresolved.length} onClick={startReview}>开始逐条复核</button><button className="button" disabled={!canApprove} onClick={() => void approve()}>{approved ? '本轮已通过' : '确认整轮通过'}</button>{continuous && <button className="button subtle" onClick={() => setContinuous(false)}>退出连续复核</button>}</div>
             <div className="comment-filter" aria-label="筛选批注">{(['all', 'open', 'needs-review', 'resolved'] as const).map(item => <button key={item} className={filter === item ? 'active' : ''} aria-pressed={filter === item} onClick={() => setFilter(item)}>{item === 'all' ? '全部' : statusLabels[item]}</button>)}</div>
             {!visibleComments.length && <div className="empty-state"><MessageSquare size={24} /><h3>{review.comments.length ? '此状态下暂无批注' : '让意见落在具体流程上'}</h3><p>在图中选择步骤、连线或一段流程，也可以批注遗漏的场景。</p></div>}
-            <CommentThreads review={review} session={session.session} snapshots={session.snapshots} comments={visibleComments} changes={changes}
-              threadId={threadId} continuous={continuous} historical={historical} reviewBlocked={reviewBlocked} sessionBlocked={sessionBlocked}
-              setThreadId={setThreadId} showTargets={showTargets} openComposer={openComposer} closeComposer={closeComposer} reviewNext={reviewNext} />
+            <CommentThreads {...threadProps} comments={visibleComments} />
             {SESSION_ID ? <details className="record-list"><summary>会话评审记录 · {session.session?.history.length ?? 0}</summary>{session.session?.history.slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '已提交的意见包' : '整轮通过记录'}</strong><small>R{record.round} · {record.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => void downloadRecord(record.id)}>下载固定记录</button></div>)}</details> : <>
             <details className="record-list"><summary>{SESSION_ID ? '会话评审记录' : '本地评审记录'} · {history.filter(record => record.review.id === review.id).length}</summary>{history.filter(record => record.review.id === review.id).slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? SESSION_ID ? '已提交的意见包' : '意见包 · 待交给代理' : '整轮通过记录'}</strong><small>{record.review.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => download(JSON.stringify(record, null, 2), `${filename(record.review.id)}-${record.id}.json`)}>下载固定记录</button></div>)}{!SESSION_ID && !!history.length && <div><p>归档会下载全部历史并从本机移除；之后旧意见可再次提交。归档文件可通过导入恢复。</p><button className="button" onClick={archiveHistory}>导出并归档全部历史</button></div>}</details>
             </>}

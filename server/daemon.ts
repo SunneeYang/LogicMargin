@@ -11,10 +11,10 @@ import { acquireProcessLock, processAlive } from './process-lock.ts'
 
 export const runtimeVersion = packageInfo.version
 interface Registry { pid: number; url: string; host: string; instanceId: string; shutdownToken: string; version: string; startedAt: string; dataDir?: string }
-interface Health { service: string; apiVersion: number; version: string; instanceId: string; pid: number; managed: boolean }
+interface Health { service: string; apiVersion: number; version: string; instanceId: string; pid: number; managed: boolean; mcp?: boolean }
 interface Location { home?: string }
-interface ServiceOptions extends Location { url?: string; command?: string[]; host?: string; port?: number; dataDir?: string }
-export interface ServiceStatus { running: boolean; managed: boolean; url?: string; host?: string; pid?: number; version?: string; reason?: string }
+interface ServiceOptions extends Location { url?: string; command?: string[]; host?: string; port?: number; dataDir?: string; requireMcp?: boolean }
+export interface ServiceStatus { running: boolean; managed: boolean; url?: string; host?: string; pid?: number; version?: string; reason?: string; processRunning?: boolean; compatible?: boolean; mcpUrl?: string }
 
 function homePath(options: Location) { return resolve(options.home ?? process.env.LOGIC_MARGIN_HOME ?? join(homedir(), '.logic-margin')) }
 function registryPath(home: string) { return join(home, 'daemon.json') }
@@ -56,8 +56,10 @@ async function registeredStatus(home: string): Promise<{ entry: Registry | null;
 export async function getServiceStatus(options: Location = {}): Promise<ServiceStatus> {
   const { entry, value } = await registeredStatus(homePath(options))
   if (!entry) return { running: false, managed: false }
-  if (!sameInstance(entry, value)) return { running: false, managed: true, url: entry.url, pid: entry.pid, version: entry.version, reason: '登记的后台实例不可达或身份不匹配' }
-  return { running: true, managed: true, url: entry.url, host: entry.host, pid: value.pid, version: value.version }
+  if (!sameInstance(entry, value)) return { running: false, managed: true, url: entry.url, pid: entry.pid, version: entry.version,
+    processRunning: processAlive(entry.pid), reason: value ? '健康接口与登记实例身份不匹配，未接管该进程' : '登记的后台实例不可达，请核对进程状态与 daemon.log' }
+  return { running: true, managed: true, url: entry.url, host: entry.host, pid: value.pid, version: value.version,
+    processRunning: true, compatible: value.version === runtimeVersion, ...(value.mcp === true ? { mcpUrl: `${entry.url}/mcp` } : {}) }
 }
 
 async function spawnDaemon(command: string[], home: string, options: ServiceOptions): Promise<{ url: string; managed: boolean }> {
@@ -102,11 +104,12 @@ export async function ensureService(options: ServiceOptions = {}): Promise<{ url
     const { entry, value } = await registeredStatus(home)
     if (entry && sameInstance(entry, value)) {
       compatible(value)
+      if (options.requireMcp && value.mcp !== true) throw new Error('已登记服务尚未提供 MCP，请先 server stop 后用当前程序重启')
       if ((options.host && options.host !== entry.host) || (options.port && options.port !== Number(new URL(entry.url).port))) throw new Error('已运行服务的监听地址不同，请先 server stop 再按新地址启动')
       return { url: entry.url, managed: true }
     }
     if (entry && processAlive(entry.pid)) throw new Error('已登记服务进程仍在运行但健康检查失败，未启动第二个写入进程；请先检查 server status 与 daemon.log')
-    if (!options.home && !process.env.LOGIC_MARGIN_HOME && !options.host && options.port === undefined) {
+    if (!options.requireMcp && !options.home && !process.env.LOGIC_MARGIN_HOME && !options.host && options.port === undefined) {
       const existing = await health('http://127.0.0.1:5173')
       if (existing) { compatible(existing); return { url: 'http://127.0.0.1:5173', managed: false } }
     }
@@ -160,7 +163,6 @@ export async function runDaemon(options: Location & { assets: EmbeddedAssets; ho
     await server.closed
   } finally {
     process.off('SIGTERM', signal); process.off('SIGINT', signal)
-    await close?.()
-    await cleanup()
+    try { await close?.() } finally { await cleanup() }
   }
 }

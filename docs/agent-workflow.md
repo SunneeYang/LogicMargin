@@ -1,120 +1,138 @@
 # LogicMargin 代理评审流程
 
-网页批注和“提交本轮”是两个动作。保存批注只更新会话；提交意见或确认通过才让等待中的代理继续。代理回复不会自动把批注标成解决，由评审者在新版上复核。
+正常评审由原 Agent 通过 HTTP MCP 完成。一个 LogicMargin 后台进程同时提供 `/mcp`、评审 API 与网页；CLI 只在启动、诊断和恢复时短暂运行。源码修改、测试和 Git 操作仍在原 Agent 的授权工作区完成。
 
-## 启动服务与发起审查
+网页批注和“提交本轮”是两个动作。保存单条批注只更新会话；提交意见或确认通过才让等待工具返回。代理回复不会自动解决批注，最终复核由人完成。
 
-完整插件会在首次发起时自动启动服务；没有显式 API 地址时默认复用已登记服务，或兼容的本机开发服务。`--url` / `LOGIC_MARGIN_URL` 指向远端时只连接那个地址，失败不另建本机会话。安装与服务管理见 [agent 插件](agent-plugin.md)。以下为从 LogicMargin 源工程运行开发服务的方式：
+## 连接服务
 
-```sh
-npm run dev -- --port 5173 --strictPort
-```
+完整插件的 CLI 位于 `skills/logic-margin/scripts/logic-margin.mjs`。以下源码工程示例可用 `npm run review --`，安装包则用 `node "$LM_CLI"`；原生包直接调用可执行文件。
 
-代理准备符合 `schemaVersion: 1` 的流程图 JSON，明确源码快照、覆盖范围和依据。发起前可在真实来源工作区校验文件与片段摘要：
+首次使用执行：
 
 ```sh
-npm run review -- verify /path/to/review.logic-margin.json --source-root /path/to/source-workspace
+npm run review -- server setup
 ```
 
-`verify` 只读取并核验，不修改评审文件或创建会话。来源范围优先取 `snapshot.files`；未声明时取图内依据涉及的文件。建议显式列出覆盖的源码和文档，摘要规则见插件内的 [评审格式](../plugins/logic-margin/skills/logic-margin/references/review-format.md)。校验通过后，使用真实需求包发起会话并等待：
+它启动或复用后台，并通过短暂的 Codex 配置进程，注册当前 `CODEX_HOME` 用户配置中的 `logic_margin` HTTP MCP 地址与 `tool_timeout_sec`。默认工具超时为 86400 秒，保留已设置的更长值；同名不同服务或禁用配置会报错而不覆盖。配置进程不运行模型，完成后退出。
 
-```sh
-npm run review -- start public/reviews/spirit-sanctum.logic-margin.json \
-  --context "实际 thread/workflow 标识" --purpose "魔灵秘境服务端实现复核" \
-  --wait --public-url http://100.124.38.121:5173
+核对返回的 `mcpUrl` 与 MCP 配置结果，然后在原宿主重载或重连 MCP。返回 `reloadRequired: true` 不是工具已经加载；确认工具可调用后才进入等待。后续只需 `server start` 检查并复用后台，正常评审使用下文 MCP 工具。配置、监听、更新和 CLI 兼容详见 [插件文档](agent-plugin.md)。
+
+## 发起与等待
+
+按真实源码或文档整理 `schemaVersion: 1` 的流程图，记录来源快照、覆盖范围和依据，规则见 [评审格式](../plugins/logic-margin/skills/logic-margin/references/review-format.md)。MCP 的文件和来源目录参数都使用服务机器上的绝对路径。
+
+调用 `start_review`，例如：
+
+```json
+{
+  "review_file": "/path/to/review.logic-margin.json",
+  "source_root": "/path/to/source-workspace",
+  "purpose": "订单失败分支实现复核",
+  "context": "实际 thread/workflow 标识",
+  "public_url": "http://100.124.38.121:5173"
+}
 ```
 
-命令在 stderr 打印带 `?session=...` 的审查链接；stdout 只在本轮提交后输出一份 JSON。Tailscale 地址只影响分享链接，代理默认连接本机 `http://127.0.0.1:5173`。跨机运行 CLI 时用 `--url http://100.124.38.121:5173` 指定 API 地址。
+`start_review` 创建前核验源码文件、片段摘要和快照指纹；`verify_review` 可独立核验，不创建任务。来源范围优先取 `snapshot.files`，未声明时取图内依据涉及的文件。校验不能代替按源码核对业务语义。
 
-每个独立目的使用一次 `start`，即使来自同一个 agent context、复用同一个评审文件，也生成新的 session ID。`--context` 是用于查询归属的实际 thread/workflow 标识，可省略；`--purpose` 说明这次核对什么。两者组成会话 `scope`，会出现在 `get` 及等待结果中。显式指定任一项时新会话清空输入包的旧批注，原 session 保留；仅指定 context 时，purpose 默认取文件说明或标题。插件技能要求明确传入 purpose。同一目的的多轮修改使用原 ID 的 `revise`。
+每个独立目的分别创建任务，即使来自同一对话或使用同一评审文件，也取得新的 session ID。`purpose` 必填，`context` 使用实际上下文标识，可省略。新建任务不继承文件里的旧批注；同一目的的连续修改沿原 session 调用 `revise_review`。
 
-评审者打开链接，在节点、关系或整图上批注，保存后点击“提交本轮”。没有未解决意见时可确认通过。CLI 仅在收到固定快照的提交记录后返回，并将意见标为代理已领取；页面上的普通保存不会唤醒代理处理。
+创建成功后立即把完整审查链接给用户，再调用 `wait_review`：
 
-## 处理意见与发布新版
-
-返回结果包含 `sessionId`、`round`、`approved` 和 `submission`。`submission.review` 包含评审 ID、版本、源码快照和本次意见，避免每轮输出整张图。记录这次实际审阅的 `round`，作为新版的 `--base-round`；恢复时先用 `get` 核对轮次、固定意见包和当前图，避免用旧草稿覆盖别人已发布的轮次。完整会话及历史可通过 `get` 读取：
-
-```sh
-npm run review -- comments <sessionId>
-npm run review -- get <sessionId>
+```json
+{
+  "session_id": "SESSION_ID"
+}
 ```
 
-新版网页日常仅同步当前图、批注线程及历史目录，查看旧快照或下载固定意见包时按需读取。现有 CLI 完整会话接口、上述命令和完整备份保持不变；会话响应与独立包静态资源自动协商 gzip，无需额外参数。
+工具内部保持等待和连接保活，不需要模型反复调用“再检查一下”。保存单条批注不返回；人工固定提交或确认通过后才返回结果。`timeout_seconds` 可限制本次等待，最终仍受 Codex 和宿主工具期限约束。
 
-代理核对每条意见及目标，在原开发工作区修改源码，并重新生成流程图 JSON。相同业务节点沿用稳定 ID；更新 `revision`、快照和依据。LogicMargin API 不执行 shell，也不替代理写入源码。
+有新意见时，评审者通过顶栏提交给代理；没有新意见但仍有未解决批注时，顶栏先定位待处理或待复核线程。新版尚未发布时只能定位核对；新版发布且全部已保存意见解决后可完成人工批准。浏览器草稿保留，不作为整轮批准的阻塞条件。
 
-最终回应写入 JSON 数组，随新版图一次发布；每项使用原批注 ID：
+## 读取、领取与发布新版
+
+等待结果包含 `sessionId`、`round`、`approved` 和固定 `submission`。反馈的 `submission.review` 包含本次评审 ID、版本、源码快照和意见；反馈结果存在 `earlierSubmissions` 时逐份核对。
+
+通过结果只返回摘要与 `sessionId`、`submission.id` 索引，使用 `resolvedCommentCount`，省略批注、回复和源码文件清单。其 `submission.review` 保留 id、title、revision，snapshot 仅含 repository、commit、fingerprint、capturedAt 和 dirty。更早未领取反馈在通过结果中只列 `earlierSubmissionIds`；需要补查内容时调用 `get_review`。完整历史仍在服务端保存，该工具也可读取归档。
+
+MCP `wait_review` 只交付结果，不领取、不归档。实际读取反馈后调用 `acknowledge_review`：
+
+```json
+{
+  "session_id": "SESSION_ID",
+  "submission_id": "wait_review 返回的 submission.id"
+}
+```
+
+领取记录只证明 Agent 已取回意见，不证明修改完成。这样断线或取消等待时，不会因提前领取而漏掉意见。需要完整图、轮次或历史时调用 `get_review`；`reply_review` 用原 comment ID 和 inline `body` 发送临时回应。
+
+Agent 在原工作区处理意见，验证相应改动，再生成新版图，沿用相同评审 ID 和仍代表同一业务对象的稳定节点/连线 ID。更新 `revision`、源码清单、片段摘要和指纹。最终回应写入 JSON 数组：
 
 ```json
 [
-  { "commentId": "原批注 ID", "body": "实际修改、验证结果和剩余限制。\n保留必要的换行。" }
+  { "commentId": "原批注 ID", "body": "实际修改、验证结果与剩余限制。\n保留必要换行。" }
 ]
 ```
 
-以下以实际处理 R1 为例；`--base-round` 必须换成从 `wait` 或 `get` 核实的那一轮：
+调用 `revise_review`，`base_round` 使用本次实际审阅的轮次：
 
-```sh
-npm run review -- revise <sessionId> /path/to/updated.logic-margin.json \
-  --base-round 1 --summary "更新结算条件与流程说明" \
-  --source-root /path/to/source-workspace --replies-file /path/to/replies.json \
-  --wait --public-url http://100.124.38.121:5173
+```json
+{
+  "session_id": "SESSION_ID",
+  "review_file": "/path/to/updated.logic-margin.json",
+  "source_root": "/path/to/source-workspace",
+  "base_round": 1,
+  "summary": "更新结算条件与流程说明",
+  "replies_file": "/path/to/replies.json"
+}
 ```
 
-`revise` 必填 `--base-round` 和 `--summary`，会重新核验实际来源，`--source-root` 默认当前工作目录。旧文件摘要、片段摘要、指纹或发布基线不符时拒绝发布；轮次已更新时重新读取并处理新图，不能仅把数字改成当前轮次来交回旧草稿。流程逻辑未变时另加 `--unchanged-reason "原因与覆盖范围"`，包括仅更新依据、格式或补充说明的轮次。摘要核验不能代替代理根据源码更新业务语义。
+`base_round` 与 `summary` 必填；流程逻辑未变时另填 `unchanged_reason`，包括仅更新依据、格式或说明。来源或发布基线不符时拒绝发布；先读取最新状态重新核对，不能仅改轮次数字重发旧草稿。
 
-新版须沿用原评审 ID。服务端将图、最终回应和发布记录原子保存后才开启下一轮；失败不会留下新回复配旧图的半轮结果。原意见、回复与提出轮次保留，相关意见进入待复核。`reply <sessionId> <commentId> --body-file /path/to/reply.txt` 仍可用于处理中交流，但页面明确显示“新版尚未发布”，并禁止确认解决和整轮通过，直到 `revise` 成功。
+新版图、最终回应与发布记录原子保存后才开启下一轮。失败保留上一份完整发布。临时回复使任务处于处理中，待新版发布后再由人确认解决或通过。发布成功后将链接交给用户，继续 `wait_review`。
 
-评审者可在同一画布切换“修改前 / 当前”，用“本轮变化”核对节点、连线及字段前后值；源码依据更新单独展示，纯排版不算逻辑变化。历史图只读，原目标移除或部分移除的批注仍在列表中，可回到提出时轮次查看原位置，即使它早于本轮修改前快照。返回当前图后再确认解决。
-
-评审者查看新版及回复，将意见确认解决，或重新打开并补充意见，然后再次提交。`approved: true` 表示人工确认通过，代理此时结束评审循环；后续提交、推送或部署仍按原任务授权执行。
+网页支持修改前/当前对比、字段变化与来源依据更新。历史图只读，目标移除后的批注仍可回到原轮次查看；最终解决与批准由评审者在当前图确认。
 
 ## 中断和恢复
 
-会话由本机服务端保存，使用相同 session 链接恢复图、批注、回复、状态和轮次。服务重启后仍可继续：
+服务端保存评审状态。优雅停服向未完成 MCP 请求返回明确错误；强制退出后的发现速度取决于客户端断线处理和超时。连接错误、超时或取消都不等于通过，也不应触发新建替代任务。
+
+原 Agent 收到 MCP 错误后，通过宿主的通用终端工具检查：
 
 ```sh
-npm run review -- resume <sessionId> --wait
+npm run review -- server status
 ```
 
-`resume --wait` 从当前轮次的起点与已领取意见中较晚的位置继续等待，本轮尚未领取的意见会立即返回。已发布新版时，不会重新返回上一轮的通过或意见记录。轮次起点按提交 ID 保存，即使新版沿用同一源码版本、发布时间相同，也能区分。`resume` 不带 `--wait` 只查询会话并重印链接。可明确指定提交游标及等待秒数：
+后台健康且兼容时重连 MCP；没有登记或确认进程已退出时用 `server start` 拉起；进程仍在但不健康、身份不符、端口冲突时保留现场并诊断，避免另起写入实例。版本不匹配时，经身份核验 `server stop` 后再启动新版。CLI 不依赖失效的 MCP 服务，恢复保持原端口和会话目录。
 
-```sh
-npm run review -- wait <sessionId> --after <submissionId> --timeout 1800
-```
+重连后调用 `get_review`，核对目的、上下文、来源工程、固定提交和当前轮次。需要定位任务时用 `list_reviews` 的 `context` 与 `state: "all"`。领取过但尚未完成处理的意见从历史补做；继续等待可给 `wait_review` 传 `after_submission`，使用最后实际处理的固定提交 ID。
 
-`--after` 排除指定记录及之前的提交，返回其后最新的一份记录；如果期间有多次提交，`earlierSubmissions` 还会附上其余未领取记录，代理应逐份核对对应快照和意见。所有提交均保留在 `get` 的历史中。未知记录会报错。超时退出码为 1，服务端数据保留。等待期间中断 CLI 不会删除会话。`revise --wait` 默认跳过发布新版前的提交，等待新一轮意见。
+游标会排除指定提交及之前的记录。未知游标报错；期间多次提交时，反馈结果同时核对 `earlierSubmissions`；通过结果按需用 `earlierSubmissionIds` 补查。新版发布后默认等待跳过旧轮次。恢复不改变原 session ID，避免旧草稿覆盖新一轮。
 
-当前服务面向受信任的本机或 Tailscale 网络，未加入登录和权限管理。服务可达的设备能够读取和修改会话；请使用私有网络限制访问。恢复依赖运行服务机器上的实际会话目录：托管服务默认 `~/.logic-margin/sessions`，开发服务默认工程内 `.logic-margin/sessions`，自定义 `LOGIC_MARGIN_DATA_DIR` 时备份其实际目录。浏览器独立文件模式仍使用原来的本地保存及导入导出流程。
+托管服务默认数据目录为 `~/.logic-margin/sessions`；开发服务使用工程内 `.logic-margin/sessions`，自定义 `LOGIC_MARGIN_DATA_DIR` 时备份实际目录。MCP 仅接受本机连接，即使网页/API 按授权范围监听局域网或 Tailscale。浏览器草稿、待同步操作及独立文件模式数据仍留在对应浏览器和访问地址。
 
 ## 查询、归档与删除
 
-查询当前上下文的活动评审或完整目录：
+`list_reviews` 默认列出活动任务，也支持 `state: "archived"` 或 `"all"`。列表只返回概要；先核对目的与 session ID，再操作具体任务。
+
+`cleanup_review` 默认归档已通过任务，保留完整图、批注与历史。`get_review` 可读取归档，继续修改前用 `restore_review` 恢复同一 ID。用户明确要求清理未完成任务时才传 `force: true`；永久删除还须明确授权，并传 `mode: "delete"`，无法从服务端恢复。一次操作只针对一个已确认 ID，不默认批量删除。
+
+通过记录的 round、revision 和 fingerprint 应与当前待评审快照一致；旧轮批准不能代替新版批准。`start_review` 的 `cleanup_on_approval: true` 保存用户已授权的通过后归档策略。MCP 等待返回最终 `approved: true` 且 `cleanupPending: true` 后，Agent 实际读到结果再调用 `cleanup_review`；浏览器确认通过或通知送达本身不触发归档。归档期间有新修改时拒绝旧版本清理，保留数据；归档失败不改变已取得的批准结果。
+
+评审轮次、批注和历史无固定业务条数上限，保留每条内容与单次请求的格式、长度、引用及资源校验。评审与最终回应 JSON 各保留单次 10 MB 文件边界，不是累计历史限制；已有批注由服务端合并保留，不必回写进新图文件。
+
+## CLI 兼容入口
+
+已有脚本和明确使用远端评审 API 的流程仍可使用 CLI。显式 `--url` / `LOGIC_MARGIN_URL` 只连接原地址；它不会把远端故障替换成本机新任务。文件参数相对调用时工作目录解析，完整命令见 `--help`。
 
 ```sh
-npm run review -- list --context "实际上下文标识"
-npm run review -- list --context "实际上下文标识" --state all
+npm run review -- start review.logic-margin.json --source-root /path/to/workspace --purpose "实际目的" --wait
+npm run review -- wait SESSION_ID --after SUBMISSION_ID --timeout 1800
+npm run review -- ack SESSION_ID SUBMISSION_ID
+npm run review -- reply SESSION_ID COMMENT_ID --body "临时回应"
+npm run review -- cleanup SESSION_ID
+npm run review -- restore SESSION_ID
 ```
 
-默认 `state` 是 `active`，也支持 `archived`。列表只包含会话概要，不拉取整图；先核对目的和 ID，再操作具体会话。
-
-```sh
-npm run review -- cleanup <sessionId>
-npm run review -- get <sessionId>
-npm run review -- restore <sessionId>
-```
-
-`cleanup` 默认归档，保留完整图、批注和历史，可恢复；原活动链接进入归档状态。`get` 遇到已归档会话会读取归档内容，继续修改前用 `restore` 恢复同一 ID。默认仅允许清理已通过的评审；`--force` 明确允许清理未完成的评审，并不把它标为通过。
-
-永久删除必须显式指定：
-
-```sh
-npm run review -- cleanup <sessionId> --mode delete
-```
-
-该命令同时删除此 ID 的活动与归档数据，无法恢复；未完成会话仍需 `--force`。没有默认批量删除。清理和恢复均按读到的 `version` 执行，期间有新修改则拒绝操作并保留数据。
-
-需要通过后自动归档时，新建加 `--cleanup-on-approval`，策略随会话持久化；已有会话可在本次 `wait` 或 `resume --wait` 加同一选项。代理等待命令先输出 `approved: true` 的最终结果，确认记录属于当前轮次且会话仍为通过状态后再归档；显式游标取回的旧通过记录不会归档新一轮。单纯点击网页通过尚不清理。自动归档发生冲突时，最终结果已经输出，错误会明确说明归档失败；会话留存，核对最新状态后再清理。
-
-场景、节点、批注、最终回应和轮次不再设固定业务条数上限。仍校验每条内容的格式、长度、引用与发布基线；大评审的处理速度取决于实际数据量与机器资源。
-
-CLI 单次读入的评审 JSON、最终回应 JSON 各保留 10 MB 资源边界，限制的是一次传入的文件，不是服务端累计批注、快照或历史。发布新版可只传新图与新增最终回应；已有批注由服务端合并保留，无需把累计线程写回输入文件。
+CLI `wait` 保留自动领取和已授权策略下输出最终通过结果后归档的行为；MCP `wait_review` 则分开交付、领取与归档。兼容宿主反复返回 CLI 运行句柄时，继续等待仍可能触发模型调用，应明确说明，不能称为已接通 MCP 长等待。

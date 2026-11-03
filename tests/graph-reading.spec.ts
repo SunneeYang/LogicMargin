@@ -1,0 +1,102 @@
+import { expect, test } from '@playwright/test'
+import { sampleReview } from '../src/sample.ts'
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`legend and directional focus explain the flow in ${colorScheme} mode`, async ({ page }, info) => {
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.emulateMedia({ colorScheme })
+    await page.goto('/')
+    await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+    await page.locator('.canvas-legend > summary').click()
+    const legend = page.getByLabel('流程图图例', { exact: true })
+    await expect(legend).toBeVisible()
+    await expect(legend).toContainText('虚线 · 按条件选择分支')
+    await expect(legend).toContainText('绿色 · 正常完成或产出')
+    await expect(legend).toContainText('黄色 · 拒绝、中断或失败')
+    await expect(legend).toContainText('留白交叉表示跨过、不连接')
+    await expect(legend).toContainText('不代表节点已通过评审')
+    await page.locator('.canvas-legend > summary').click()
+    const decision = page.locator('.react-flow__node[data-id="upgrade-toggle"]')
+    await decision.locator('.node-title').click()
+    await expect(decision.locator('.review-node')).toHaveCSS('border-top-style', 'dashed')
+    const incoming = page.locator('.react-flow__edge[data-id="upgrade-start-to-toggle"]')
+    const outgoing = page.locator('.react-flow__edge[data-id="upgrade-toggle-to-level"]')
+    await expect(incoming).toHaveClass(/flow-incoming/)
+    await expect(outgoing).toHaveClass(/flow-outgoing/)
+    await expect(incoming.locator('.edge-flow-light')).toHaveCSS('animation-name', 'edge-flow')
+    await expect(outgoing.locator('.edge-flow-light')).toHaveCSS('animation-name', 'edge-flow')
+    const incomingStroke = await incoming.locator('.react-flow__edge-path').evaluate(element => getComputedStyle(element).stroke)
+    expect(await outgoing.locator('.react-flow__edge-path').evaluate(element => getComputedStyle(element).stroke)).not.toBe(incomingStroke)
+    expect(await page.locator('.react-flow__edge.is-unrelated').count()).toBeGreaterThan(0)
+    const light = incoming.locator('.edge-flow-light')
+    const offset = await light.evaluate(element => getComputedStyle(element).strokeDashoffset)
+    await expect.poll(() => light.evaluate(element => getComputedStyle(element).strokeDashoffset)).not.toBe(offset)
+    await page.screenshot({ path: info.outputPath(`flow-focus-${colorScheme}.png`) })
+    await page.locator('.canvas-legend > summary').click()
+    await page.screenshot({ path: info.outputPath(`flow-legend-${colorScheme}.png`) })
+    await page.locator('.canvas-legend > summary').click()
+    await page.getByRole('button', { name: '清除选择', exact: true }).click()
+    await expect(page.locator('.edge-flow-light')).toHaveCount(0)
+    await expect(page.locator('.react-flow__edge.is-unrelated')).toHaveCount(0)
+    expect(errors).toEqual([])
+  })
+}
+
+test('parallel transitions keep separate routes and precise comment targets', async ({ page }) => {
+  await page.goto('/')
+  const review = structuredClone(sampleReview)
+  review.id = 'parallel-route-fixture'
+  review.scenes = [review.scenes[0]]
+  review.nodes = review.nodes.filter(node => node.sceneId === review.scenes[0].id).slice(0, 2)
+  review.nodes.forEach(node => { node.position = { x: 0, y: 0 } })
+  const original = review.edges.find(edge => edge.source === review.nodes[0].id && edge.target === review.nodes[1].id)!
+  review.edges = [original, { ...original, id: 'parallel-resume', label: '恢复进入' }]
+  await page.getByLabel('导入评审文件').setInputFiles({ name: 'parallel.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(review)) })
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+  const one = page.locator(`.react-flow__edge[data-id="${original.id}"]`)
+  const two = page.locator('.react-flow__edge[data-id="parallel-resume"]')
+  await expect(one.locator('.edge-crossing-gap')).toHaveCount(1)
+  const path = await one.locator('.react-flow__edge-path').getAttribute('d')
+  expect(await two.locator('.react-flow__edge-path').getAttribute('d')).not.toBe(path)
+  const first = await page.locator(`.react-flow__node[data-id="${review.nodes[0].id}"]`).boundingBox()
+  const second = await page.locator(`.react-flow__node[data-id="${review.nodes[1].id}"]`).boundingBox()
+  expect(second!.y).toBeGreaterThan(first!.y + first!.height)
+  await two.click({ button: 'right' })
+  const editor = page.getByRole('dialog', { name: '流程批注', exact: true })
+  await expect(editor.locator('.composer-targets')).toHaveText('连线 · 恢复进入')
+  await editor.getByLabel('问题与预期行为').fill('核对恢复进入路径。')
+  await editor.getByRole('button', { name: '添加批注', exact: true }).click()
+  const saved = await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:review:${id}`)!), review.id)
+  expect(saved.comments[0].targets).toEqual([{ kind: 'edge', id: 'parallel-resume' }])
+})
+
+test('reduced motion keeps direction highlights without moving light', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+  await page.locator('.react-flow__node[data-id="upgrade-toggle"] .node-title').click()
+  await expect(page.locator('.edge-flow-light').first()).toHaveCSS('animation-name', 'none')
+  await expect(page.locator('.flow-focus-guide')).toContainText('前序 →')
+  await expect(page.locator('.flow-focus-guide')).toContainText('→ 后续')
+})
+
+for (const width of [320, 390]) {
+  test(`the legend and focus key remain reachable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/')
+    await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+    await page.locator('.react-flow__node[data-id="upgrade-toggle"] .node-title').click()
+    await expect(page.locator('.flow-focus-guide')).toBeInViewport({ ratio: 1 })
+    await page.locator('.canvas-legend > summary').click()
+    const panel = page.getByLabel('流程图图例', { exact: true })
+    await expect(panel).toBeInViewport({ ratio: 1 })
+    const bounds = await panel.boundingBox()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    await page.locator('.canvas-legend > summary').focus()
+    await page.keyboard.press('Escape')
+    await expect(panel).not.toBeVisible()
+  })
+}

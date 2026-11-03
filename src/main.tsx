@@ -6,6 +6,7 @@ import '../tokens.css'
 import './styles.css'
 import './canvas-comments.css'
 import './revisions.css'
+import './graph-reading.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><App /></React.StrictMode>,

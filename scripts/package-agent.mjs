@@ -37,7 +37,7 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target) 
       await run('bun', compileArgs)
       if (!target.startsWith('win32-')) await chmod(compiled, 0o755)
     } else {
-      await build({ root, configFile: false, publicDir: false, logLevel: 'error', build: {
+      await build({ root, configFile: false, publicDir: false, logLevel: 'error', ssr: { noExternal: true }, build: {
         ssr: entry, target: 'node22', outDir: dirname(compiled), minify: true, emptyOutDir: false,
         rolldownOptions: { output: { entryFileNames: executable } },
       } })
@@ -51,7 +51,7 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target) 
     const stagedPlugin = join(staging, 'plugins/logic-margin')
     await mkdir(join(staging, '.agents/plugins'), { recursive: true })
     await mkdir(join(stagedPlugin, 'skills/logic-margin/scripts'), { recursive: true })
-    for (const path of ['plugin.json', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references']) {
+    for (const path of ['plugin.json', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references']) {
       await cp(join(plugin, path), join(stagedPlugin, path), { recursive: true })
     }
     await cp(compiled, join(stagedPlugin, 'skills/logic-margin/scripts', executable))

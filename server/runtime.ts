@@ -4,6 +4,8 @@ import { promisify } from 'node:util'
 import { gzip } from 'node:zlib'
 import { createSessionApi } from './api.ts'
 import { COMPRESSION_THRESHOLD, responseEncoding, sendJson, varyEncoding } from './http-response.ts'
+import { createMcpApi } from './mcp.ts'
+import { registerReviewTools } from './mcp-tools.ts'
 
 export type EmbeddedAssets = Record<string, { body: string; type: string }>
 
@@ -42,15 +44,25 @@ export async function createReviewServer(options: {
   })))
   if (!assets.has('/index.html')) throw new Error('程序未包含网页入口，请重新打包')
   const api = createSessionApi({ dataDir: options.dataDir })
+  let url = ''
+  const mcp = createMcpApi({ version: options.version, configure: server => registerReviewTools(server, { url: () => url }) })
   const polls = new Map<ServerResponse, IncomingMessage>()
   let closing: Promise<void> | undefined
   const server = createServer((request, response) => {
+    if (closing) { sendJson(request, response, 503, { error: 'LogicMargin 正在停止，请用 CLI 检查服务后重新连接 MCP' }); return }
     let path: string
     try { path = pathname(request) }
     catch { sendJson(request, response, 400, { error: '请求路径无效' }); return }
+    if (path === '/mcp') {
+      void mcp.handle(request, response).catch(error => {
+        if (!response.headersSent && !response.destroyed) sendJson(request, response, 500, { error: error instanceof Error ? error.message : 'MCP 服务错误' })
+        else response.destroy()
+      })
+      return
+    }
     if (path === '/api/health') {
       if (request.method !== 'GET' && request.method !== 'HEAD') { response.setHeader('Allow', 'GET, HEAD'); sendJson(request, response, 405, { error: '此接口仅支持读取' }); return }
-      sendJson(request, response, 200, { service: 'logic-margin', apiVersion: 1, version: options.version, instanceId: options.instanceId, pid: process.pid, managed: true })
+      sendJson(request, response, 200, { service: 'logic-margin', apiVersion: 1, version: options.version, instanceId: options.instanceId, pid: process.pid, managed: true, mcp: true })
       return
     }
     if (path === '/api/shutdown') {
@@ -84,11 +96,12 @@ export async function createReviewServer(options: {
   })
   const closed = new Promise<void>(resolve => { server.once('close', () => resolve()) })
   function close() {
-    closing ??= new Promise<void>((resolve, reject) => {
+    closing ??= (async () => {
       for (const [response, request] of polls) if (!response.headersSent) sendJson(request, response, 503, { error: '服务正在停止，请恢复会话后重试' })
-      server.close(error => error ? reject(error) : resolve())
-      server.closeAllConnections()
-    })
+      const stopped = new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+      try { await mcp.close() }
+      finally { server.closeAllConnections(); await stopped }
+    })()
     return closing
   }
   await new Promise<void>((resolve, reject) => {
@@ -98,5 +111,6 @@ export async function createReviewServer(options: {
   const address = server.address()
   if (!address || typeof address === 'string') { await close(); throw new Error('无法确定服务监听地址') }
   const host = options.host === '0.0.0.0' || options.host === '::' ? '127.0.0.1' : options.host ?? '127.0.0.1'
-  return { url: `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`, close, closed }
+  url = `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`
+  return { url, close, closed }
 }

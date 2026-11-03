@@ -90,3 +90,8 @@
   .app-shell .composer-actions { margin-top: var(--space-md); }
   .app-shell .composer-actions .button, .app-shell .composer-header .icon-button { min-height: 40px; }
 }
+.target-discussions-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.target-discussions-heading h3 { margin: 0; }
+.target-discussions .comment-card { margin-top: var(--space-md); }
+.node-footer { touch-action: manipulation; }
+@media (pointer: coarse) { .node-footer { min-height: 40px; } }
