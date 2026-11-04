@@ -15,6 +15,7 @@ import { getRevisionChanges } from './revisions.ts'
 import { cleanupSession, currentPendingFeedback, listSessions, recordRequest, sessionRequest } from './session-client.ts'
 import RevisionControls, { RevisionChangesPanel } from './RevisionControls.tsx'
 import CommentThreads from './CommentThreads.tsx'
+import AppearanceMenu from './AppearanceMenu.tsx'
 
 const SESSION_ID = new URLSearchParams(window.location.search).get('session')
 const STORAGE_PREFIX = 'logic-margin:review:'
@@ -91,7 +92,7 @@ export default function App() {
   const [compactToolbar, setCompactToolbar] = useState(() => matchMedia('(max-width: 900px)').matches)
   useEffect(() => {
     const compact = matchMedia('(max-width: 900px)')
-    const update = () => setCompactToolbar(compact.matches)
+    const update = () => { setCompactToolbar(compact.matches); if (compact.matches) setNavOpen(false) }
     compact.addEventListener('change', update)
     return () => compact.removeEventListener('change', update)
   }, [])
@@ -103,6 +104,10 @@ export default function App() {
   const reviewQueue = useRef<string[]>([])
   const [composer, setComposer] = useState<CommentDraft | null>(null)
   const [discussionTargets, setDiscussionTargets] = useState<Target[] | null>(null)
+  const [flowPulse, setFlowPulse] = useState(0)
+  const pulseSequence = useRef(0)
+  const stopFlow = useCallback(() => setFlowPulse(0), [])
+  const replayFlow = useCallback(() => setFlowPulse(++pulseSequence.current), [])
   const [docked, setDocked] = useState(false)
   const [point, setPoint] = useState<{ x: number; y: number } | undefined>()
   const [position, setPosition] = useState({ left: 12, top: 12 })
@@ -199,6 +204,51 @@ export default function App() {
   const hasFeedback = pending.length > 0
   const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
   const finishLabel = hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
+  const replyComment = discussionComments.find(comment => comment.id === threadId) ?? discussionComments.at(-1)
+
+  useEffect(stopFlow, [scene.id, stopFlow])
+  useEffect(() => {
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)')
+    const stop = () => { if (document.hidden || reduced.matches) stopFlow() }
+    document.addEventListener('visibilitychange', stop)
+    reduced.addEventListener('change', stop)
+    return () => { document.removeEventListener('visibilitychange', stop); reduced.removeEventListener('change', stop) }
+  }, [stopFlow])
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    const update = () => {
+      document.documentElement.style.setProperty('--app-height', `${viewport?.height ?? innerHeight}px`)
+      document.documentElement.style.setProperty('--viewport-top', `${viewport?.offsetTop ?? 0}px`)
+    }
+    update()
+    viewport?.addEventListener('resize', update)
+    viewport?.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
+    return () => { viewport?.removeEventListener('resize', update); viewport?.removeEventListener('scroll', update); window.removeEventListener('resize', update) }
+  }, [])
+
+  useEffect(() => {
+    if (!navOpen || !compactToolbar || focusMode) return
+    const navigation = document.getElementById('scene-navigation')
+    if (!navigation) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const background = [...document.querySelectorAll<HTMLElement>('.topbar, .review-main, .inspector, .comment-composer')]
+    background.forEach(element => { element.inert = true })
+    navigation.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const items = [...navigation.querySelectorAll<HTMLButtonElement>('button')]
+      const next = event.shiftKey ? items.at(-1) : items[0]
+      if (document.activeElement === (event.shiftKey ? items[0] : items.at(-1))) { event.preventDefault(); next?.focus() }
+    }
+    navigation.addEventListener('keydown', trap)
+    return () => {
+      background.forEach(element => { element.inert = false })
+      navigation.removeEventListener('keydown', trap)
+      previous?.focus({ preventScroll: true })
+    }
+  }, [navOpen, compactToolbar, focusMode, session.ready])
 
   useEffect(() => {
     if (baselineRound >= 1 && session.session) void session.loadSnapshot(baselineRound).catch(error => setNotice(`读取修改前流程失败：${error instanceof Error ? error.message : '请重试'}`))
@@ -263,8 +313,25 @@ export default function App() {
     return () => { observer.disconnect(); cancelAnimationFrame(frame); window.removeEventListener('resize', reposition); window.removeEventListener('scroll', reposition, true) }
   }, [reposition, panelOpen])
   useEffect(() => {
+    if (!discussionTargets || !compactToolbar) return
+    const surface = document.querySelector<HTMLElement>('[data-composer]')
+    if (!surface) return
+    let frame = 0
+    const reveal = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const viewport = window.visualViewport
+        graph.current?.revealTargets(discussionTargets, (viewport?.offsetTop ?? 0) + (viewport?.height ?? innerHeight) - surface.offsetHeight - 8)
+      })
+    }
+    const observer = new ResizeObserver(reveal)
+    observer.observe(surface)
+    return () => { observer.disconnect(); cancelAnimationFrame(frame) }
+  }, [discussionTargets, compactToolbar])
+  useEffect(() => {
     function keydown(event: KeyboardEvent) {
       if (event.key !== 'Escape' || event.isComposing) return
+      if (navOpen && compactToolbar) { setNavOpen(false); return }
       const menu = document.querySelector<HTMLDetailsElement>('details.workspace-menu[open]')
       if (menu) { closeMenus(); menu.querySelector('summary')?.focus(); return }
       if (discussionTargets) { closeDiscussion(); return }
@@ -276,18 +343,15 @@ export default function App() {
     function outside(event: PointerEvent) {
       if (!(event.target instanceof Element)) return
       document.querySelectorAll<HTMLDetailsElement>('details.workspace-menu[open]').forEach(menu => { if (!menu.contains(event.target as Node)) menu.open = false })
-      if (!event.target.closest('[data-composer], [data-keep-composer]')) {
-        if (discussionTargets) closeDiscussion(false)
-        else if (composer && !docked) setComposer(null)
-      }
+      if (!discussionTargets && composer && !docked && !event.target.closest('[data-composer], [data-keep-composer]')) setComposer(null)
     }
     window.addEventListener('keydown', keydown)
     document.addEventListener('pointerdown', outside)
     return () => { window.removeEventListener('keydown', keydown); document.removeEventListener('pointerdown', outside) }
-  }, [!!composer, discussionTargets, docked, focusMode, submitting, navOpen])
+  }, [!!composer, discussionTargets, docked, focusMode, submitting, navOpen, compactToolbar])
   useEffect(() => {
     if (threadId && (discussionTargets || panelOpen)) document.getElementById(`${discussionTargets ? 'discussion-thread' : 'thread'}-${threadId}`)?.scrollIntoView({ block: 'nearest' })
-  }, [threadId, discussionTargets, panelOpen, tab, selection])
+  }, [threadId, discussionTargets, panelOpen, tab])
   useEffect(() => {
     if (!SESSION_ID && new URLSearchParams(window.location.search).get('review') === 'spirit-sanctum') void openSpiritSanctum(true)
     return () => { importSequence.current++; exampleController.current?.abort() }
@@ -436,11 +500,11 @@ export default function App() {
       const draft = existing ?? makeDraft(review, targets, '', replyTo)
       origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       if (!inDiscussion) { setDiscussionTargets(null); setPoint(at) }
-      setComposer(draft); setDocked(!!replyTo && !inDiscussion)
+      stopFlow(); setComposer(draft); setDocked(!!replyTo && !inDiscussion)
       if (replyTo && !inDiscussion) { setFocusMode(false); setPanelOpen(true); setTab('comments') }
       setStatus('')
     } catch (error) { setNotice(error instanceof Error ? error.message : '无法打开编辑器') }
-  }, [review, historical])
+  }, [review, historical, stopFlow])
   const openDiscussionComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string) => {
     openComposer(targets, at, replyTo, true)
     if (replyTo) setThreadId(replyTo)
@@ -448,7 +512,7 @@ export default function App() {
   const openThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target | Target[]) => {
     const comment = review.comments.find(item => item.id === id)
     if (!comment) return
-    closeComposer(false); setThreadId(id)
+    stopFlow(); closeComposer(false); setThreadId(id)
     if (at) {
       const targets = target ? Array.isArray(target) ? target : [target] : comment.targets
       discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -458,7 +522,7 @@ export default function App() {
       setDiscussionTargets(null); setFilter('all'); setTab('comments'); setFocusMode(false); setPanelOpen(true)
       void showTargets(comment.targets)
     }
-  }, [review, displayReview, scene.id, closeComposer, showTargets])
+  }, [review, displayReview, scene.id, closeComposer, showTargets, stopFlow])
   function startReview() {
     if (!unresolved.length) return
     const ordered = [...unresolved.filter(item => item.status === 'needs-review'), ...unresolved.filter(item => item.status === 'open')]
@@ -671,12 +735,13 @@ export default function App() {
         <div className="review-info-card"><h2>评审说明</h2><p className="document-description">{review.description}</p>
           {session.session && <section className="detail-section" aria-label="代理评审会话"><h3>第 {session.session.round} 轮 · {phaseLabels[session.session.phase]}</h3><p>审查目的：{session.session.scope?.purpose ?? '旧任务未单独记录'}</p><p>批注保存到服务端，提交本轮后交给代理处理。</p></section>}
           <div className="document-meta"><span className="badge">{review.revision}</span>{review.snapshot.dirty && <span className="badge warning">包含未提交改动</span>}{approved && <span className="badge">本轮已通过</span>}</div>
-          {!!(changes.added.length + changes.changed.length + changes.removed.length) && <div className="revision-banner"><strong>已载入新版流程</strong><p>新增 {changes.added.length} 项 · 变化 {changes.changed.length} 项 · 移除 {changes.removed.length} 项。原批注已保留，请复核受影响意见。</p></div>}
+          {!!(changes.added.length + changes.changed.length + changes.removed.length) && <div className="revision-banner"><strong>已载入新版流程</strong><p>新增 {changes.added.length} 项，变化 {changes.changed.length} 项，移除 {changes.removed.length} 项。原批注已保留，请复核受影响意见。</p></div>}
           <h3>已展示</h3><ul className="coverage-list">{review.coverage.included.map(item => <li key={item}>{item}</li>)}</ul>{!!review.coverage.excluded.length && <><h3>尚未覆盖</h3><ul className="coverage-list">{review.coverage.excluded.map(item => <li key={item}>{item}</li>)}</ul></>}<p>{review.coverage.note}</p>
           <details className="technical-info"><summary>技术信息</summary><p>{review.snapshot.repository}<br />代码 {review.snapshot.commit}<br />采集于 {new Date(review.snapshot.capturedAt).toLocaleString('zh-CN')}</p><p>快照指纹 <code>{review.snapshot.fingerprint}</code></p>{session.session && <><p>任务 ID <code>{session.session.id}</code></p>{session.session.scope?.context && <p>关联会话：{session.session.scope.context}</p>}</>}</details>
         </div>
       </details>
       <div className="topbar-actions"><span className={`save-state ${displaySaveState.includes('失败') ? 'save-error' : ''}`} role="status"><Circle size={7} fill="currentColor" />{displaySaveState}</span>
+        <AppearanceMenu />
         <input className="screen-reader-only" ref={inputRef} type="file" accept=".json,application/json" aria-label="导入评审文件" onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = '' }} />
         <details className="workspace-menu file-menu"><summary className="button">文件<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">
           {!SESSION_ID && <button className="button" onClick={() => { closeMenus(); inputRef.current?.click() }}><Upload size={15} />导入评审</button>}
@@ -703,7 +768,7 @@ export default function App() {
     </div>
     <div className={`workspace ${panelOpen ? 'panel-open' : 'panel-closed'} ${navOpen ? 'nav-open' : 'nav-collapsed'}`}>
       <button className="nav-shade" aria-label="关闭场景导航" onClick={() => setNavOpen(false)} />
-      <aside id="scene-navigation" className="sidebar" aria-label="评审场景"><div className="navigation-heading"><span>流程场景</span><span>{displayReview.scenes.length}</span></div>
+      <aside id="scene-navigation" className="sidebar" aria-label="评审场景"><button className="button sidebar-close" aria-label="收起场景列表" onClick={() => setNavOpen(false)}><X size={16} />收起场景</button><div className="navigation-heading"><span>流程场景</span><span>{displayReview.scenes.length}</span></div>
         <nav>{displayReview.scenes.map((item, index) => <button key={item.id} className={`scene-button ${scene.id === item.id ? 'active' : ''}`} onClick={() => switchScene(item.id)} aria-current={scene.id === item.id ? 'page' : undefined}><span className="scene-number">{String(index + 1).padStart(2, '0')}</span><span><strong>{item.title}</strong><small>{displayReview.nodes.filter(node => node.sceneId === item.id).length} 个步骤</small></span><ChevronRight size={14} /></button>)}</nav>
       </aside>
       <main className="review-main">
@@ -743,10 +808,11 @@ export default function App() {
         {publicationPending && <div className="revision-banner publication-pending" role="status"><strong>修改中，新版尚未发布</strong><p>当前仍是 R{session.session?.round} 的流程图。代理交流回复不代表修改已完成；新版发布后才能确认处理结果。</p></div>}
         {historical && <div className="revision-banner historical-banner"><span>正在查看 R{activeRound} 的历史流程 · 只读。</span><button className="button subtle" onClick={() => void switchRound(session.session!.round)}>返回当前 R{session.session?.round}</button></div>}
         <GraphCanvas ref={graph} key={canvasKey} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode}
+          flowPulse={flowPulse} onSelectIntent={replayFlow} onHoverIntent={discussionTargets || composer ? undefined : replayFlow}
           nodeAppearance={nodeAppearance} onNodeAppearanceChange={changeNodeAppearance}
           readOnly={historical} viewportKey={canvasKey} changeSide={historical ? 'before' : 'after'} commentOrder={commentOrder}
           onOpenComposer={openComposer} onOpenThread={openThread} onViewportChange={reposition} />
-        <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">右键批注 · 滚轮缩放 · 更多操作见图例</span><span>{unresolved.length} 条待处理意见</span></div>
+        <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">右键批注，滚轮缩放。更多操作见图例</span><span>{unresolved.length} 条待处理意见</span></div>
       </main>
       <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}`} aria-label="步骤详情与批注">
         <div className="inspector-tabs" role="group" aria-label="评审面板内容" data-keep-composer><button className={tab === 'comments' ? 'active' : ''} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>讨论 {review.comments.length}</button><button className={tab === 'detail' ? 'active' : ''} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>详情</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>草稿 {drafts.length}</button>}{baseline && <button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>变化</button>}<button className="button icon-button" aria-label="收起侧栏" onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
@@ -761,7 +827,7 @@ export default function App() {
             {selectedNode && <>
               {selectedNode.detail && selectedNode.detail !== selectedNode.summary && <section className="detail-section"><h3>规则说明</h3><p>{selectedNode.detail}</p></section>}
               {(selectedNode.input || selectedNode.output) && <details className="detail-section data-details"><summary>输入与输出</summary><div className="state-change"><div><span>输入</span><strong>{selectedNode.input || '未提供'}</strong></div><ArrowRight size={16} /><div><span>输出</span><strong>{selectedNode.output || '未提供'}</strong></div></div></details>}
-              {!!selectedNode.evidence.length && <details className="evidence"><summary>源码依据 · {selectedNode.evidence.length} 处</summary>{selectedNode.evidence.map(item => <div key={`${item.path}:${item.startLine}`} className="source-item"><code>{item.symbol}</code><small>{item.path}:{item.startLine}–{item.endLine}</small></div>)}</details>}
+              {!!selectedNode.evidence.length && <details className="evidence"><summary>源码依据 · {selectedNode.evidence.length} 处</summary>{selectedNode.evidence.map(item => <div key={`${item.path}:${item.startLine}`} className="source-item"><code>{item.symbol}</code><small>{item.path}:{item.startLine}-{item.endLine}</small></div>)}</details>}
             </>}
             {selectedEdge && <section className="detail-section"><h3>流转条件</h3><p>{selectedEdge.detail}</p><p>{targetLabel(displayReview, { kind: 'node', id: selectedEdge.source })} → {targetLabel(displayReview, { kind: 'node', id: selectedEdge.target })}</p></section>}
             {selection.length > 1 && <div className="selection-list">{selection.map(target => <div className="selection-item" key={keyOf(target)}><span>{targetLabel(displayReview, target)}</span><button className="button icon-button" aria-label={`移除选择：${targetLabel(displayReview, target)}`} onClick={() => setSelection(current => current.filter(item => keyOf(item) !== keyOf(target)))}><X size={13} /></button></div>)}</div>}
@@ -783,11 +849,16 @@ export default function App() {
             </article>
           })}{drafts.length > 1 && <button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>导出全部草稿</button>}</section>}
         </div>
-        <CommentComposer draft={composer} docked={docked} position={position}
+        <CommentComposer draft={composer} docked={docked} position={position} onInteract={stopFlow}
           discussion={discussionTargets ? {
             key: discussionTargets.map(keyOf).join('|'),
+            title: discussionTargets.map(target => targetLabel(displayReview, target)).join('、'),
+            context: `${session.session ? `R${activeRound} · ` : ''}${displayReview.revision}${historical ? ' · 历史流程只读' : ''}`,
             content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} /></>,
             replyLabel: composer?.replyTo ? `回复意见 #${review.comments.findIndex(comment => comment.id === composer.replyTo) + 1}` : undefined,
+            canReply: !!replyComment && !historical && !sessionBlocked,
+            onReply: () => { if (replyComment) openDiscussionComposer(replyComment.targets, undefined, replyComment.id) },
+            onCollapse: () => closeComposer(false),
           } : undefined}
           onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer} onClose={() => discussionTargets ? closeDiscussion() : closeComposer()} onToggle={() => { setDocked(current => !current); if (!docked) { setFocusMode(false); setPanelOpen(true); showTargets(composer?.targets ?? []) } }} />
       </aside>

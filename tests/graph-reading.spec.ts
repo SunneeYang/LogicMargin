@@ -44,6 +44,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(outgoing).toHaveClass(/flow-outgoing/)
     await expect(incoming.locator('.edge-flow-light')).toHaveCSS('animation-name', 'edge-flow')
     await expect(outgoing.locator('.edge-flow-light')).toHaveCSS('animation-name', 'edge-flow')
+    // Compare settled routes; selection now lifts the card and moves its ports.
+    await decision.locator('.review-node').evaluate(async element => {
+      await Promise.all(element.getAnimations().map(animation => animation.finished))
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    })
     const curvedPath = await outgoing.locator('.react-flow__edge-path').getAttribute('d')
     expect(curvedPath).toContain('Q')
     for (const layer of ['.edge-crossing-gap', '.react-flow__edge-interaction', '.edge-flow-light']) {

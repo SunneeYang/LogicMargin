@@ -1,8 +1,8 @@
 .edge-crossing-gap { stroke: var(--color-paper); pointer-events: none; stroke-linejoin: round; stroke-linecap: round; }
 .react-flow__edge .react-flow__edge-path { stroke-linejoin: round; stroke-linecap: round; }
 .react-flow__edge.is-related .react-flow__edge-path { stroke-width: 2.5; }
-.edge-flow-light { stroke-width: 3; stroke-linecap: round; stroke-dasharray: 8 42; pointer-events: none; animation: edge-flow 1.8s linear infinite; filter: drop-shadow(0 0 3px currentColor); }
-@keyframes edge-flow { to { stroke-dashoffset: -50; } }
+.edge-flow-light { stroke: var(--color-flow-glint); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 12 100; stroke-dashoffset: 12; pointer-events: none; animation: edge-flow 1.6s linear 2 forwards; }
+@keyframes edge-flow { 0% { opacity: 0; stroke-dashoffset: 12; } 8%, 88% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -100; } }
 .canvas-reading-guide { position: absolute; bottom: 28px; right: 12px; z-index: 5; max-width: calc(100% - 64px); }
 .canvas-reading-guide > .display-settings-toggle { display: none; list-style: none; cursor: pointer; }
 .display-settings-toggle::-webkit-details-marker { display: none; }
@@ -24,7 +24,7 @@
 .canvas-legend > summary { list-style: none; cursor: pointer; }
 .canvas-legend > summary::-webkit-details-marker { display: none; }
 .canvas-legend[open] > summary { border-color: var(--color-accent); color: var(--color-accent); }
-.canvas-legend-panel { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(320px, calc(100vw - 40px)); max-height: min(520px, 70dvh); overflow-y: auto; padding: var(--space-lg); border: var(--rule-width) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-body); box-shadow: 0 8px 24px var(--color-selection); font-size: var(--text-xs); }
+.canvas-legend-panel { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(320px, calc(100dvw - 40px)); max-height: min(520px, 70dvh); overflow-y: auto; padding: var(--space-lg); border: var(--rule-width) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-body); box-shadow: 0 8px 24px var(--color-selection); font-size: var(--text-xs); }
 .canvas-legend-panel h3 { font-size: var(--text-sm); margin-bottom: var(--space-sm); }
 .canvas-legend-panel h3:not(:first-child) { margin-top: var(--space-lg); }
 .canvas-legend-panel dl { margin: 0; }
@@ -38,7 +38,7 @@
 .legend-revisions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-sm); }
 .flow-key { white-space: nowrap; font-weight: 600; }
 .flow-key.incoming, .flow-key.outgoing { color: var(--color-accent); }
-@media (prefers-reduced-motion: reduce) { .edge-flow-light { animation: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .edge-flow-light { animation: none; opacity: 0; } }
 @media (max-width: 900px), (pointer: coarse) {
   .node-appearance-switch .button, .canvas-legend > summary { min-height: 44px; }
 }
@@ -46,7 +46,7 @@
   .canvas-reading-guide { right: 12px; bottom: 28px; }
   .canvas-reading-guide > .display-settings-toggle { display: flex; min-height: 44px; padding-inline: var(--space-sm); font-size: var(--text-xs); }
   .canvas-reading-guide[open] > .display-settings-toggle { border-color: var(--color-accent); color: var(--color-accent); }
-  .canvas-display-options { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(320px, calc(100vw - 24px)); max-height: min(520px, calc(100dvh - 200px)); overflow-y: auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; padding: var(--space-md); border: var(--rule-width) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: 0 8px 24px var(--color-selection); }
+  .canvas-display-options { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(320px, calc(100dvw - 24px)); max-height: min(520px, calc(100dvh - 200px)); overflow-y: auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; padding: var(--space-md); border: var(--rule-width) solid var(--color-rule-strong); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: 0 8px 24px var(--color-selection); }
   .canvas-display-options .node-appearance-switch .button { flex: 1; }
   .canvas-display-options .canvas-legend { position: static; }
   .canvas-display-options .canvas-legend > summary { justify-content: center; }

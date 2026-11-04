@@ -33,12 +33,16 @@ export interface GraphCanvasProps {
   viewportKey?: string
   changeSide?: 'before' | 'after'
   commentOrder?: string[]
+  flowPulse?: number
+  onSelectIntent?: () => void
+  onHoverIntent?: () => void
 }
 
 export interface GraphCanvasHandle {
   getTargetRect: (targets: Target[]) => TargetRect | null
   getCanvasRect: () => DOMRect | null
   focusTargets: (targets: Target[]) => void
+  revealTargets: (targets: Target[], bottom: number) => void
 }
 
 type FlowNode = Node<{
@@ -62,11 +66,31 @@ const EMPTY_COMMENTS: ReviewComment[] = []
 
 const portSides = { top: Position.Top, right: Position.Right, bottom: Position.Bottom, left: Position.Left }
 
-const ReviewNodeView = memo(function ReviewNodeView({ id, data }: NodeProps<FlowNode>) {
+const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: NodeProps<FlowNode>) {
   const updateNodeInternals = useUpdateNodeInternals()
+  const frame = useRef(0)
+  // CSS lift changes port coordinates without triggering a node resize.
+  const followLift = () => {
+    cancelAnimationFrame(frame.current)
+    const until = performance.now() + 260
+    const tick = () => {
+      updateNodeInternals(id)
+      if (performance.now() < until) frame.current = requestAnimationFrame(tick)
+    }
+    tick()
+  }
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
   const KindIcon = kindIcons[data.item.kind]
-  useEffect(() => { updateNodeInternals(id) }, [id, data.layout.ports, updateNodeInternals])
-  return <div className={`review-node kind-${data.item.kind} ${data.count ? 'has-comment' : ''} ${data.change ? `revision-${data.change}` : ''}`}>
+  useEffect(followLift, [id, data.layout.ports, selected, updateNodeInternals])
+  useEffect(() => {
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => updateNodeInternals(id)
+    reduced.addEventListener('change', update)
+    return () => reduced.removeEventListener('change', update)
+  }, [id, updateNodeInternals])
+  return <div className={`review-node kind-${data.item.kind} ${data.count ? 'has-comment' : ''} ${data.change ? `revision-${data.change}` : ''}`}
+    onPointerEnter={followLift} onPointerLeave={followLift} onPointerDown={followLift} onPointerUp={followLift}
+    onTransitionRun={event => { if (event.propertyName === 'transform' && event.target === event.currentTarget) followLift() }}>
     {data.layout.ports.map(port => <Handle key={port.id} id={port.id} type={port.type} position={portSides[port.side]}
       style={port.side === 'top' || port.side === 'bottom' ? { left: port.offset } : { top: port.offset }} />)}
     <div className="node-topline">
@@ -102,6 +126,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   nodeAppearance, onNodeAppearanceChange,
   onOpenComposer, onOpenThread, onViewportChange, readOnly = false,
   viewportKey, changeSide = 'after', commentOrder,
+  flowPulse = 0, onSelectIntent, onHoverIntent,
 }, ref) {
   const [nodes, setNodes, applyNodeChanges] = useNodesState<FlowNode>([])
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<FlowEdge>([])
@@ -331,10 +356,10 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       ...edge,
       className: `${edge.className ?? ''}${relation ? ` is-related flow-${relation}` : hasFocus ? ' is-unrelated' : ''}`,
       zIndex: relation ? 2 : 0,
-      data: { ...edge.data!, relation },
+      data: { ...edge.data!, relation, pulse: flowPulse },
       ...(relation ? { style: { ...edge.style, stroke: relationColors[relation] }, markerEnd: { type: MarkerType.ArrowClosed, color: relationColors[relation] } } : {}),
     }
-  }), [edges, focusedNodes, focusedEdges, hasFocus])
+  }), [edges, focusedNodes, focusedEdges, hasFocus, flowPulse])
 
   const onNodesChange = useCallback((nodeChanges: NodeChange<FlowNode>[]) => {
     applyNodeChanges(nodeChanges)
@@ -371,9 +396,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     if (JSON.stringify(next.map(keyOf).sort()) !== JSON.stringify(selectionRef.current.map(keyOf).sort())) setSelection(next)
   }, [setSelection])
 
-  useImperativeHandle(ref, () => ({
-    getCanvasRect: () => canvasRef.current?.getBoundingClientRect() ?? null,
-    getTargetRect: targets => {
+  const getTargetRect = useCallback((targets: Target[]) => {
       const canvas = canvasRef.current
       if (!canvas) return null
       if (targets.some(target => target.kind === 'scene' || target.kind === 'review')) return canvas.getBoundingClientRect()
@@ -387,6 +410,18 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         left: Math.min(...rects.map(rect => rect.left)), right: Math.max(...rects.map(rect => rect.right)),
         top: Math.min(...rects.map(rect => rect.top)), bottom: Math.max(...rects.map(rect => rect.bottom)),
       }
+  }, [])
+  useImperativeHandle(ref, () => ({
+    getCanvasRect: () => canvasRef.current?.getBoundingClientRect() ?? null,
+    getTargetRect,
+    revealTargets: (targets, bottom) => {
+      const rect = getTargetRect(targets)
+      const canvas = canvasRef.current?.getBoundingClientRect()
+      const flow = flowRef.current
+      if (!rect || !canvas || !flow || !layoutReady.current) return
+      const top = canvas.top + 12
+      const dy = rect.top < top ? top - rect.top : rect.bottom > bottom - 12 ? Math.max(top - rect.top, bottom - 12 - rect.bottom) : 0
+      if (dy) { const viewport = flow.getViewport(); void flow.setViewport({ ...viewport, y: viewport.y + dy }, { duration: 0 }).then(saveViewport) }
     },
     focusTargets: targets => {
       const nodeIds = new Set<string>()
@@ -410,12 +445,15 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         else { pendingFocus.current = [...nodeIds]; scheduleLayout() }
       }
     },
-  }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading])
+  }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, getTargetRect, saveViewport])
 
-  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label="业务流程画布" data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}>
+  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label="业务流程画布" data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
+    onKeyDownCapture={event => { if ((event.key === 'Enter' || event.key === ' ') && (event.target as Element).matches('.react-flow__node, .react-flow__edge')) onSelectIntent?.() }}>
     <ReactFlow<FlowNode, FlowEdge> nodes={nodes} edges={visibleEdges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} colorMode="system"
       onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={() => { saveViewport(); onViewportChange?.() }}
       onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onSelectionChange={onSelectionChange}
+      onNodeClick={event => { if (!(event.target as Element).closest('button')) onSelectIntent?.() }} onEdgeClick={() => onSelectIntent?.()}
+      onNodeMouseEnter={(_, node) => { if (node.selected) onHoverIntent?.() }}
       onSelectionStart={() => { marqueeRef.current = true }} onSelectionEnd={() => { marqueeRef.current = false }}
       onNodeContextMenu={(event, node) => { event.preventDefault(); openContextComment({ kind: 'node', id: node.id }, { x: event.clientX, y: event.clientY }) }}
       onEdgeContextMenu={(event, edge) => { event.preventDefault(); openContextComment({ kind: 'edge', id: edge.id }, { x: event.clientX, y: event.clientY }) }}

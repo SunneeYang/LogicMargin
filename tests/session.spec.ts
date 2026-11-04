@@ -434,13 +434,14 @@ test('current view loads only the comparison graph until an original graph, reco
   const snapshots = () => browserRequests.filter(url => url.pathname.startsWith(`${path}/snapshots/`)).map(url => url.pathname)
   const records = () => browserRequests.filter(url => url.pathname.startsWith(`${path}/records/`)).map(url => url.pathname)
   const fullReads = () => browserRequests.filter(url => url.pathname === path && url.searchParams.get('view') !== 'current')
-  const currentResponse = page.waitForResponse(response => {
-    const url = new URL(response.url())
-    return url.pathname === path && url.searchParams.get('view') === 'current' && !url.searchParams.has('afterVersion') && response.status() === 200
-  })
+  // StrictMode can abort the first fetch after headers; inspect a completed browser request.
+  const currentRequest = page.waitForEvent('requestfinished', { predicate: async request => {
+    const url = new URL(request.url())
+    return url.pathname === path && url.searchParams.get('view') === 'current' && !url.searchParams.has('afterVersion') && (await request.response())?.status() === 200
+  } })
   const baselineResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${path}/snapshots/2` && response.status() === 200)
   await page.goto(`/?session=${state.id}`)
-  const currentView: CurrentSession = await (await currentResponse).json()
+  const currentView: CurrentSession = await (await (await currentRequest).response())!.json()
   expect(currentView.view).toBe('current')
   expect(currentView.review).toEqual(three.review)
   expect(currentView.snapshots).toHaveLength(3)
