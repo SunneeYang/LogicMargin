@@ -24,7 +24,7 @@ codex plugin marketplace upgrade logic-margin-local --json
 codex plugin add logic-margin@logic-margin-local --json
 ```
 
-先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上已构建的版本；若要求固定版本，首次注册时将 `--ref main` 改为具体 tag，例如 `--ref v0.6.0`，之后更新仍保持该 tag。
+先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上已构建的版本；若要求固定版本，首次注册时将 `--ref main` 改为具体 tag，例如 `--ref v0.7.0`，之后更新仍保持该 tag。
 
 Codex 会移除旧版本缓存。更新完成后开始新会话或重新加载技能，按新版 `installedPath` 定位 CLI；当前会话保存的旧 `LM_CLI` 路径可能已失效。更新不自动中断正在进行的评审或停止后台服务；新版入口报告服务版本不匹配时，再用新版 CLI 的 `server stop` 关闭经身份核验的旧实例，随后重试以复用原数据和端口。
 
@@ -32,14 +32,14 @@ Codex 会移除旧版本缓存。更新完成后开始新会话或重新加载�
 
 ## ZIP 安装（无需 Git）
 
-从 [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest) 下载 `logic-margin-agent-0.6.0.zip` 和同名 `.zip.sha256`。它包含网页、服务端与 CLI，不包含 Node 运行时、npm 依赖或源码工程。
+从 [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest) 下载 `logic-margin-agent-0.7.0.zip` 和同名 `.zip.sha256`。它包含网页、服务端与 CLI，不包含 Node 运行时、npm 依赖或源码工程。
 
-在下载目录校验文件：macOS 使用 `shasum -a 256 -c logic-margin-agent-0.6.0.zip.sha256`，Linux 使用 `sha256sum -c logic-margin-agent-0.6.0.zip.sha256`；Windows PowerShell 用 `Get-FileHash .\logic-margin-agent-0.6.0.zip -Algorithm SHA256`，与 `.sha256` 内的摘要比较。
+在下载目录校验文件：macOS 使用 `shasum -a 256 -c logic-margin-agent-0.7.0.zip.sha256`，Linux 使用 `sha256sum -c logic-margin-agent-0.7.0.zip.sha256`；Windows PowerShell 用 `Get-FileHash .\logic-margin-agent-0.7.0.zip -Algorithm SHA256`，与 `.sha256` 内的摘要比较。
 
 解压并将目录放在持久位置，然后执行：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.6.0
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.7.0
 codex plugin add logic-margin@logic-margin-local
 ```
 
@@ -95,9 +95,13 @@ Agent 核对当前工程源码，整理节点、连线、输入输出和源码�
 
 MCP `start_review` 在创建前核验真实来源；`revise_review` 再次核验，并必填实际审阅的 `base_round` 与 `summary`。文件和 `source_root` 使用服务机器上的绝对路径，最终回应通过 `replies_file` 同版发布；逻辑未变时必填 `unchanged_reason`。`reply_review` 用于临时交流，发布新版前由人继续核对线程。完整参数与回应格式见 [代理评审流程](https://github.com/SunneeYang/LogicMargin/blob/main/docs/agent-workflow.md)。
 
-网页默认显示当前图，支持切换修改前快照、查看字段变化和单独核对依据更新。历史图只读；目标被移除后，原批注仍可从讨论列表回到提出时流程，保留当前讨论状态。
+代码改动评审在创建时可分别提供原版图 `baseline_file`、旧树 `baseline_source_root` 和当前图 `review_file`、当前树 `source_root`。Agent 先按真实 Git 基线读取原版源码，再生成同 ID 的前后图并分别核验。固定基线 B 在 R1 就可用于比较，后续评审轮次继续继承 B；也可按上一轮快照查看本轮变化。旧会话可用 `attach_review_baseline` 核验并补入 B，沿用原 session ID、轮次及批注。材料生成和 CLI 参数见插件内的评审格式参考。
 
-日常网页同步仅包含当前图、批注线程及历史目录；旧快照与固定意见包按需读取。反馈交付仍包含意见；通过交付只返回摘要、解决数量和 session/submission 索引，不输出批注、回复或源码文件清单，较早未领取反馈只列 `earlierSubmissionIds`。按需用 `get_review` 或兼容 CLI `get` 读取完整会话及归档；完整备份保持不变。会话响应与包内静态资源自动协商 gzip，无需给命令添加参数。
+也可先评审原系统再实施改造。发起时用原版图、真实源码根目录及 `baseline_review: true`，页面先显示 B 并接收改造意见。Agent 取回意见后修改和验证源码，再发布第一次实现图 R1，之后继续 R2、R3。会话始终保留最初的 B 供比较。
+
+网页支持查看字段变化和单独核对依据更新。历史图只读；目标被移除后，原批注仍可从讨论列表回到提出时流程，保留当前讨论状态。缺少 B 的旧会话明确显示基线待提供。
+
+日常网页同步仅包含当前图、批注线程、基线摘要及历史目录；完整基线、旧快照与固定意见包按需读取。反馈交付仍包含意见；通过交付只返回摘要、解决数量和 session/submission 索引，不输出批注、回复或源码文件清单，较早未领取反馈只列 `earlierSubmissionIds`。按需用 `get_review` 或兼容 CLI `get` 读取完整会话及归档；完整备份保持不变。会话响应与包内静态资源自动协商 gzip，无需给命令添加参数。
 
 托管服务将原批注、回复、状态和每轮快照保存在运行服务机器的 `~/.logic-margin/sessions`，可按同一会话 ID 恢复。`LOGIC_MARGIN_HOME` 可更换服务与数据根目录，`LOGIC_MARGIN_DATA_DIR` 可单独指定会话目录；登记后重启仍沿用这个目录，无需重复环境变量。备份应包含实际会话目录。插件更新不会删除这些数据。开发服务器仍使用工程中的 `.logic-margin/sessions`；两者不自动混用。Agent 的代码编辑、测试和 Git 操作仍受原任务范围约束，发起评审不包含提交或推送授权。
 
@@ -122,14 +126,14 @@ npm run package:agent
 npm run test:agent
 ```
 
-构建更新插件内的独立 CLI，并生成 `artifacts/logic-margin-agent-0.6.0.zip`。前端、HTTP MCP、会话 API 与启动管理一起打包；包中不包含本机实际会话、浏览器草稿或魔灵秘境专用评审包。默认包构建仅需工程 npm 依赖及系统 `zip`。
+构建更新插件内的独立 CLI，并生成 `artifacts/logic-margin-agent-0.7.0.zip`。前端、HTTP MCP、会话 API 与启动管理一起打包；包中不包含本机实际会话、浏览器草稿或魔灵秘境专用评审包。默认包构建仅需工程 npm 依赖及系统 `zip`。
 
 ## 维护者发布
 
 先同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、插件 `plugin.json`，再准备发布包：
 
 ```sh
-npm run release:agent -- v0.6.0
+npm run release:agent -- v0.7.0
 npm run test:release
 ```
 

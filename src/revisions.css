@@ -5,6 +5,7 @@
 .revision-readonly { display: inline-flex; align-items: center; gap: var(--space-xs); color: var(--color-muted); font-size: var(--text-xs); }
 .revision-readonly svg { flex-shrink: 0; }
 .revision-current { color: var(--color-muted); font-size: var(--text-xs); white-space: nowrap; }
+.comparison-source { max-width: 150px; min-height: 30px; padding: var(--space-xs); border: 1px solid var(--color-rule); border-radius: var(--control-radius); background: var(--color-surface); color: var(--color-body); font-size: var(--text-xs); }
 .historical-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
 .historical-banner, .publication-pending { flex: 0 0 auto; padding: var(--space-sm) var(--space-md); font-size: var(--text-xs); }
 .comment-location-note { margin-top: var(--space-sm); font-size: var(--text-xs); color: var(--color-warning); }
@@ -47,6 +48,7 @@
   .app-shell .graph-toolbar .revision-controls { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   .app-shell .graph-toolbar .revision-controls .button, .revision-locate-actions .button { min-height: 44px; }
   .revision-controls { gap: var(--space-sm); }
+  .comparison-source { min-height: 44px; }
 }
 @media (pointer: coarse) {
   .app-shell .graph-toolbar .revision-controls .button, .revision-locate-actions .button { min-height: 44px; }

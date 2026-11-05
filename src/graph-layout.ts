@@ -1,6 +1,8 @@
 import { Graph, layout } from '@dagrejs/dagre'
 import type { EdgeLabel, GraphLabel, NodeLabel } from '@dagrejs/dagre'
 import type { ReviewEdge, ReviewNode } from './types.ts'
+import { authoredLayout } from './graph-routing.ts'
+import { measureEdgeLabel } from './graph-label.ts'
 
 export interface LayoutPoint { x: number; y: number }
 export interface LayoutPort {
@@ -20,6 +22,9 @@ export interface LayoutEdge {
   label: LayoutPoint
   sourceHandle: string
   targetHandle: string
+  labelWidth?: number
+  labelHeight?: number
+  kind?: 'flow' | 'return' | 'exception'
 }
 
 function addPort(node: LayoutNode, point: LayoutPoint, id: string, type: LayoutPort['type']) {
@@ -34,6 +39,8 @@ export function layoutGraph(
   nodes: readonly ReviewNode[], edges: readonly ReviewEdge[],
   sizes: ReadonlyMap<string, { width: number; height: number }> = new Map(),
 ) {
+  const authored = authoredLayout(nodes, edges, sizes)
+  if (authored) return { ...authored, usesAuthoredPositions: true }
   const graph = new Graph<GraphLabel, NodeLabel, EdgeLabel>({ directed: true, multigraph: true })
   graph.setGraph({ rankdir: 'TB', ranksep: 88, nodesep: 72, edgesep: 32, marginx: 24, marginy: 24 })
   // Seed Dagre's crossing reducer with normal steps first, keeping each group's original order.
@@ -44,9 +51,9 @@ export function layoutGraph(
   }
   for (const edge of edges) {
     if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) throw new Error(`连线 ${edge.id} 引用了不存在的节点`)
-    const labelWidth = [...edge.label].reduce((width, char) => width + (char.charCodeAt(0) > 255 ? 12 : 7), 0)
+    const label = measureEdgeLabel(edge.label)
     graph.setEdge(edge.source, edge.target, {
-      width: Math.min(220, Math.max(36, labelWidth)), height: 24, labelpos: 'c',
+      width: Math.max(120, label.width), height: label.height + 16, labelpos: 'c',
     }, edge.id)
   }
   if (nodes.length) layout(graph)
@@ -70,6 +77,7 @@ export function layoutGraph(
     const middle = points[Math.floor(points.length / 2)]
     routes.set(edge.id, {
       points, label: { x: route.x ?? middle.x, y: route.y ?? middle.y }, sourceHandle, targetHandle,
+      labelWidth: route.width, labelHeight: route.height,
     })
   }
   // Dagre's ray intersections crowd high-fan ports near corners; retain their order while spacing them along the boundary.
@@ -88,5 +96,5 @@ export function layoutGraph(
       })
     }
   }
-  return { nodes: placed, edges: routes }
+  return { nodes: placed, edges: routes, usesAuthoredPositions: false }
 }

@@ -74,7 +74,7 @@ export default function CommentComposer({ draft, discussion, docked, position, o
   const surface = <section ref={container} className={`comment-composer ${surfaceDocked ? 'is-docked' : 'is-inline'}${discussion ? ' has-discussion' : ''}`} style={surfaceDocked ? undefined : position}
     role="dialog" aria-modal="false" aria-labelledby="composer-title" tabIndex={discussion ? -1 : undefined} data-composer data-composing={!!draft} data-state={open ? 'open' : 'closing'} inert={!open} aria-hidden={!open || undefined}
     onPointerEnter={onInteract} onPointerDownCapture={onInteract} onFocusCapture={onInteract} onWheelCapture={onInteract} onScrollCapture={onInteract}>
-    <header className="composer-header"><h3 id="composer-title"><MessageSquare size={16} />{discussion ? '节点讨论' : draft?.replyTo ? '回复讨论' : '流程批注'}</h3>
+    <header className="composer-header"><h3 id="composer-title"><MessageSquare size={16} />{discussion ? '节点讨论' : draft?.replyTo ? '回复讨论' : draft?.basis === 'baseline' ? '基线 B 批注' : '流程批注'}</h3>
       <div className="tool-group">{!discussion && <button className="button icon-button" type="button" aria-label={docked ? '返回图内编辑' : '移到侧栏编辑'} onPointerDown={event => event.preventDefault()} onClick={() => {
         if (input.current && document.activeElement === input.current) selection.current = { start: input.current.selectionStart, end: input.current.selectionEnd }
         onToggle()

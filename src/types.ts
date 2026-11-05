@@ -51,6 +51,7 @@ export interface ReviewComment {
   originRound?: number
   reviewedRound?: number
   replies?: CommentReply[]
+  basis?: 'baseline'
 }
 
 export interface ReviewDocument {
@@ -72,7 +73,10 @@ export interface ReviewDocument {
   nodes: ReviewNode[]
   edges: ReviewEdge[]
   comments: ReviewComment[]
+  baseline?: ReviewBaseline
 }
+
+export type ReviewBaseline = Omit<ReviewDocument, 'baseline'>
 
 export interface SourceFile { path: string; sha256: string }
 
@@ -92,6 +96,7 @@ export interface CommentDraft {
   body: string
   updatedAt: string
   replyTo?: string
+  basis?: 'baseline'
 }
 
 export interface ReviewRecord {

@@ -4,10 +4,11 @@ import {
   MarkerType, useNodesState, useEdgesState, useUpdateNodeInternals,
 } from '@xyflow/react'
 import type { EdgeChange, Node, NodeChange, NodeProps, OnSelectionChangeParams, ReactFlowInstance, Viewport } from '@xyflow/react'
-import { Diamond, Flag, LogOut, MessageSquare, Square, X } from 'lucide-react'
+import { Diamond, Flag, Focus, LogOut, MessageSquare, Scan, Square, X } from 'lucide-react'
 import type { ReviewChanges, ReviewComment, ReviewDocument, ReviewEdge, ReviewNode, Target } from './types.ts'
 import { indexGraph, indexGraphComments, targetKey as keyOf } from './graph-index.ts'
 import { layoutGraph } from './graph-layout.ts'
+import { availableScopeNodeIds, comparisonLayout, graphBounds, relatedNodeIds } from './graph-focus.ts'
 import type { LayoutNode } from './graph-layout.ts'
 import GraphEdge, { relationColors } from './GraphEdge.tsx'
 import type { FlowEdge, FlowRelation } from './GraphEdge.tsx'
@@ -36,12 +37,16 @@ export interface GraphCanvasProps {
   flowPulse?: number
   onSelectIntent?: () => void
   onHoverIntent?: () => void
+  comparisonReview?: ReviewDocument
+  focusTargets?: Target[]
+  readingScopeKey?: string
 }
 
 export interface GraphCanvasHandle {
   getTargetRect: (targets: Target[]) => TargetRect | null
   getCanvasRect: () => DOMRect | null
   focusTargets: (targets: Target[]) => void
+  focusRelated: (targets: Target[]) => void
   revealTargets: (targets: Target[], bottom: number) => void
 }
 
@@ -52,6 +57,7 @@ type FlowNode = Node<{
   readOnly: boolean
   layout: LayoutNode
   onComment: (target: Target, point: Point) => void
+  onPortsReady: (id: string, handles: string[]) => void
 }, 'review'>
 
 const kindLabels = { action: '操作', decision: '判断', result: '结果', failure: '失败出口' }
@@ -60,6 +66,7 @@ type ChangeKind = 'added' | 'changed' | 'removed' | 'evidence'
 const changeLabels: Record<ChangeKind, string> = { added: '新增', changed: '已修改', removed: '已移除', evidence: '依据更新' }
 const changeColors: Record<ChangeKind, string> = { added: 'var(--color-success)', changed: 'var(--color-warning)', removed: 'var(--color-error)', evidence: 'var(--color-accent)' }
 const savedViewports = new Map<string, { viewport: Viewport; width: number }>()
+const savedReadingScopes = new Map<string, string[]>()
 const EMPTY_NODES: ReviewNode[] = []
 const EMPTY_EDGES: ReviewEdge[] = []
 const EMPTY_COMMENTS: ReviewComment[] = []
@@ -82,6 +89,12 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
   const KindIcon = kindIcons[data.item.kind]
   useEffect(followLift, [id, data.layout.ports, selected, updateNodeInternals])
+  useEffect(() => {
+    updateNodeInternals(id)
+    // The hook measures in the next frame. Publish new connections after that measurement.
+    const readyFrame = requestAnimationFrame(() => data.onPortsReady(id, data.layout.ports.map(port => port.id)))
+    return () => cancelAnimationFrame(readyFrame)
+  }, [id, data.layout.ports, data.onPortsReady, updateNodeInternals])
   useEffect(() => {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)')
     const update = () => updateNodeInternals(id)
@@ -126,11 +139,22 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   nodeAppearance, onNodeAppearanceChange,
   onOpenComposer, onOpenThread, onViewportChange, readOnly = false,
   viewportKey, changeSide = 'after', commentOrder,
-  flowPulse = 0, onSelectIntent, onHoverIntent,
+  flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey,
 }, ref) {
   const [nodes, setNodes, applyNodeChanges] = useNodesState<FlowNode>([])
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<FlowEdge>([])
+  const [readyHandles, setReadyHandles] = useState(new Map<string, ReadonlySet<string>>())
   const [nodeSizes, setNodeSizes] = useState(new Map<string, { width: number; height: number }>())
+  const [readingNodeIds, setReadingNodeIds] = useState<string[] | null>(() => {
+    const nodes = review.nodes.filter(node => node.sceneId === sceneId)
+    const saved = readingScopeKey ? savedReadingScopes.get(readingScopeKey) : undefined
+    if (saved) return availableScopeNodeIds(saved, nodes)
+    return focusTargets?.length ? relatedNodeIds(nodes, review.edges.filter(edge => edge.sceneId === sceneId), focusTargets) : null
+  })
+  const readingNodeIdsRef = useRef(readingNodeIds)
+  readingNodeIdsRef.current = readingNodeIds
+  const completeViewport = useRef<{ viewport: Viewport; width: number } | null>(null)
+  const pendingViewport = useRef<{ viewport: Viewport; width: number } | null>(null)
   const selectionRef = useRef(selection)
   const canvasRef = useRef<HTMLDivElement>(null)
   const flowRef = useRef<ReactFlowInstance<FlowNode, FlowEdge> | null>(null)
@@ -139,13 +163,32 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   const canvasSize = useRef({ width: 0, height: 0 })
   const layoutFrame = useRef(0)
   const pendingFocus = useRef<string[] | null>(null)
+  const pendingElementFocus = useRef<string | null>(null)
   selectionRef.current = selection
 
   const graphIndex = useMemo(() => indexGraph(review.nodes, review.edges, review.scenes), [review.nodes, review.edges, review.scenes])
   const commentIndex = useMemo(() => indexGraphComments(review.comments, graphIndex.targetScenes), [review.comments, graphIndex])
   const sceneNodes = graphIndex.nodesByScene.get(sceneId) ?? EMPTY_NODES
   const sceneEdges = graphIndex.edgesByScene.get(sceneId) ?? EMPTY_EDGES
-  const layout = useMemo(() => layoutGraph(sceneNodes, sceneEdges, nodeSizes), [sceneNodes, sceneEdges, nodeSizes])
+  const readingSet = useMemo(() => readingNodeIds ? new Set(readingNodeIds) : null, [readingNodeIds])
+  const displayedNodes = useMemo(() => readingSet ? sceneNodes.filter(node => readingSet.has(node.id)) : sceneNodes, [sceneNodes, readingSet])
+  const displayedEdges = useMemo(() => readingSet ? sceneEdges.filter(edge => readingSet.has(edge.source) && readingSet.has(edge.target)) : sceneEdges, [sceneEdges, readingSet])
+  const boundaryEdges = useMemo(() => readingSet ? sceneEdges.filter(edge => readingSet.has(edge.source) !== readingSet.has(edge.target)) : [], [sceneEdges, readingSet])
+  const displayedIds = useRef(new Set(displayedNodes.map(node => node.id)))
+  displayedIds.current = new Set(displayedNodes.map(node => node.id))
+  const comparisonKey = comparisonReview ? [review.snapshot.fingerprint, comparisonReview.snapshot.fingerprint].sort().join(':') : ''
+  const savedViewportKey = viewportKey && comparisonKey ? `${viewportKey}:comparison:${comparisonKey}` : viewportKey
+  const layout = useMemo(() => {
+    if (!comparisonReview) return layoutGraph(displayedNodes, displayedEdges, nodeSizes)
+    const sharedScope = readingScopeKey ? savedReadingScopes.get(readingScopeKey) : undefined
+    const comparisonScope = readingSet && sharedScope ? new Set(sharedScope) : readingSet
+    const referenceNodes = comparisonReview.nodes.filter(node => node.sceneId === sceneId && (!comparisonScope || comparisonScope.has(node.id)))
+    const referenceIds = new Set(referenceNodes.map(node => node.id))
+    const referenceEdges = comparisonReview.edges.filter(edge => edge.sceneId === sceneId && referenceIds.has(edge.source) && referenceIds.has(edge.target))
+    return comparisonLayout(displayedNodes, displayedEdges, referenceNodes, referenceEdges, nodeSizes)
+  }, [displayedNodes, displayedEdges, nodeSizes, comparisonReview, sceneId, readingSet, readingScopeKey])
+  const layoutRef = useRef(layout)
+  layoutRef.current = layout
   const multiObjectComments = commentIndex.multiObjectByScene.get(sceneId) ?? EMPTY_COMMENTS
   const commentNumbers = useMemo(() => commentOrder
     ? new Map(commentOrder.map((id, index) => [id, index + 1])) : commentIndex.numbers, [commentOrder, commentIndex])
@@ -160,11 +203,11 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   const saveViewport = useCallback(() => {
     const flow = flowRef.current
     const canvas = canvasRef.current
-    if (!viewportKey || !flow || !canvas || !layoutReady.current) return
-    savedViewports.delete(viewportKey)
-    savedViewports.set(viewportKey, { viewport: flow.getViewport(), width: canvas.clientWidth })
+    if (!savedViewportKey || !flow || !canvas || !layoutReady.current || readingNodeIdsRef.current) return
+    savedViewports.delete(savedViewportKey)
+    savedViewports.set(savedViewportKey, { viewport: flow.getViewport(), width: canvas.clientWidth })
     if (savedViewports.size > 200) savedViewports.delete(savedViewports.keys().next().value!)
-  }, [viewportKey])
+  }, [savedViewportKey])
 
   const focusReading = useCallback((nodeIds?: string[]) => {
     const flow = flowRef.current
@@ -184,6 +227,16 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     return flow.setViewport({ x: (canvas.clientWidth - bounds.width) / 2 - bounds.x, y: 24 - bounds.y, zoom: 1 }, { duration: 0 })
   }, [])
 
+  const fitCompleteGraph = useCallback(() => {
+    const flow = flowRef.current, canvas = canvasRef.current
+    if (!flow || !canvas) return Promise.resolve(false)
+    const bounds = graphBounds(layoutRef.current.nodes, layoutRef.current.edges)
+    if (!bounds.width || !bounds.height) return Promise.resolve(false)
+    const zoom = Math.max(.05, Math.min(.9, (canvas.clientWidth - 48) / bounds.width, (canvas.clientHeight - 48) / bounds.height))
+    return flow.setViewport({ x: (canvas.clientWidth - bounds.width * zoom) / 2 - bounds.x * zoom,
+      y: (canvas.clientHeight - bounds.height * zoom) / 2 - bounds.y * zoom, zoom }, { duration: 0 }).then(result => { saveViewport(); return result })
+  }, [saveViewport])
+
   const updateLayout = useCallback(() => {
     const flow = flowRef.current
     const canvas = canvasRef.current
@@ -193,10 +246,34 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     if (!width || !height) return
     const items = flow.getNodes()
     if (!layoutReady.current) {
-      if (!items.length || items.some(node => !node.measured?.width || !node.measured?.height)) return
+      if (items.some(node => !node.measured?.width || !node.measured?.height)) return
+      if (items.length !== displayedIds.current.size || items.some(node => !displayedIds.current.has(node.id))) return
       layoutReady.current = true
       canvasSize.current = { width, height }
-      const markReady = () => { canvas.dataset.viewportReady = 'true'; saveViewport() }
+      const markReady = () => {
+        canvas.dataset.viewportReady = 'true'
+        saveViewport()
+        if (pendingElementFocus.current) {
+          const selector = pendingElementFocus.current
+          pendingElementFocus.current = null
+          requestAnimationFrame(() => canvas.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true }))
+        }
+      }
+      if (!items.length) { markReady(); return }
+      if (pendingViewport.current) {
+        const saved = pendingViewport.current
+        pendingViewport.current = null
+        void flow.setViewport({ ...saved.viewport, x: saved.viewport.x + (width - saved.width) / 2 }, { duration: 0 }).then(markReady)
+        return
+      }
+      if (readingNodeIdsRef.current) {
+        const targets = pendingFocus.current ? items.filter(node => pendingFocus.current!.includes(node.id)) : items
+        const bounds = flow.getNodesBounds(targets.length ? targets : items)
+        const zoom = Math.max(.75, Math.min(.9, (width - 48) / bounds.width))
+        void flow.setViewport({ x: (width - bounds.width * zoom) / 2 - bounds.x * zoom, y: 128 - bounds.y * zoom, zoom }, { duration: 0 }).then(markReady)
+        pendingFocus.current = null
+        return
+      }
       if (pendingFocus.current) {
         const focused = window.matchMedia('(max-width: 900px)').matches
           ? focusReading(pendingFocus.current)
@@ -205,7 +282,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         pendingFocus.current = null
         return
       }
-      const saved = viewportKey ? savedViewports.get(viewportKey) : undefined
+      const saved = savedViewportKey ? savedViewports.get(savedViewportKey) : undefined
       if (saved) {
         void flow.setViewport({ ...saved.viewport, x: saved.viewport.x + (width - saved.width) / 2 }, { duration: 0 }).then(markReady)
         return
@@ -214,7 +291,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         void focusReading([]).then(markReady)
         return
       }
-      const bounds = flow.getNodesBounds(items)
+      const bounds = graphBounds(layoutRef.current.nodes, layoutRef.current.edges)
       const zoom = Math.max(0.05, Math.min(0.85, (width - 48) / bounds.width))
       void flow.setViewport({ x: Math.max(24, (width - bounds.width * zoom) / 2) - bounds.x * zoom, y: 32 - bounds.y * zoom, zoom }, { duration: 0 }).then(markReady)
       return
@@ -253,7 +330,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       }
     }
     void flow.setViewport({ x, y, zoom: viewport.zoom }, { duration: 0 }).then(saveViewport)
-  }, [viewportKey, saveViewport, focusReading])
+  }, [savedViewportKey, saveViewport, focusReading])
 
   const scheduleLayout = useCallback(() => {
     cancelAnimationFrame(layoutFrame.current)
@@ -264,7 +341,55 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     layoutReady.current = false
     if (canvasRef.current) delete canvasRef.current.dataset.viewportReady
     scheduleLayout()
-  }, [viewportKey, sceneId, scheduleLayout])
+  }, [savedViewportKey, sceneId, scheduleLayout])
+
+  const readingKey = readingNodeIds?.join('\u0000') ?? ''
+  useEffect(() => {
+    layoutReady.current = false
+    if (canvasRef.current) delete canvasRef.current.dataset.viewportReady
+    scheduleLayout()
+  }, [readingKey, scheduleLayout])
+
+  const focusRelated = useCallback((targets: Target[]) => {
+    const ids = relatedNodeIds(sceneNodes, sceneEdges, targets)
+    if (!ids.length) return
+    if (!readingNodeIdsRef.current && flowRef.current && canvasRef.current) {
+      completeViewport.current = { viewport: flowRef.current.getViewport(), width: canvasRef.current.clientWidth }
+    }
+    layoutReady.current = false
+    canvasRef.current?.removeAttribute('data-viewport-ready')
+    pendingElementFocus.current = '.canvas-focus-heading button'
+    pendingFocus.current = targets.flatMap(target => {
+      if (target.kind === 'node') return [target.id]
+      const edge = target.kind === 'edge' ? graphIndex.edgesById.get(target.id) : undefined
+      return edge ? [edge.source, edge.target] : []
+    })
+    if (readingScopeKey) {
+      savedReadingScopes.delete(readingScopeKey)
+      savedReadingScopes.set(readingScopeKey, ids)
+      if (savedReadingScopes.size > 200) savedReadingScopes.delete(savedReadingScopes.keys().next().value!)
+    }
+    setReadingNodeIds(ids)
+  }, [sceneNodes, sceneEdges, graphIndex, readingScopeKey])
+  const showCompleteGraph = useCallback(() => {
+    pendingViewport.current = completeViewport.current
+    completeViewport.current = null
+    pendingFocus.current = null
+    layoutReady.current = false
+    canvasRef.current?.removeAttribute('data-viewport-ready')
+    pendingElementFocus.current = '.focus-related, .reading-view-control'
+    if (readingScopeKey) savedReadingScopes.delete(readingScopeKey)
+    setReadingNodeIds(null)
+  }, [readingScopeKey])
+  const externalFocusKey = focusTargets?.map(keyOf).sort().join('\u0000')
+  const previousExternalFocus = useRef(externalFocusKey)
+  useEffect(() => {
+    if (externalFocusKey === previousExternalFocus.current) return
+    previousExternalFocus.current = externalFocusKey
+    if (focusTargets === undefined) return
+    if (focusTargets.length) focusRelated(focusTargets)
+    else showCompleteGraph()
+  }, [externalFocusKey, focusRelated, showCompleteGraph, focusTargets])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -296,14 +421,26 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     else openComposer([target], point)
   }, [readOnly, openNodeComment, openComposer])
 
+  const onPortsReady = useCallback((id: string, handles: string[]) => {
+    setReadyHandles(previous => {
+      const prior = previous.get(id)
+      if (handles.every(handle => prior?.has(handle))) return previous
+      return new Map(previous).set(id, new Set([...(prior ?? []), ...handles]))
+    })
+  }, [])
+
   useEffect(() => {
     const selected = new Set(selectionRef.current.map(keyOf))
     setNodes(previous => {
       // Keep measurements so updating a thread doesn't hide its node and drop keyboard focus.
       const prior = new Map(previous.map(node => [node.id, node]))
-      return sceneNodes.map(item => {
+      return displayedNodes.map(item => {
         const key = `node:${item.id}`
         const change = targetChanges.get(key)
+        const placed = layout.nodes.get(item.id)!
+        // React Flow replaces its edge store after the new handle DOM is committed.
+        const ports = new Map(prior.get(item.id)?.data.layout.ports.map(port => [port.id, port]))
+        placed.ports.forEach(port => ports.set(port.id, port))
         return {
           ...prior.get(item.id),
           id: item.id, type: 'review', position: layout.nodes.get(item.id)!.position, ariaLabel: `${item.title}${change ? `，${changeLabels[change]}` : ''}`,
@@ -312,27 +449,28 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
             item,
             count: commentIndex.counts.get(key) ?? 0,
             change, readOnly,
-            layout: layout.nodes.get(item.id)!, onComment: openNodeComment,
+            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onPortsReady,
           },
         }
       })
     })
-    setEdges(sceneEdges.map(item => {
+    setEdges(displayedEdges.map(item => {
       const key = `edge:${item.id}`
       const change = targetChanges.get(key)
       const route = layout.edges.get(item.id)!
       return {
         id: item.id, source: item.source, target: item.target,
-        sourceHandle: route.sourceHandle, targetHandle: route.targetHandle, data: { route },
-        label: `${item.label}${change ? ` · ${changeLabels[change]}` : ''}${commentIndex.counts.has(key) ? ' · 有批注' : ''}`,
+        sourceHandle: route.sourceHandle, targetHandle: route.targetHandle,
+        data: { route, status: [change ? changeLabels[change] : '', commentIndex.counts.has(key) ? '有批注' : ''].filter(Boolean).join(' · ') },
+        label: item.label,
         type: 'review', ariaLabel: `${graphIndex.nodesById.get(item.source)?.title ?? `已移除节点 · ${item.source}`}：${item.label}${change ? `，${changeLabels[change]}` : ''}`,
         selected: selected.has(key),
-        className: change ? `revision-${change}` : undefined,
-        style: change ? { stroke: changeColors[change], strokeWidth: 2 } : undefined,
+        className: [change ? `revision-${change}` : '', route.kind ? `route-${route.kind}` : ''].filter(Boolean).join(' ') || undefined,
+        style: change ? { stroke: changeColors[change] } : undefined,
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [sceneNodes, sceneEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onPortsReady])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
@@ -349,7 +487,8 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   const focusedNodes = useMemo(() => new Set(selection.filter(target => target.kind === 'node').map(target => target.id)), [selection])
   const focusedEdges = useMemo(() => new Set(selection.filter(target => target.kind === 'edge').map(target => target.id)), [selection])
   const hasFocus = focusedNodes.size > 0 || focusedEdges.size > 0
-  const visibleEdges = useMemo(() => edges.map(edge => {
+  const visibleEdges = useMemo(() => edges.filter(edge => readyHandles.get(edge.source)?.has(edge.sourceHandle!)
+    && readyHandles.get(edge.target)?.has(edge.targetHandle!)).map(edge => {
     const relation: FlowRelation | undefined = focusedEdges.has(edge.id) ? 'selected'
       : focusedNodes.has(edge.source) ? 'outgoing' : focusedNodes.has(edge.target) ? 'incoming' : undefined
     return {
@@ -359,7 +498,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       data: { ...edge.data!, relation, pulse: flowPulse },
       ...(relation ? { style: { ...edge.style, stroke: relationColors[relation] }, markerEnd: { type: MarkerType.ArrowClosed, color: relationColors[relation] } } : {}),
     }
-  }), [edges, focusedNodes, focusedEdges, hasFocus, flowPulse])
+  }), [edges, readyHandles, focusedNodes, focusedEdges, hasFocus, flowPulse])
 
   const onNodesChange = useCallback((nodeChanges: NodeChange<FlowNode>[]) => {
     applyNodeChanges(nodeChanges)
@@ -390,6 +529,9 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     // React Flow emits an empty selection before a remounted graph has received its nodes.
     if (!layoutReady.current) return
     const next: Target[] = [
+      ...selectionRef.current.filter(target => readingNodeIdsRef.current && (target.kind === 'node'
+        ? !readingNodeIdsRef.current.includes(target.id)
+        : target.kind === 'edge' && !selectedEdges.some(edge => edge.id === target.id) && !flowRef.current?.getEdge(target.id))),
       ...selectedNodes.map(node => ({ kind: 'node' as const, id: node.id })),
       ...selectedEdges.map(edge => ({ kind: 'edge' as const, id: edge.id })),
     ]
@@ -414,6 +556,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   useImperativeHandle(ref, () => ({
     getCanvasRect: () => canvasRef.current?.getBoundingClientRect() ?? null,
     getTargetRect,
+    focusRelated,
     revealTargets: (targets, bottom) => {
       const rect = getTargetRect(targets)
       const canvas = canvasRef.current?.getBoundingClientRect()
@@ -438,6 +581,13 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         })
       }
       if (nodeIds.size) {
+        if (readingNodeIdsRef.current && [...nodeIds].some(id => !readingNodeIdsRef.current!.includes(id))) {
+          layoutReady.current = false
+          canvasRef.current?.removeAttribute('data-viewport-ready')
+          pendingFocus.current = [...nodeIds]
+          setReadingNodeIds(current => [...new Set([...(current ?? []), ...nodeIds])])
+          return
+        }
         if (layoutReady.current) {
           if (window.matchMedia('(max-width: 900px)').matches) void focusReading([...nodeIds])
           else void flowRef.current?.fitView({ nodes: [...nodeIds].map(id => ({ id })), padding: 0.2, maxZoom: 0.9, duration: 0 })
@@ -445,9 +595,9 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         else { pendingFocus.current = [...nodeIds]; scheduleLayout() }
       }
     },
-  }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, getTargetRect, saveViewport])
+  }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, getTargetRect, saveViewport, focusRelated])
 
-  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label="业务流程画布" data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
+  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label="业务流程画布" data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} data-reading-focus={readingNodeIds ? 'related' : undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
     onKeyDownCapture={event => { if ((event.key === 'Enter' || event.key === ' ') && (event.target as Element).matches('.react-flow__node, .react-flow__edge')) onSelectIntent?.() }}>
     <ReactFlow<FlowNode, FlowEdge> nodes={nodes} edges={visibleEdges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} colorMode="system"
       onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={() => { saveViewport(); onViewportChange?.() }}
@@ -462,14 +612,46 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       selectionOnDrag={mode === 'select'} selectionKeyCode={null} selectionMode={SelectionMode.Partial}
       panOnDrag={mode === 'pan' ? [0, 1, 2] : [1, 2]} multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
       defaultViewport={{ x: 36, y: 32, zoom: 0.85 }} minZoom={0.05} maxZoom={1.6}
-      ariaLabelConfig={graphAriaLabels}>
+      ariaLabelConfig={readingNodeIds ? { ...graphAriaLabels, 'controls.fitView.ariaLabel': '显示关联流程总览' } : graphAriaLabels}>
       <Background gap={24} size={1} />
-      <Controls showInteractive={false}>
+      <Controls showInteractive={false} showFitView={false}>
+        <ControlButton className="react-flow__controls-fitview" aria-label={readingNodeIds ? '显示关联流程总览' : '显示完整流程'} title={readingNodeIds ? '显示关联流程总览' : '显示完整流程'} onClick={() => void fitCompleteGraph()}><Scan size={14} /></ControlButton>
         <ControlButton className="reading-view-control" aria-label="恢复阅读视图" title="恢复阅读视图" onClick={() => void focusReading()}>阅读</ControlButton>
       </Controls>
     </ReactFlow>
     <GraphLegend nodeAppearance={nodeAppearance} onNodeAppearanceChange={onNodeAppearanceChange} />
+    {readingNodeIds && <div className="canvas-focus-controls" data-keep-composer>
+      <div className="canvas-focus-heading"><button className="button" onClick={showCompleteGraph}>返回完整图</button><span>关联流程 · {displayedNodes.length}/{sceneNodes.length} 个步骤</span></div>
+      {!displayedNodes.length && <p className="canvas-focus-empty">当前版本中没有这个范围的步骤。</p>}
+      {!!boundaryEdges.length && <details className="canvas-boundary-connections"><summary className="button">跨范围连接（{boundaryEdges.length}）</summary><div className="canvas-boundary-list">
+        {boundaryEdges.map(edge => <article key={edge.id} data-edge-id={edge.id}>
+          <strong>{edge.label || '继续'}</strong><p>{graphIndex.nodesById.get(edge.source)?.title} → {graphIndex.nodesById.get(edge.target)?.title}</p>
+          {edge.detail && <p>{edge.detail}</p>}
+          <div className="tool-group"><button className="button" aria-label={`展开并定位连接：${edge.label || edge.id}`} onClick={() => {
+            layoutReady.current = false
+            canvasRef.current?.removeAttribute('data-viewport-ready')
+            pendingElementFocus.current = `.react-flow__edge[data-id="${CSS.escape(edge.id)}"]`
+            pendingFocus.current = [edge.source, edge.target]
+            const ids = [...new Set([...(readingNodeIdsRef.current ?? []), edge.source, edge.target])]
+            if (readingScopeKey) {
+              const shared = savedReadingScopes.get(readingScopeKey) ?? []
+              savedReadingScopes.delete(readingScopeKey)
+              savedReadingScopes.set(readingScopeKey, [...new Set([...shared, ...ids])])
+              if (savedReadingScopes.size > 200) savedReadingScopes.delete(savedReadingScopes.keys().next().value!)
+            }
+            setReadingNodeIds(ids)
+            setSelection([{ kind: 'edge', id: edge.id }])
+            onSelectIntent?.()
+          }}>展开并定位</button>
+          {(!readOnly || commentIndex.counts.has(`edge:${edge.id}`)) && <button className="button" aria-label={`批注连接：${edge.label || edge.id}`} onClick={event => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            openNodeComment({ kind: 'edge', id: edge.id }, { x: rect.right, y: rect.bottom })
+          }}>批注</button>}</div>
+        </article>)}
+      </div></details>}
+    </div>}
     {!!selection.length && <div className={`canvas-selection-actions${selection.length === 1 && selection[0].kind === 'node' ? ' is-single-node' : ''}`}>
+      {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />聚焦关联流程</button>}
       {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
         openComposer(selection, { x: rect.left, y: rect.bottom })

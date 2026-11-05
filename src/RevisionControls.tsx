@@ -3,26 +3,41 @@ import { targetLabel } from './model.ts'
 import type { RevisionChanges } from './revisions.ts'
 import type { CurrentSession } from './session-types.ts'
 import type { ReviewDocument, Target } from './types.ts'
+import { graphVersionLabel } from './revisions.ts'
 
 interface RevisionControlsProps {
-  session: Pick<CurrentSession, 'round' | 'snapshots'>
+  session?: Pick<CurrentSession, 'round' | 'snapshots' | 'baselineReview'>
   viewRound: number
   onViewRound: (round: number) => void
   onOpenChanges: () => void
+  baseline?: {
+    showing: boolean
+    source: 'baseline' | 'previous'
+    onSourceChange: (source: 'baseline' | 'previous') => void
+    onShow: () => void
+  }
 }
 
-export default function RevisionControls({ session, viewRound, onViewRound, onOpenChanges }: RevisionControlsProps) {
-  const current = session.snapshots.find(snapshot => snapshot.round === session.round)
-  const baseRound = current?.publication?.baseRound ?? session.round - 1
-  const before = session.snapshots.find(snapshot => snapshot.round === baseRound)
-  const historical = viewRound !== session.round
+export default function RevisionControls({ session, viewRound, onViewRound, onOpenChanges, baseline }: RevisionControlsProps) {
+  const round = session?.round ?? 1
+  const planning = !!session?.baselineReview && round === 1
+  const current = session?.snapshots.find(snapshot => snapshot.round === round)
+  const baseRound = current?.publication?.baseRound ?? round - 1
+  const before = session?.snapshots.find(snapshot => snapshot.round === baseRound && !(session.baselineReview && baseRound === 1))
+  const label = (value: number) => graphVersionLabel(session ?? {}, value)
+  const comparingBaseline = baseline?.source === 'baseline'
+  const historical = !!baseline?.showing || viewRound !== round
   return <div className="revision-controls" aria-label="流程图版本">
-    {!before && !historical ? <span className="revision-current">第 {session.round} 轮</span> : <div className="revision-switch" role="group" aria-label="切换流程图版本">
-      {before && <button className="button" aria-pressed={viewRound === baseRound} onClick={() => onViewRound(baseRound)}>修改前 R{baseRound}</button>}
-      <button className="button" aria-pressed={!historical} onClick={() => { if (historical) onViewRound(session.round) }}>当前 R{session.round}</button>
+    {baseline && before && <select className="comparison-source" aria-label="比较依据" value={baseline.source} onChange={event => baseline.onSourceChange(event.target.value as 'baseline' | 'previous')}>
+      <option value="baseline">相对基线 B</option><option value="previous">相对上一轮 {label(baseRound)}</option>
+    </select>}
+    {!before && !baseline && !historical ? <span className="revision-current">{session ? `第 ${round} 轮` : '当前流程'}</span> : <div className="revision-switch" role="group" aria-label="切换流程图版本">
+      {comparingBaseline ? <button className="button" aria-pressed={baseline.showing} onClick={baseline.onShow}>基线 B</button>
+        : before && <button className="button" aria-pressed={viewRound === baseRound} onClick={() => onViewRound(baseRound)}>修改前 {label(baseRound)}</button>}
+      {!planning && <button className="button" aria-pressed={!historical} onClick={() => { if (historical) onViewRound(round) }}>{session ? `当前 ${label(round)}` : '修改后'}</button>}
     </div>}
-    {historical && <span className="revision-readonly"><LockKeyhole size={12} />{viewRound === baseRound ? '只读' : `提出时 R${viewRound} · 只读`}</span>}
-    {before && <button className="button revision-changes-button" onClick={onOpenChanges}><FileDiff size={14} />本轮变化</button>}
+    {historical && !baseline?.showing && <span className="revision-readonly"><LockKeyhole size={12} />{viewRound === baseRound ? '只读' : `提出时 ${label(viewRound)} · 只读`}</span>}
+    <button className="button revision-changes-button" onClick={onOpenChanges}><FileDiff size={14} />{comparingBaseline ? '本次改动' : before ? '本轮变化' : '变更对比'}</button>
   </div>
 }
 
@@ -31,6 +46,7 @@ interface RevisionChangesPanelProps {
   after: ReviewDocument
   changes: RevisionChanges
   onLocate: (target: Target, side: 'before' | 'after') => void
+  comparisonLabel?: string
 }
 
 type Field = { label: string; value: string }
@@ -83,7 +99,7 @@ function FieldChanges({ before, after }: { before: Field[]; after: Field[] }) {
   })}</dl>
 }
 
-export function RevisionChangesPanel({ before, after, changes, onLocate }: RevisionChangesPanelProps) {
+export function RevisionChangesPanel({ before, after, changes, onLocate, comparisonLabel = '本轮变化' }: RevisionChangesPanelProps) {
   const groups = [
     { key: 'added', label: '新增', targets: changes.added },
     { key: 'changed', label: '修改', targets: changes.changed },
@@ -91,9 +107,9 @@ export function RevisionChangesPanel({ before, after, changes, onLocate }: Revis
     { key: 'evidence', label: '源码依据更新', targets: changes.evidenceChanged },
   ] as const
   const logicCount = changes.added.length + changes.changed.length + changes.removed.length
-  return <section className="revision-changes-panel" aria-label="本轮变化">
-    <div className="revision-panel-heading"><h3>本轮变化</h3><p className="muted">固定对照本轮发布的修改前与当前快照。排版移动不计入逻辑变化。</p></div>
-    {!logicCount && <p className="revision-unchanged">本轮流程无逻辑变化{changes.evidenceChanged.length ? '，源码依据已更新。' : '。'}</p>}
+  return <section className="revision-changes-panel" aria-label={comparisonLabel}>
+    <div className="revision-panel-heading"><h3>{comparisonLabel}</h3><p className="muted">{comparisonLabel === '本次改动' ? '对照固定基线 B 与当前流程。' : '固定对照本轮发布的修改前与当前快照。'}排版移动不计入逻辑变化。</p></div>
+    {!logicCount && <p className="revision-unchanged">{comparisonLabel === '本次改动' ? '相对基线 B 无逻辑变化' : '本轮流程无逻辑变化'}{changes.evidenceChanged.length ? '，源码依据已更新。' : '。'}</p>}
     {groups.map(group => !!group.targets.length && <section key={group.key} className="revision-change-group" aria-label={`${group.label}项`}>
       <h4><span className={`revision-dot revision-${group.key}`} />{group.label}<span className="muted">{group.targets.length}</span></h4>
       {group.targets.map(target => {

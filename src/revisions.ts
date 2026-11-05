@@ -4,6 +4,11 @@ import type { RevisionPublication, ReviewSession, ReviewSnapshot } from './sessi
 
 export interface RevisionChanges extends ReviewChanges { evidenceChanged: Target[]; metadataChanged: boolean }
 
+export function graphVersionLabel(session: { baselineReview?: true }, round: number): string {
+  if (session.baselineReview && round === 1) return '基线 B'
+  return `R${session.baselineReview ? round - 1 : round}`
+}
+
 const nodeLogic = (node: ReviewNode) => [node.sceneId, node.title, node.kind, node.summary, node.detail, node.input, node.output]
 const edgeLogic = (edge: ReviewEdge) => [edge.sceneId, edge.source, edge.target, edge.label, edge.detail]
 const metadata = (review: ReviewDocument) => [review.title, review.description, review.coverage, review.scenes.map(scene => [scene.id, scene.title, scene.description]).sort()]
@@ -53,6 +58,7 @@ export function submissionRound(session: ReviewSession, submissionId: string): n
 }
 
 export function commentOrigin(session: ReviewSession, comment: ReviewComment): { round: number; exact: boolean } | undefined {
+  if (comment.basis === 'baseline') return undefined
   if (comment.originRound !== undefined) return session.snapshots.some(snapshot => snapshot.round === comment.originRound) ? { round: comment.originRound, exact: true } : undefined
   const submitted = session.history.find(record => record.review.comments.some(item => item.id === comment.id))
   if (submitted) {
@@ -69,7 +75,8 @@ export function reviewAtRound(session: ReviewSession, round: number): ReviewDocu
   const snapshot = session.snapshots.find(snapshot => snapshot.round === round)
   if (!snapshot) throw new Error('找不到这个流程版本')
   if (round === session.round) return session.review
-  return { ...snapshot.review, comments: session.review.comments.filter(comment => {
+  return { ...snapshot.review, ...(session.review.baseline ? { baseline: session.review.baseline } : {}), comments: session.review.comments.filter(comment => {
+    if (comment.basis === 'baseline') return (comment.originRound ?? 1) <= round && !!session.review.baseline && comment.targets.some(target => targetExists(session.review.baseline!, target))
     const origin = commentOrigin(session, comment)
     return origin !== undefined && origin.round <= round && comment.targets.some(target => targetExists(snapshot.review, target))
   }) }

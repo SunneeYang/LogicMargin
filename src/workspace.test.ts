@@ -31,6 +31,30 @@ test('draft identities include snapshot, canonical target set and reply thread',
   assert.deepEqual(parseDrafts(JSON.parse(JSON.stringify([draft]))), [draft])
 })
 
+test('baseline drafts use original labels and a separate key while replies retain their original basis', () => {
+  const baseline = fixture()
+  const current = fixture()
+  current.baseline = baseline
+  current.nodes[0].title = '当前改造后的检查'
+  const selected = [{ kind: 'node' as const, id: 'check' }]
+  const oldKey = JSON.stringify([current.id, current.revision, current.snapshot.fingerprint, [['node', 'check']], null])
+  assert.equal(draftKey(current, selected), oldKey)
+  const draft = makeDraft(current, selected, '请改造原系统', undefined, 'baseline')
+  assert.equal(draft.basis, 'baseline')
+  assert.notEqual(draft.key, oldKey)
+  assert.deepEqual(draft.labels, ['检查条件'])
+  assert.equal(draft.revision, current.revision)
+  assert.equal(draft.fingerprint, current.snapshot.fingerprint)
+  assert.deepEqual(parseDrafts([draft]), [draft])
+  assert.throws(() => parseDrafts([{ ...draft, basis: undefined }]), /草稿标识/)
+  const annotated = addComment(current, selected, '第一条改造要求', 'baseline')
+  const reply = makeDraft(annotated, selected, '补充要求', annotated.comments[0].id)
+  assert.equal(reply.basis, 'baseline')
+  assert.equal(reply.key, draftKey(annotated, selected, annotated.comments[0].id))
+  const ordinary = addComment(current, selected, '当前图意见')
+  assert.throws(() => makeDraft(ordinary, selected, '伪装来源', ordinary.comments[0].id, 'baseline'), /不能改变原批注依据/)
+})
+
 test('draft updates preserve other versions and orphan drafts and only delete the exact empty draft', () => {
   const review = fixture()
   const old = makeDraft({ ...review, revision: 'old' }, [{ kind: 'node', id: 'removed' }], '保留旧稿')

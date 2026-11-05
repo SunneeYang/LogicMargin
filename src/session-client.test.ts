@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { addComment, addReply, setCommentStatus } from './model.ts'
 import { sampleReview } from './sample.ts'
-import { cleanupSession, currentPendingFeedback, currentRequest, listSessions, parseCurrentSession, parsePendingSession, parseSession, parseSessionSummary, pendingMatchesSession, reviewMutations, sameVisibleReview, SessionRequestError } from './session-client.ts'
+import { baselineRequest, cleanupSession, currentPendingFeedback, currentRequest, listSessions, parseCurrentSession, parsePendingSession, parseSession, parseSessionSummary, pendingMatchesSession, reviewMutations, sameVisibleReview, SessionRequestError } from './session-client.ts'
 import type { CurrentSession, ReviewSession } from './session-types.ts'
 
 const review = () => ({ ...structuredClone(sampleReview), comments: [] })
@@ -66,6 +66,43 @@ test('current session validates catalogs without fabricating historical document
   assert.throws(() => parseCurrentSession({ ...current, submittedCommentIds: ['missing'] }), /目录错误/)
   assert.throws(() => parseCurrentSession({ ...current, commentOrigins: [{ commentId: 'missing', round: 2, exact: true }] }), /目录错误/)
   assert.equal('review' in current.snapshots[0], false)
+})
+
+test('current baseline summaries validate identity metadata while full baseline documents load on demand', async t => {
+  const current = currentSession()
+  const baseline = { ...review(), revision: 'baseline-code' }
+  const { files: _files, ...snapshot } = baseline.snapshot
+  current.baseline = { revision: baseline.revision, snapshot }
+  assert.deepEqual(parseCurrentSession(current), current)
+  assert.throws(() => parseCurrentSession({ ...current, baseline: { ...current.baseline, snapshot: { ...snapshot, capturedAt: 'invalid' } } }), /固定基线摘要/)
+  assert.throws(() => parseCurrentSession({ ...current, baseline: { revision: '', snapshot } }), /固定基线摘要/)
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    assert.equal(url, '/api/review-sessions/session-1/baseline')
+    return Response.json({ review: baseline })
+  })
+  assert.deepEqual(await baselineRequest('session-1'), baseline)
+})
+
+test('compact baseline comments defer only target lookup and preserve source identity through pending queues', () => {
+  const full = review()
+  full.baseline = review()
+  const target = { kind: 'node' as const, id: full.nodes[0].id }
+  full.nodes = full.nodes.slice(1)
+  full.edges = full.edges.filter(edge => edge.source !== target.id && edge.target !== target.id)
+  const annotated = addComment(full, [target], '修改基线中的这一步', 'baseline')
+  const { baseline, ...compact } = annotated
+  const current = currentSession()
+  current.review = compact
+  const { files: _files, ...snapshot } = baseline!.snapshot
+  current.baseline = { revision: baseline!.revision, snapshot }
+  const parsed = parseCurrentSession(current)
+  assert.equal(parsed.review.comments[0].basis, 'baseline')
+  assert.equal(parsed.review.comments[0].status, 'open')
+  assert.equal(sameVisibleReview(annotated, parsed.review), true)
+  const pending = { schemaVersion: 1, review: compact, batches: [{ revision: compact.revision, fingerprint: compact.snapshot.fingerprint,
+    mutations: [{ kind: 'add-comment', comment: compact.comments[0] }] }] }
+  assert.equal(parsePendingSession(JSON.stringify(pending)).review.comments[0].basis, 'baseline')
+  assert.throws(() => reviewMutations(annotated, { ...annotated, comments: [{ ...annotated.comments[0], basis: undefined }] }), /依据不能修改/)
 })
 
 test('compact feedback preserves submission identity while optimistic human changes become pending', () => {

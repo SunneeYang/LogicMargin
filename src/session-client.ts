@@ -1,8 +1,8 @@
-import { parseReview } from './model.ts'
+import { parseReview, parseReviewBaseline } from './model.ts'
 import { humanFeedback, parseRecordHistory, parseReviewRecord } from './workspace.ts'
 import { parsePublication } from './revisions.ts'
 import { parseSessionOptions } from './session-lifecycle.ts'
-import type { CleanupResult, CurrentSession, MutationBatch, ReviewMutation, ReviewSession, SessionSummary, SnapshotInfo } from './session-types.ts'
+import type { BaselineInfo, CleanupResult, CurrentSession, MutationBatch, ReviewMutation, ReviewSession, SessionSummary, SnapshotInfo } from './session-types.ts'
 import type { ReviewDocument } from './types.ts'
 
 function object(value: unknown): Record<string, unknown> {
@@ -41,6 +41,7 @@ export function reviewMutations(before: ReviewDocument, after: ReviewDocument): 
   for (const comment of after.comments) {
     const previous = before.comments.find(item => item.id === comment.id)
     if (!previous) { mutations.push({ kind: 'add-comment', comment }); continue }
+    if (previous.basis !== comment.basis) throw new Error('已有批注的流程图依据不能修改')
     for (const reply of comment.replies ?? []) {
       if (!previous.replies?.some(item => item.id === reply.id)) mutations.push({ kind: 'add-reply', commentId: comment.id, reply })
     }
@@ -53,7 +54,8 @@ export function reviewMutations(before: ReviewDocument, after: ReviewDocument): 
 
 export function sameVisibleReview(before: ReviewDocument, after: ReviewDocument): boolean {
   const content = (value: ReviewDocument) => {
-    const review = parseReview(value)
+    const review = parseReview(value, { allowBaselineReferences: true })
+    delete review.baseline
     for (const comment of review.comments) {
       delete comment.originRound
       delete comment.reviewedRound
@@ -87,7 +89,7 @@ export function pendingMatchesSession(pending: PendingSession, session: Pick<Rev
 export function parsePendingSession(raw: string): PendingSession {
   const value = object(JSON.parse(raw))
   if (value.schemaVersion !== 1 || !Array.isArray(value.batches)) throw new Error('待同步记录格式错误，原始记录已保留')
-  const review = parseReview(value.review)
+  const review = parseReview(value.review, { allowBaselineReferences: true })
   for (const valueBatch of value.batches) {
     const batch = object(valueBatch)
     if (typeof batch.revision !== 'string' || !batch.revision || typeof batch.fingerprint !== 'string' || !batch.fingerprint ||
@@ -97,11 +99,11 @@ export function parsePendingSession(raw: string): PendingSession {
     for (const valueMutation of batch.mutations) {
       const mutation = object(valueMutation)
       if (mutation.kind === 'add-comment') {
-        parseReview({ ...review, comments: [mutation.comment] })
+        parseReview({ ...review, comments: [mutation.comment] }, { allowBaselineReferences: true })
       } else if (mutation.kind === 'add-reply') {
         const comment = review.comments.find(item => item.id === mutation.commentId)
         if (!comment) throw new Error('待同步回复对应批注不存在')
-        parseReview({ ...review, comments: [{ ...comment, replies: [mutation.reply] }] })
+        parseReview({ ...review, comments: [{ ...comment, replies: [mutation.reply] }] }, { allowBaselineReferences: true })
       } else if (mutation.kind === 'set-status') {
         if (typeof mutation.commentId !== 'string' || !['open', 'resolved', 'needs-review'].includes(String(mutation.from)) ||
           !['open', 'resolved', 'needs-review'].includes(String(mutation.status)) || typeof mutation.reviewedRevision !== 'string') throw new Error('待同步批注状态错误')
@@ -144,7 +146,7 @@ export function parseCurrentSession(value: unknown): CurrentSession {
     !['awaiting-review', 'feedback-ready', 'agent-working', 'approved'].includes(String(source.phase)) ||
     !Array.isArray(source.history) || !Array.isArray(source.snapshots) || source.snapshots.length !== source.round ||
     !Array.isArray(source.submittedCommentIds) || !Array.isArray(source.commentOrigins)) throw new Error('当前会话格式错误')
-  const review = parseReview(source.review)
+  const review = parseReview(source.review, { allowBaselineReferences: true })
   const snapshots: SnapshotInfo[] = source.snapshots.map((value, index) => {
     const item = object(value)
     const publication = item.publication === undefined ? undefined : parsePublication(item.publication)
@@ -167,8 +169,18 @@ export function parseCurrentSession(value: unknown): CurrentSession {
   if (snapshots.some(item => item.afterSubmission !== undefined && !history.some(record => record.id === item.afterSubmission)) ||
     review.comments.some(comment => (comment.originRound ?? 1) > Number(source.round) || (comment.reviewedRound ?? 1) > Number(source.round) || comment.replies?.some(reply => (reply.round ?? 1) > Number(source.round)))) throw new Error('会话轮次引用错误')
   if (source.acknowledgedSubmission !== undefined && (!validId(source.acknowledgedSubmission) || !history.some(item => item.id === source.acknowledgedSubmission && item.kind === 'logic-margin-feedback'))) throw new Error('会话接收记录错误')
+  let baseline: BaselineInfo | undefined
+  if (source.baseline !== undefined) {
+    const item = object(source.baseline)
+    const snapshot = object(item.snapshot)
+    if (!validId(item.revision) || typeof snapshot.repository !== 'string' || !snapshot.repository.trim() || snapshot.repository.length > 2000 ||
+      !validId(snapshot.commit) || !validId(snapshot.fingerprint) || !validDate(snapshot.capturedAt) || typeof snapshot.dirty !== 'boolean') throw new Error('固定基线摘要格式错误')
+    baseline = { revision: item.revision, snapshot: { repository: snapshot.repository, commit: snapshot.commit,
+      fingerprint: snapshot.fingerprint, capturedAt: snapshot.capturedAt, dirty: snapshot.dirty } }
+  }
   return { schemaVersion: 1, view: 'current', id: source.id, version: Number(source.version), round: source.round, phase: source.phase as CurrentSession['phase'],
     createdAt: source.createdAt, updatedAt: source.updatedAt, review, history, snapshots, submittedCommentIds, commentOrigins, ...parseSessionOptions(source),
+    ...(baseline ? { baseline } : {}),
     ...(source.acknowledgedSubmission === undefined ? {} : { acknowledgedSubmission: source.acknowledgedSubmission as string }) }
 }
 
@@ -181,6 +193,11 @@ export async function snapshotRequest(sessionId: string, round: number) {
   const item = object(await requestJson(`/${encodeURIComponent(sessionId)}/snapshots/${round}`))
   if (item.round !== round || typeof item.openedAt !== 'string' || !Number.isFinite(Date.parse(item.openedAt))) throw new Error('历史快照格式错误')
   return parseReview(item.review)
+}
+
+export async function baselineRequest(sessionId: string) {
+  const item = object(await requestJson(`/${encodeURIComponent(sessionId)}/baseline`))
+  return parseReviewBaseline(item.review)
 }
 
 export async function recordRequest(sessionId: string, recordId: string) {

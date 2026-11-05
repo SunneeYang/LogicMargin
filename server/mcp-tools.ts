@@ -35,18 +35,35 @@ export function registerReviewTools(server: McpServer, options: { url: () => str
   server.registerTool('start_review', {
     description: '核验本机源码并创建独立评审，立即返回会话 ID 与网页地址。随后用 wait_review 等待人工提交；不要反复调用 get_review 检查。',
     inputSchema: z.strictObject({ review_file: absolutePath, source_root: absolutePath, purpose: text,
+      baseline_file: absolutePath.optional(), baseline_source_root: absolutePath.optional(), baseline_review: z.boolean().optional(),
       context: context.optional(), public_url: z.string().optional(), cleanup_on_approval: z.boolean().optional() }),
     annotations: write,
-  }, ({ review_file, source_root, purpose, context, public_url, cleanup_on_approval }, { signal }) => execute([
+  }, ({ review_file, source_root, purpose, baseline_file, baseline_source_root, baseline_review, context, public_url, cleanup_on_approval }, { signal }) => execute([
     'start', review_file, '--source-root', source_root, '--purpose', purpose,
+    ...(baseline_file === undefined ? [] : ['--baseline-file', baseline_file]),
+    ...(baseline_source_root === undefined ? [] : ['--baseline-source-root', baseline_source_root]),
+    ...(baseline_review ? ['--baseline-review'] : []),
     ...(context === undefined ? [] : ['--context', context]), ...(public_url === undefined ? [] : ['--public-url', public_url]),
     ...(cleanup_on_approval ? ['--cleanup-on-approval'] : []),
   ], signal))
 
   server.registerTool('verify_review', {
     description: '只读核验评审文件与本机源码的文件、片段摘要和快照指纹。',
-    inputSchema: z.strictObject({ review_file: absolutePath, source_root: absolutePath }), annotations: readOnly,
-  }, ({ review_file, source_root }, { signal }) => execute(['verify', review_file, '--source-root', source_root], signal))
+    inputSchema: z.strictObject({ review_file: absolutePath, source_root: absolutePath,
+      baseline_file: absolutePath.optional(), baseline_source_root: absolutePath.optional() }), annotations: readOnly,
+  }, ({ review_file, source_root, baseline_file, baseline_source_root }, { signal }) => execute([
+    'verify', review_file, '--source-root', source_root,
+    ...(baseline_file === undefined ? [] : ['--baseline-file', baseline_file]),
+    ...(baseline_source_root === undefined ? [] : ['--baseline-source-root', baseline_source_root]),
+  ], signal))
+
+  server.registerTool('attach_review_baseline', {
+    description: '为缺少固定基线的原评审补入修改前流程图，先核验修改前源码，沿用 session ID 与评审轮次。已存在的基线保持固定。',
+    inputSchema: z.strictObject({ session_id: identifier, baseline_file: absolutePath, source_root: absolutePath }),
+    annotations: { ...write, idempotentHint: true },
+  }, ({ session_id, baseline_file, source_root }, { signal }) => execute([
+    'baseline', session_id, baseline_file, '--source-root', source_root,
+  ], signal))
 
   server.registerTool('get_review', {
     description: '读取完整评审、固定提交和历史快照；可读取已归档任务。等待人工意见请使用 wait_review。',

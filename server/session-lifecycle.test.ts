@@ -35,6 +35,48 @@ test('different review purposes in the same context have independent comments, r
   await assert.rejects(store.get(first.id), { status: 404 })
 })
 
+test('HTTP baseline resources preserve old sessions and expose fixed graphs separately from current responses', async t => {
+  const { directory } = await setup(t)
+  const api = createSessionApi({ dataDir: directory })
+  const server = createServer((req, res) => api(req, res, () => { res.writeHead(404); res.end() }))
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(async () => { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())) })
+  const address = server.address(); assert.ok(address && typeof address !== 'string')
+  const base = `http://127.0.0.1:${address.port}/api/review-sessions`
+  const post = (path: string, body: unknown, origin?: string) => fetch(`${base}${path}`, { method: 'POST', headers: {
+    'content-type': 'application/json', ...(origin ? { origin } : {}) }, body: JSON.stringify(body) })
+  const review = { ...structuredClone(sampleReview), comments: [] }
+  const baseline = { ...structuredClone(review), revision: 'original-code' }
+  assert.equal((await post('', { review, baselineReview: true })).status, 400)
+  assert.equal((await post('', { review, baselineReview: false })).status, 400)
+  assert.equal((await post('', { review: { ...review, baseline }, baselineReview: true })).status, 400)
+  const baselineFirst = await (await post('?view=current', { review: { ...review, baseline: structuredClone(review) }, baselineReview: true })).json()
+  assert.equal(baselineFirst.baselineReview, true)
+  assert.equal(baselineFirst.round, 1)
+  assert.equal((await post(`/${baselineFirst.id}/finish`, { expectedVersion: baselineFirst.version, kind: 'approval' })).status, 409)
+  const first = await (await post('?view=current', { review })).json()
+  assert.equal(first.round, 1)
+  assert.equal(first.baseline, undefined)
+  assert.equal((await fetch(`${base}/${first.id}/baseline`)).status, 404)
+  const input = { expectedVersion: first.version, baseline }
+  assert.equal((await post(`/${first.id}/baseline`, input, 'https://elsewhere.invalid')).status, 403)
+  assert.equal((await post(`/${first.id}/baseline`, { ...input, expectedVersion: first.version + 1 })).status, 409)
+  const response = await post(`/${first.id}/baseline?view=current`, input)
+  assert.equal(response.status, 200)
+  const attached = await response.json()
+  assert.equal(attached.round, first.round)
+  assert.equal(attached.version, first.version + 1)
+  assert.equal(attached.review.baseline, undefined)
+  assert.equal(attached.baseline.revision, baseline.revision)
+  assert.deepEqual((await (await fetch(`${base}/${first.id}/baseline`)).json()).review, baseline)
+  assert.deepEqual((await (await fetch(`${base}/${first.id}`)).json()).review.baseline, baseline)
+  assert.equal((await post(`/${first.id}/baseline`, { expectedVersion: attached.version, baseline: { ...baseline, revision: 'other-code' } })).status, 409)
+  const createdWithBaseline = await (await post('?view=current', { review: { ...review, baseline } })).json()
+  assert.equal(createdWithBaseline.round, 1)
+  assert.equal(createdWithBaseline.baseline.revision, baseline.revision)
+  assert.equal(createdWithBaseline.review.baseline, undefined)
+})
+
 test('archive removes active data, is recoverable across restart, and permanent deletion removes the archive', async t => {
   const { store, directory } = await setup(t)
   const created = await store.create({ ...sampleReview, comments: [] }, undefined, { scope: { purpose: '完整归档' } })

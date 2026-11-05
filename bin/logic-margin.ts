@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { ensureService } from '../server/daemon.ts'
-import { parseReview } from '../src/model.ts'
+import { parseReview, parseReviewBaseline } from '../src/model.ts'
 import { newId } from '../src/id.ts'
 import { parseRecordHistory } from '../src/workspace.ts'
 import { parseSessionOptions } from '../src/session-lifecycle.ts'
@@ -19,6 +19,7 @@ const HELP = `LogicMargin agent review CLI
   ack <sessionId> <submissionId>
   revise <sessionId> <review.json> --base-round <number> --summary <text> [--wait]
   verify <review.json> [--source-root <directory>]
+  baseline <sessionId> <before.json> --source-root <baseline directory>
   resume <sessionId> [--wait]
   list [--context <thread/workflow>] [--state active|archived|all]
   cleanup <sessionId> [--mode archive|delete] [--force]
@@ -30,6 +31,9 @@ New review: --context <thread/workflow> --purpose <review purpose>
             --cleanup-on-approval (archive after the agent receives approval)
 Waiting: --cleanup-on-approval also enables archival for this wait/resume call.
 Sources: --source-root <directory> (verify/start/revise; default current working directory)
+Baseline: --baseline-file <before.json> --baseline-source-root <baseline directory>
+          (start/verify; an embedded baseline needs only --baseline-source-root)
+          --baseline-review (start by reviewing the original system B before implementation)
 Reply: --body <text> may replace --body-file.
 Revision:
           --base-round <number> (round reviewed by the agent; obtain with wait/get)
@@ -44,8 +48,9 @@ JSON goes to stdout; review links and waiting status go to stderr.
 interface IO { out(text: string): void; err(text: string): void }
 interface ExecutionOptions { signal?: AbortSignal; consumeSubmission?: boolean }
 interface Options {
-  wait: boolean; url: string; publicUrl: string; explicitUrl: boolean; explicitPublicUrl: boolean
-  after?: string; timeout?: number; bodyFile?: string; body?: string; sourceRoot?: string; baseRound?: number; summary?: string; unchangedReason?: string; repliesFile?: string
+  wait: boolean; baselineReview: boolean; url: string; publicUrl: string; explicitUrl: boolean; explicitPublicUrl: boolean
+  after?: string; timeout?: number; bodyFile?: string; body?: string; sourceRoot?: string; baselineFile?: string; baselineSourceRoot?: string
+  baseRound?: number; summary?: string; unchangedReason?: string; repliesFile?: string
   context?: string; purpose?: string; cleanupOnApproval: boolean; force: boolean; mode?: 'archive' | 'delete'; state?: 'active' | 'archived' | 'all'
 }
 
@@ -60,15 +65,16 @@ function baseUrl(raw: string): string {
 function argumentsFor(args: string[]) {
   const positional: string[] = []
   const values = new Map<string, string>()
-  let wait = false, cleanupOnApproval = false, force = false, help = false
+  let wait = false, baselineReview = false, cleanupOnApproval = false, force = false, help = false
   for (let index = 0; index < args.length; index++) {
     const item = args[index]
     if (item === '--help') { help = true; continue }
     if (item === '--wait') { wait = true; continue }
+    if (item === '--baseline-review') { baselineReview = true; continue }
     if (item === '--cleanup-on-approval') { cleanupOnApproval = true; continue }
     if (item === '--force') { force = true; continue }
     if (!item.startsWith('-')) { positional.push(item); continue }
-    if (!['--url', '--public-url', '--after', '--timeout', '--body-file', '--body', '--source-root', '--base-round', '--summary', '--unchanged-reason', '--replies-file', '--context', '--purpose', '--mode', '--state'].includes(item)) throw new Error(`未知参数 ${item}`)
+    if (!['--url', '--public-url', '--after', '--timeout', '--body-file', '--body', '--source-root', '--baseline-file', '--baseline-source-root', '--base-round', '--summary', '--unchanged-reason', '--replies-file', '--context', '--purpose', '--mode', '--state'].includes(item)) throw new Error(`未知参数 ${item}`)
     if (values.has(item)) throw new Error(`重复参数 ${item}`)
     const value = args[++index]
     if (!value || (item !== '--body' && value.startsWith('--'))) throw new Error(`${item} 缺少值`)
@@ -77,11 +83,13 @@ function argumentsFor(args: string[]) {
   const providedUrl = values.get('--url') ?? process.env.LOGIC_MARGIN_URL
   const providedPublicUrl = values.get('--public-url') ?? process.env.LOGIC_MARGIN_PUBLIC_URL
   const url = baseUrl(providedUrl ?? 'http://127.0.0.1:5173')
-  const options: Options = { wait, cleanupOnApproval, force, url, publicUrl: baseUrl(providedPublicUrl ?? url), explicitUrl: providedUrl !== undefined, explicitPublicUrl: providedPublicUrl !== undefined }
+  const options: Options = { wait, baselineReview, cleanupOnApproval, force, url, publicUrl: baseUrl(providedPublicUrl ?? url), explicitUrl: providedUrl !== undefined, explicitPublicUrl: providedPublicUrl !== undefined }
   if (values.has('--after')) options.after = values.get('--after')
   if (values.has('--body-file')) options.bodyFile = values.get('--body-file')
   if (values.has('--body')) options.body = values.get('--body')
   if (values.has('--source-root')) options.sourceRoot = values.get('--source-root')
+  if (values.has('--baseline-file')) options.baselineFile = values.get('--baseline-file')
+  if (values.has('--baseline-source-root')) options.baselineSourceRoot = values.get('--baseline-source-root')
   if (values.has('--summary')) options.summary = values.get('--summary')
   if (values.has('--unchanged-reason')) options.unchangedReason = values.get('--unchanged-reason')
   if (values.has('--replies-file')) options.repliesFile = values.get('--replies-file')
@@ -124,6 +132,10 @@ async function textFile(path: string, maxBytes: number): Promise<string> {
 
 async function reviewFile(path: string): Promise<ReviewDocument> {
   return parseReview(JSON.parse(await textFile(path, 10 * 1024 * 1024)))
+}
+
+function checkReviewSize(review: ReviewDocument) {
+  if (Buffer.byteLength(JSON.stringify(review)) > 10 * 1024 * 1024) throw new Error('基线与当前流程合计超过10MB')
 }
 
 async function publicationReplies(path: string): Promise<{ commentId: string; body: string }[]> {
@@ -225,6 +237,7 @@ function compactSubmission(current: ReviewSession, submission: ReviewRecord) {
     sessionId: current.id,
     ...(current.scope === undefined ? {} : { scope: current.scope }),
     ...(current.cleanupPolicy === undefined ? {} : { cleanupPolicy: current.cleanupPolicy }),
+    ...(current.baselineReview ? { baselineReview: true } : {}),
     round: snapshot?.round ?? current.round,
     approved,
     submission: { id: submission.id, kind: submission.kind, createdAt: submission.createdAt,
@@ -299,13 +312,18 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
   const { positional, options, help } = argumentsFor(args)
   if (help) { io.out(HELP); return }
   const [command, id, argument] = positional
-  const arity = command === 'list' ? 1 : ['reply', 'revise', 'ack'].includes(command) ? 3 : 2
-  if (!['start', 'wait', 'comments', 'get', 'reply', 'revise', 'resume', 'verify', 'list', 'cleanup', 'restore', 'ack'].includes(command) || positional.length !== arity) {
+  const arity = command === 'list' ? 1 : ['reply', 'revise', 'ack', 'baseline'].includes(command) ? 3 : 2
+  if (!['start', 'wait', 'comments', 'get', 'reply', 'revise', 'resume', 'verify', 'list', 'cleanup', 'restore', 'ack', 'baseline'].includes(command) || positional.length !== arity) {
     throw new Error('命令或参数数量无效；使用 --help 查看用法')
   }
   if ((options.bodyFile || options.body !== undefined) && command !== 'reply') throw new Error('--body-file 和 --body 仅用于 reply')
   if (options.bodyFile && options.body !== undefined) throw new Error('--body-file 与 --body 不能同时使用')
-  if (options.sourceRoot && !['start', 'revise', 'verify'].includes(command)) throw new Error('--source-root 仅用于 start、revise 或 verify')
+  if (options.sourceRoot && !['start', 'revise', 'verify', 'baseline'].includes(command)) throw new Error('--source-root 仅用于 start、revise、verify 或 baseline')
+  if (options.baselineReview && command !== 'start') throw new Error('--baseline-review 仅用于 start')
+  if (options.baselineReview && (options.baselineFile || options.baselineSourceRoot)) throw new Error('--baseline-review 使用输入的原版图和 --source-root，不能同时指定独立基线文件或目录')
+  if ((options.baselineFile || options.baselineSourceRoot) && !['start', 'verify'].includes(command)) throw new Error('--baseline-file 和 --baseline-source-root 仅用于 start 或 verify')
+  if (options.baselineFile && !options.baselineSourceRoot) throw new Error('--baseline-file 需要 --baseline-source-root 指向修改前源码目录')
+  if (command === 'baseline' && !options.sourceRoot) throw new Error('baseline 需要 --source-root 指向修改前源码目录')
   if (options.baseRound !== undefined && command !== 'revise') throw new Error('--base-round 仅用于 revise')
   if (command === 'revise' && options.baseRound === undefined) throw new Error('revise 需要 --base-round <agent 实际审阅的轮次>，请从 wait 或 get 获取')
   if ((options.summary !== undefined || options.unchangedReason !== undefined || options.repliesFile !== undefined) && command !== 'revise') throw new Error('发布说明与最终回复参数仅用于 revise')
@@ -321,11 +339,32 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
   if ((options.mode !== undefined || options.force) && command !== 'cleanup') throw new Error('--mode 和 --force 仅用于 cleanup')
   if (options.cleanupOnApproval && !['start', 'wait', 'resume'].includes(command)) throw new Error('--cleanup-on-approval 仅用于 start、wait 或 resume')
   if (options.cleanupOnApproval && command === 'resume' && !options.wait) throw new Error('resume 的 --cleanup-on-approval 需要 --wait')
-  const preparedReview = command === 'start' || command === 'verify' ? await reviewFile(id) : command === 'revise' ? await reviewFile(argument) : undefined
+  let preparedReview = command === 'start' || command === 'verify' ? await reviewFile(id) : command === 'revise' ? await reviewFile(argument) : undefined
+  if (options.baselineReview && preparedReview!.baseline) throw new Error('--baseline-review 需要原系统图，输入文件已包含另一份固定基线')
+  if (options.baselineFile) {
+    if (preparedReview!.baseline) throw new Error('评审文件已包含基线，请只提供一个修改前基线')
+    preparedReview = { ...preparedReview!, baseline: parseReviewBaseline(await reviewFile(options.baselineFile), preparedReview!.id) }
+  }
+  let baselineSource: SourceVerification | undefined
+  if (preparedReview?.baseline && command !== 'revise') {
+    if (!options.baselineSourceRoot) throw new Error('核验修改前基线需要 --baseline-source-root，不能使用当前源码目录代替')
+    baselineSource = await verifyReviewSources(preparedReview.baseline, options.baselineSourceRoot)
+    preparedReview.baseline = { ...preparedReview.baseline, snapshot: { ...preparedReview.baseline.snapshot, files: baselineSource.files } }
+  } else if (options.baselineSourceRoot) throw new Error('--baseline-source-root 需要修改前基线文件或嵌入的基线')
+  const preparedBaseline = command === 'baseline' ? parseReviewBaseline(await reviewFile(argument)) : undefined
+  if (preparedBaseline) {
+    baselineSource = await verifyReviewSources(preparedBaseline, options.sourceRoot!)
+    preparedBaseline.snapshot = { ...preparedBaseline.snapshot, files: baselineSource.files }
+  }
   let source: SourceVerification | undefined
-  if (command === 'revise' || command === 'verify' || (command === 'start' && options.sourceRoot)) source = await verifyReviewSources(preparedReview!, options.sourceRoot ?? process.cwd())
+  if (command === 'revise' || command === 'verify' || (command === 'start' && (options.sourceRoot || options.baselineReview || preparedReview!.baseline))) source = await verifyReviewSources(preparedReview!, options.sourceRoot ?? process.cwd())
+  if (options.baselineReview) {
+    preparedReview = { ...preparedReview!, comments: [], snapshot: { ...preparedReview!.snapshot, files: source!.files } }
+    preparedReview.baseline = parseReviewBaseline({ ...preparedReview, comments: [] }, preparedReview.id)
+  }
+  if (preparedReview) checkReviewSize(preparedReview)
   const finalReplies = options.repliesFile === undefined ? undefined : await publicationReplies(options.repliesFile)
-  if (command === 'verify') { io.out(`${JSON.stringify(source, null, 2)}\n`); return }
+  if (command === 'verify') { io.out(`${JSON.stringify({ ...source, ...(baselineSource ? { baseline: baselineSource } : {}) }, null, 2)}\n`); return }
   execution.signal?.throwIfAborted()
   const service = await ensureService({ url: options.explicitUrl ? options.url : undefined, command: runtimeCommand })
   options.url = service.url
@@ -345,6 +384,7 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
     const scope = isolated ? parseSessionOptions({ scope: { purpose: options.purpose ?? (preparedReview!.description.trim() || preparedReview!.title),
       ...(options.context === undefined ? {} : { context: options.context }) } }).scope : undefined
     current = await requiredRequest(options.url, '', { review: isolated ? { ...preparedReview!, comments: [] } : preparedReview,
+      ...(options.baselineReview ? { baselineReview: true } : {}),
       ...(scope === undefined ? {} : { scope }), ...(options.cleanupOnApproval ? { cleanupPolicy: 'archive-on-approval' } : {}) })
   } else if (command === 'restore') {
     current = await requiredRequest(options.url, `/${encodeURIComponent(id)}/archive`)
@@ -355,6 +395,11 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
   }
   const path = `/${encodeURIComponent(current.id)}`
   execution.signal?.throwIfAborted()
+  if (command === 'baseline') {
+    const baseline = parseReviewBaseline(preparedBaseline, current.review.id)
+    checkReviewSize({ ...current.review, baseline })
+    current = await requiredRequest(options.url, `${path}/baseline`, { expectedVersion: current.version, baseline })
+  }
   if (command === 'ack') {
     current = await requiredRequest(options.url, `${path}/ack`, { submissionId: argument })
   }
@@ -393,6 +438,7 @@ export async function runCli(args: string[], io: IO = { out: text => process.std
     return
   }
   io.out(`${JSON.stringify({ sessionId: current.id, version: current.version, round: current.round, phase: current.phase,
+    ...(current.baselineReview ? { baselineReview: true } : {}),
     ...(current.scope === undefined ? {} : { scope: current.scope }), ...(current.cleanupPolicy === undefined ? {} : { cleanupPolicy: current.cleanupPolicy }),
     url: reviewLink(options.publicUrl, current.id) }, null, 2)}\n`)
 }

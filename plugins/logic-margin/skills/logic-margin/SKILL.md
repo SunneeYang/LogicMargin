@@ -27,17 +27,25 @@ MCP 只接受本机连接。用户要求 Tailscale/局域网网页访问时，�
 
 读取目标源码和工作区状态，明确本次覆盖范围与尚未验证部分。生成 JSON 前读取 [评审格式](references/review-format.md)，按实际来源整理场景、规则、输入输出和源码依据，沿用仍代表同一业务对象的稳定节点/连线 ID。
 
+已有代码改动待审时，先根据明确的 Git 基线在独立旧树中读取修改前源码，生成固定基线 B，再根据当前代码生成 R1。先讨论原系统改造时，从当前真实原版 B 发起评审，收到意见后再修改源码并发布 R1。两条流程都沿用同一评审 ID 和仍代表同一对象的节点/连线 ID，材料与核验要求见 [固定基线 B](references/review-format.md#固定基线-b)。
+
 调用 `start_review`，参数使用本机绝对路径：
 
 ```json
 {
   "review_file": "/path/to/review.logic-margin.json",
   "source_root": "/path/to/source-workspace",
+  "baseline_file": "/path/to/before.logic-margin.json",
+  "baseline_source_root": "/path/to/baseline-workspace",
   "purpose": "本次实际核对的行为"
 }
 ```
 
 它在创建前核验真实来源，失败时修正流程和依据后重试。`context`、分享链接 `public_url` 可按实际需要传入；用户要求通过后归档时设 `cleanup_on_approval: true`。`verify_review` 可用于只核验来源，不创建任务。
+
+基线已嵌入 `review_file` 的 `baseline` 字段时，传 `baseline_source_root` 核验旧树即可。B 在后续 R2、R3 中保持固定；`base_round` 继续填写实际处理的评审轮次。
+
+从原系统 B 开始收集改造意见时，`review_file` 提供原版图，`source_root` 指向其真实源码，设置 `baseline_review: true`，省略独立的基线文件与目录。工具核验原版一次并固定为 B，页面先显示 B，第一次实现发布后显示 R1。
 
 创建成功后立即把完整审查链接给用户，再调用 `wait_review`，传入 `session_id`。工具内部持续等待，保存单条批注不会返回；只有人工明确提交、确认通过或出现终态错误才交回控制权。正常等待期间保持这一调用，不另行反复 `get_review` 检查。
 
@@ -50,6 +58,8 @@ MCP 只接受本机连接。用户要求 Tailscale/局域网网页访问时，�
 反馈结果 `approved: false`：先实际读取意见，再调用 `acknowledge_review`，传入 `session_id`，并将返回的 `submission.id` 作为 `submission_id`。领取只证明已取回意见，不代表修改完成。需要完整图或历史时用 `get_review`；临时回复用 `reply_review`，沿用原 comment ID。
 
 逐条核对意见，在授权工作区修改并验证。更新评审文件的 `revision`、来源快照、指纹和依据；最终回应写入 `[{"commentId":"原批注 ID","body":"实际修改、验证与剩余限制"}]` 的 JSON 文件。
+
+从 B 收到的改造意见带 `basis: "baseline"`。按意见实际修改源码、验证后，再生成实现图并用 `revise_review` 发布；`base_round` 始终取工具返回的实际 `round`，B/R1/R2 是页面版本名称。改造后的图与固定 B 一起保留，供人工核对实际实现。
 
 调用 `revise_review`，使用本次实际处理的轮次：
 
@@ -73,6 +83,8 @@ MCP 只接受本机连接。用户要求 Tailscale/局域网网页访问时，�
 ## 恢复会话与清理
 
 按用户提供的原 session ID 调用 `get_review`，核对目的、上下文、来源工程、固定提交、轮次和已做回复。需要查找时用 `list_reviews` 的实际 `context` 与 `state: "all"`，确认目标后继续，不另建任务跳过旧意见。已归档任务可读取；需要继续修改时用 `restore_review` 恢复同一 ID。
+
+旧会话需要前后对比而缺少 B 时，先按真实任务起点生成并核验原版图，再调用 `attach_review_baseline`，传原 `session_id`、`baseline_file` 和修改前树的 `source_root`。补录沿用当前轮次和批注，版本冲突时重新读取原会话后核对。
 
 上下文中断后，从固定历史恢复尚未处理的意见。完成处理后再发布新版；继续等待时用已核实的 `after_submission` 游标。超时、中断或连接失败都不等于通过；服务故障按连接参考检查和恢复原后台。
 

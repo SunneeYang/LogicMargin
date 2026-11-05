@@ -3,7 +3,7 @@ import type { CommentReply, CommentStatus, ReviewComment, ReviewDocument, Review
 export type SessionPhase = 'awaiting-review' | 'feedback-ready' | 'agent-working' | 'approved'
 export interface ReviewScope { context?: string; purpose: string }
 export type CleanupPolicy = 'manual' | 'archive-on-approval'
-export interface SessionOptions { scope?: ReviewScope; cleanupPolicy?: CleanupPolicy }
+export interface SessionOptions { scope?: ReviewScope; cleanupPolicy?: CleanupPolicy; baselineReview?: true }
 
 export interface ReviewSession extends SessionOptions {
   schemaVersion: 1
@@ -91,8 +91,14 @@ export interface RecordInfo {
   fingerprint: string
 }
 
+export interface BaselineInfo {
+  revision: string
+  snapshot: Omit<ReviewDocument['snapshot'], 'files'>
+}
+
 export type CurrentSession = Omit<ReviewSession, 'history' | 'snapshots'> & {
   view: 'current'
+  baseline?: BaselineInfo
   snapshots: SnapshotInfo[]
   history: RecordInfo[]
   submittedCommentIds: string[]

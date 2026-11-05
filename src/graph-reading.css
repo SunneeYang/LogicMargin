@@ -1,5 +1,8 @@
 .edge-crossing-gap { stroke: var(--color-paper); pointer-events: none; stroke-linejoin: round; stroke-linecap: round; }
 .react-flow__edge .react-flow__edge-path { stroke-linejoin: round; stroke-linecap: round; }
+.react-flow__edge.route-return .react-flow__edge-path { stroke-dasharray: 7 5; stroke-width: 1; }
+.react-flow__edge.route-exception .react-flow__edge-path { stroke-width: 1; }
+.edge-change-label { font-weight: 600; }
 .react-flow__edge.is-related .react-flow__edge-path { stroke-width: 2.5; }
 .edge-flow-light { stroke: var(--color-flow-glint); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 12 100; stroke-dashoffset: 12; pointer-events: none; animation: edge-flow 1.6s linear 2 forwards; }
 @keyframes edge-flow { 0% { opacity: 0; stroke-dashoffset: 12; } 8%, 88% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -100; } }
@@ -38,11 +41,28 @@
 .legend-revisions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-sm); }
 .flow-key { white-space: nowrap; font-weight: 600; }
 .flow-key.incoming, .flow-key.outgoing { color: var(--color-accent); }
+.canvas-focus-controls { position: absolute; z-index: 6; top: 12px; left: 12px; max-width: calc(100% - 72px); font-size: var(--text-xs); }
+.canvas-focus-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); }
+.canvas-focus-heading > span { padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-md); background: var(--color-surface-solid); color: var(--color-muted); }
+.canvas-focus-empty { margin-top: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-md); background: var(--color-surface-solid); color: var(--color-muted); }
+.canvas-boundary-connections { position: relative; margin-top: var(--space-sm); }
+.canvas-boundary-connections > summary { list-style: none; cursor: pointer; }
+.canvas-boundary-connections > summary::-webkit-details-marker { display: none; }
+.canvas-boundary-list { position: absolute; top: calc(100% + 8px); left: 0; width: min(400px, calc(100dvw - 48px)); max-height: min(320px, calc(var(--app-height, 100dvh) * .45)); overflow-y: auto; overscroll-behavior: contain; padding: var(--space-md); border: 1px solid var(--color-rule-strong); border-radius: var(--panel-radius); background: var(--color-surface-solid); box-shadow: var(--shadow-popover); }
+.canvas-boundary-list article + article { margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-rule); }
+.canvas-boundary-list strong, .canvas-boundary-list p { display: block; overflow-wrap: anywhere; }
+.canvas-boundary-list p { margin-block: var(--space-xs); color: var(--color-muted); }
+.canvas-boundary-list .button { white-space: normal; }
+[data-reading-focus] .canvas-comment-index { top: 108px; }
 @media (prefers-reduced-motion: reduce) { .edge-flow-light { animation: none; opacity: 0; } }
 @media (max-width: 900px), (pointer: coarse) {
   .node-appearance-switch .button, .canvas-legend > summary { min-height: 44px; }
 }
 @media (max-width: 900px) {
+  .app-shell .canvas-selection-actions.is-single-node { display: flex; }
+  .canvas-selection-actions.is-single-node .clear-selection { display: none; }
+  .canvas-selection-actions .focus-related { min-height: 44px; }
+  .canvas-focus-controls .button { min-height: 44px; }
   .canvas-reading-guide { right: 12px; bottom: 28px; }
   .canvas-reading-guide > .display-settings-toggle { display: flex; min-height: 44px; padding-inline: var(--space-sm); font-size: var(--text-xs); }
   .canvas-reading-guide[open] > .display-settings-toggle { border-color: var(--color-accent); color: var(--color-accent); }

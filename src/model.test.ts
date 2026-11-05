@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addComment, addReply, getChanges, parseReview, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
+import { addComment, addReply, getChanges, parseReview, parseReviewBaseline, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
 import type { ReviewDocument } from './types.ts'
 import { sampleReview } from './sample.ts'
 
@@ -19,6 +19,37 @@ function fixture(): ReviewDocument {
 test('bundled source-backed sample is a valid importable review', () => {
   assert.deepEqual(parseReview(sampleReview), sampleReview)
   assert.ok(sampleReview.nodes.every(node => node.evidence.length > 0))
+})
+
+test('fixed baselines survive file exchange and imports without accepting nesting or replacement', () => {
+  const baseline = fixture()
+  baseline.revision = 'original-code'
+  const current = { ...fixture(), revision: 'first-review', baseline }
+  assert.deepEqual(parseReview(JSON.parse(serializeReview(current))), current)
+  assert.deepEqual(parseReviewBaseline(baseline, current.id), baseline)
+  assert.throws(() => parseReview({ ...current, baseline: { ...baseline, id: 'another-review' } }), /相同评审 ID/)
+  assert.throws(() => parseReview({ ...current, baseline: { ...baseline, baseline } }), /嵌套/)
+  assert.throws(() => parseReview({ ...current, baseline: addComment(baseline, [{ kind: 'node', id: 'check' }], '旧批注') }), /不能包含批注/)
+  assert.deepEqual(rebaseReview(fixture(), current).baseline, baseline)
+  assert.deepEqual(rebaseReview(current, { ...fixture(), revision: 'second-review' }).baseline, baseline)
+  assert.throws(() => rebaseReview(current, { ...current, baseline: { ...baseline, revision: 'replacement' } }), /不能随新版替换/)
+  assert.equal(fixture().baseline, undefined)
+})
+
+test('baseline comments keep original targets after the implementation removes them and cannot change basis', () => {
+  const baseline = fixture()
+  const current = { ...fixture(), nodes: fixture().nodes.slice(1), edges: [], baseline }
+  const target = { kind: 'node' as const, id: 'check' }
+  assert.throws(() => addComment(current, [target], '目标已移除'), /已移除/)
+  const annotated = addComment(current, [target], '请改造原来的条件检查', 'baseline')
+  assert.equal(annotated.comments[0].basis, 'baseline')
+  assert.equal(parseReview(annotated).comments[0].status, 'open')
+  const { baseline: _baseline, ...compact } = annotated
+  assert.throws(() => parseReview(compact), /基线批注/)
+  assert.equal(parseReview(compact, { allowBaselineReferences: true }).comments[0].status, 'open')
+  assert.throws(() => parseReview({ ...annotated, comments: [{ ...annotated.comments[0], basis: 'current' }] }), /批注依据/)
+  assert.throws(() => parseReview({ ...annotated, comments: [{ ...annotated.comments[0], targets: [{ kind: 'node', id: 'not-in-B' }] }] }, { allowBaselineReferences: true }), /基线批注/)
+  assert.throws(() => rebaseReview(annotated, { ...annotated, comments: [{ ...annotated.comments[0], basis: undefined }] }), /冲突/)
 })
 
 test('validates and round trips an exported review without retaining unknown fields', () => {

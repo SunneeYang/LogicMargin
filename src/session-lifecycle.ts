@@ -1,6 +1,6 @@
 import type { SessionOptions } from './session-types.ts'
 
-export function parseSessionOptions(value: { scope?: unknown; cleanupPolicy?: unknown }): SessionOptions {
+export function parseSessionOptions(value: { scope?: unknown; cleanupPolicy?: unknown; baselineReview?: unknown }): SessionOptions {
   const result: SessionOptions = {}
   if (value.scope !== undefined) {
     if (!value.scope || typeof value.scope !== 'object' || Array.isArray(value.scope)) throw new Error('评审范围必须是对象')
@@ -12,6 +12,10 @@ export function parseSessionOptions(value: { scope?: unknown; cleanupPolicy?: un
   if (value.cleanupPolicy !== undefined) {
     if (value.cleanupPolicy !== 'manual' && value.cleanupPolicy !== 'archive-on-approval') throw new Error('评审清理策略无效')
     result.cleanupPolicy = value.cleanupPolicy
+  }
+  if (value.baselineReview !== undefined) {
+    if (value.baselineReview !== true) throw new Error('基线改造评审选项必须为 true')
+    result.baselineReview = true
   }
   return result
 }

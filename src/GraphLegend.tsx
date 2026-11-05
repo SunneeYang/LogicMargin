@@ -49,8 +49,8 @@ export default function GraphLegend({ nodeAppearance, onNodeAppearanceChange }: 
           <path d="M70 4V38" className="edge-crossing-gap" strokeWidth="8" />
           <path d="M70 4V38" className="legend-wire" />
         </svg>
-        <p>连线在转角平滑过渡。留白交叉表示跨过、不连接。分支和汇合只发生在节点端口；箭头表示流向。</p>
-        <p><span className="flow-key incoming">前序 →</span> 流入选中节点；<span className="flow-key outgoing">→ 后续</span> 从选中节点流出。关联连线统一使用强调色，流动光效沿箭头前进，无关连线淡化。</p>
+        <p>连线沿通道转折，外围虚线表示返回前序步骤，较细连线通向失败出口。留白交叉表示跨过、不连接。分支和汇合只发生在节点端口；箭头表示流向。</p>
+        <p><span className="flow-key incoming">前序 →</span> 流入选中节点；<span className="flow-key outgoing">→ 后续</span> 从选中节点流出。关联连线使用强调色，流动光效沿箭头前进，其他条件保持可读。</p>
         <h3>操作</h3><p>拖动画布，滚轮缩放。点击选择步骤或连线，右键批注；按住 Shift / ⌘ 可多选，框选只选择节点。</p>
         <h3>跨轮变化</h3>
         <div className="legend-revisions">
@@ -59,7 +59,7 @@ export default function GraphLegend({ nodeAppearance, onNodeAppearanceChange }: 
           <span className="badge revision-badge revision-removed">已移除</span>
           <span className="badge revision-badge revision-evidence">依据更新</span>
         </div>
-        <p>变化以文字徽标标明，不代表节点已通过评审。</p>
+        <p>差异标在当前实现图；基线 B 保持原版。文字徽标不代表节点已通过评审。</p>
       </div>
     </details>
     </div>

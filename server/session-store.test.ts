@@ -59,6 +59,105 @@ test('saving is separate from Finish; submissions, acknowledgement and opinions 
   assert.deepEqual(await store.finish(session.id, { expectedVersion: saved.version, kind: 'feedback', submissionId: 'finish-1' }), acknowledged)
 })
 
+test('fixed baseline B is present in R1, survives R2 and records, and is read separately from current views', async t => {
+  const { store, directory } = await setup(t)
+  const baseline = { ...structuredClone(sampleReview), revision: 'baseline-code', comments: [] }
+  const review = { ...structuredClone(sampleReview), comments: [], baseline }
+  const first = await store.create(review)
+  assert.equal(first.round, 1)
+  assert.deepEqual(first.review.baseline, baseline)
+  assert.deepEqual(first.snapshots[0].review.baseline, baseline)
+  const current = await store.get(first.id, 'current')
+  assert.equal(current.review.baseline, undefined)
+  assert.equal(current.baseline?.revision, baseline.revision)
+  assert.equal('files' in current.baseline!.snapshot, false)
+  const read = await store.getBaseline(first.id)
+  read.review.nodes[0].title = 'caller mutation'
+  assert.deepEqual((await store.getBaseline(first.id)).review, baseline)
+  const saved = await store.mutate(first.id, commentBatch(first))
+  const submitted = await store.finish(first.id, { expectedVersion: saved.version, kind: 'feedback' })
+  assert.deepEqual(submitted.history[0].review.baseline, baseline)
+  const nextReview = structuredClone(first.review)
+  delete nextReview.baseline
+  nextReview.revision = 'second-review'
+  const two = await store.revise(first.id, revision(submitted, nextReview))
+  assert.equal(two.round, 2)
+  assert.deepEqual(two.review.baseline, baseline)
+  assert.deepEqual(two.snapshots[1].review.baseline, baseline)
+  assert.deepEqual((await new SessionStore(directory).get(first.id)).review.baseline, baseline)
+  const replacement = revision(two)
+  replacement.review.baseline!.revision = 'other-code'
+  await assert.rejects(store.revise(first.id, replacement), { status: 409 })
+  assert.deepEqual((await store.get(first.id)).review.baseline, baseline)
+  const inconsistent = structuredClone(two)
+  inconsistent.snapshots[0].review.baseline!.revision = 'changed-original'
+  await writeFile(join(directory, `${first.id}.json`), JSON.stringify(inconsistent))
+  await assert.rejects(new SessionStore(directory).get(first.id), /固定基线不一致/)
+})
+
+test('legacy baseline attachment is atomic, does not advance the review round and rejects conflicting writers', async t => {
+  const { store, directory, session } = await setup(t)
+  await assert.rejects(store.getBaseline(session.id), { status: 404 })
+  assert.equal((await store.get(session.id, 'current')).baseline, undefined)
+  const baseline = { ...structuredClone(session.review), revision: 'baseline-code', comments: [] }
+  await assert.rejects(store.attachBaseline(session.id, { expectedVersion: session.version + 1, baseline }), { status: 409 })
+  const implicit = revision(session)
+  implicit.review.baseline = baseline
+  await assert.rejects(store.revise(session.id, implicit), /请先补录固定基线/)
+  const alternatives = [baseline, { ...baseline, revision: 'another-baseline' }]
+  const results = await Promise.allSettled(alternatives.map(baseline => store.attachBaseline(session.id, { expectedVersion: session.version, baseline })))
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1)
+  assert.equal(results.filter(result => result.status === 'rejected').length, 1)
+  const attached = await store.get(session.id)
+  assert.equal(attached.version, session.version + 1)
+  assert.equal(attached.round, session.round)
+  assert.deepEqual(attached.history, session.history)
+  assert.deepEqual(attached.snapshots, session.snapshots)
+  assert.deepEqual(await store.attachBaseline(session.id, { expectedVersion: session.version, baseline: attached.review.baseline }), attached)
+  await assert.rejects(store.attachBaseline(session.id, { expectedVersion: attached.version, baseline: { ...baseline, id: 'other-review' } }), /相同评审 ID/)
+  const approved = await store.finish(session.id, { expectedVersion: attached.version, kind: 'approval' })
+  await store.cleanup(session.id, { expectedVersion: approved.version, mode: 'archive' })
+  assert.deepEqual((await store.getArchive(session.id)).review.baseline, attached.review.baseline)
+  const restored = await new SessionStore(directory).restore(session.id, { expectedVersion: approved.version })
+  assert.deepEqual(restored.review.baseline, attached.review.baseline)
+})
+
+test('baseline-first reviews accept redesign requests on B and retain those sources after publishing R1', async t => {
+  const { store, directory, session } = await setup(t)
+  const baseline = structuredClone(session.review)
+  const original = { ...structuredClone(baseline), baseline }
+  await assert.rejects(store.create(session.review, undefined, { baselineReview: true }), /必须提供固定基线/)
+  const different = structuredClone(original)
+  different.nodes[0].summary += ' already changed'
+  await assert.rejects(store.create(different, undefined, { baselineReview: true }), /初始图必须/)
+  const first = await store.create(original, undefined, { baselineReview: true })
+  assert.equal(first.baselineReview, true)
+  assert.equal((await store.get(first.id, 'current')).baselineReview, true)
+  await assert.rejects(store.finish(first.id, { expectedVersion: first.version, kind: 'approval' }), /基线 B 用于提出改造要求/)
+  const target = { kind: 'node' as const, id: baseline.nodes[0].id }
+  const comment = addComment(first.review, [target], '请重构这个旧步骤', 'baseline').comments[0]
+  const batch = { round: first.round, revision: first.review.revision, fingerprint: first.review.snapshot.fingerprint,
+    mutations: [{ kind: 'add-comment', comment }] }
+  const saved = await store.mutate(first.id, batch)
+  assert.equal(saved.review.comments[0].basis, 'baseline')
+  assert.equal(saved.review.comments[0].originRound, 1)
+  await assert.rejects(store.mutate(first.id, { ...batch, mutations: [{ kind: 'add-comment', comment: { ...comment, basis: undefined } }] }), { status: 409 })
+  const submitted = await store.finish(first.id, { expectedVersion: saved.version, kind: 'feedback' })
+  assert.equal(submitted.history[0].review.comments[0].basis, 'baseline')
+  const next = structuredClone(first.review)
+  next.revision = 'implementation-r1'
+  next.nodes = next.nodes.slice(1)
+  next.edges = next.edges.filter(edge => edge.source !== target.id && edge.target !== target.id)
+  const one = await store.revise(first.id, revision(submitted, next))
+  assert.equal(one.baselineReview, true)
+  assert.equal(one.round, 2)
+  assert.equal(one.review.comments[0].basis, 'baseline')
+  assert.deepEqual(one.review.comments[0].targets, [target])
+  assert.equal(one.review.comments[0].status, 'needs-review')
+  assert.deepEqual(one.review.baseline, baseline)
+  assert.deepEqual((await new SessionStore(directory).get(first.id)).review, one.review)
+})
+
 test('concurrent appends merge, retry does not duplicate, conflicts and batches are atomic', async t => {
   const { store, session } = await setup(t)
   const first = commentBatch(session, '第一条')

@@ -39,37 +39,51 @@ function targets(value: unknown): Target[] {
   return result
 }
 
-function key(documentId: string, revision: string, fingerprint: string, selected: Target[], replyTo?: string): string {
-  return JSON.stringify([documentId, revision, fingerprint, selected.map(target => [target.kind, target.id]).sort(), replyTo ?? null])
+function key(documentId: string, revision: string, fingerprint: string, selected: Target[], replyTo?: string, basis?: CommentDraft['basis']): string {
+  const parts = [documentId, revision, fingerprint, selected.map(target => [target.kind, target.id]).sort(), replyTo ?? null]
+  return JSON.stringify(basis ? [...parts, basis] : parts)
 }
 
-export function draftKey(review: ReviewDocument, selected: Target[], replyTo?: string): string {
+function draftBasis(review: ReviewDocument, replyTo?: string, basis?: CommentDraft['basis']): CommentDraft['basis'] {
+  const original = review.comments.find(comment => comment.id === replyTo)
+  if (basis !== undefined && basis !== 'baseline') throw new Error('草稿依据无效')
+  if (original && basis !== undefined && original.basis !== basis) throw new Error('回复草稿不能改变原批注依据')
+  return original?.basis ?? basis
+}
+
+export function draftKey(review: ReviewDocument, selected: Target[], replyTo?: string, basis?: CommentDraft['basis']): string {
   return key(id(review.id, '评审 ID'), id(review.revision, '评审版本'), id(review.snapshot.fingerprint, '快照指纹'),
-    targets(selected), replyTo === undefined ? undefined : id(replyTo, '回复批注 ID'))
+    targets(selected), replyTo === undefined ? undefined : id(replyTo, '回复批注 ID'), draftBasis(review, replyTo, basis))
 }
 
-export function makeDraft(review: ReviewDocument, selected: Target[], body: string, replyTo?: string): CommentDraft {
+export function makeDraft(review: ReviewDocument, selected: Target[], body: string, replyTo?: string, basis?: CommentDraft['basis']): CommentDraft {
   const checked = targets(selected)
-  return { key: draftKey(review, checked, replyTo), documentId: review.id, revision: review.revision,
-    fingerprint: review.snapshot.fingerprint, targets: checked, labels: checked.map(target => targetLabel(review, target)),
-    body: text(body, '草稿内容', 10000), updatedAt: new Date().toISOString(), ...(replyTo === undefined ? {} : { replyTo }) }
+  const selectedBasis = draftBasis(review, replyTo, basis)
+  const document = selectedBasis === 'baseline' ? review.baseline : review
+  if (!document) throw new Error('请先加载固定基线 B 再编写批注')
+  return { key: draftKey(review, checked, replyTo, selectedBasis), documentId: review.id, revision: review.revision,
+    fingerprint: review.snapshot.fingerprint, targets: checked, labels: checked.map(target => targetLabel(document, target)),
+    body: text(body, '草稿内容', 10000), updatedAt: new Date().toISOString(), ...(replyTo === undefined ? {} : { replyTo }),
+    ...(selectedBasis ? { basis: selectedBasis } : {}) }
 }
 
 export function parseDrafts(value: unknown): CommentDraft[] {
-  const parsed = list(value, '批注草稿').map(value => {
+  const parsed = list(value, '批注草稿').map((value): CommentDraft => {
     const draft = object(value, '批注草稿')
     const selected = targets(draft.targets)
     const documentId = id(draft.documentId, '草稿评审 ID')
     const revision = id(draft.revision, '草稿版本')
     const fingerprint = id(draft.fingerprint, '草稿快照指纹')
     const replyTo = draft.replyTo === undefined ? undefined : id(draft.replyTo, '回复批注 ID')
+    if (draft.basis !== undefined && draft.basis !== 'baseline') throw new Error('草稿依据无效')
+    const basis = draft.basis
     const labels = list(draft.labels, '草稿目标标签').map(value => text(value, '草稿目标标签', 2000, true))
     if (labels.length !== selected.length) throw new Error('草稿目标与标签数量不一致')
-    const expectedKey = key(documentId, revision, fingerprint, selected, replyTo)
+    const expectedKey = key(documentId, revision, fingerprint, selected, replyTo, basis)
     if (draft.key !== expectedKey) throw new Error('草稿标识与所属评审、版本或目标不一致')
     return { key: expectedKey, documentId, revision, fingerprint, targets: selected, labels,
       body: text(draft.body, '草稿内容', 10000), updatedAt: date(draft.updatedAt, '草稿保存日期'),
-      ...(replyTo === undefined ? {} : { replyTo }) }
+      ...(replyTo === undefined ? {} : { replyTo }), ...(basis ? { basis } : {}) }
   })
   if (new Set(parsed.map(draft => draft.key)).size !== parsed.length) throw new Error('草稿标识重复')
   return parsed
@@ -133,7 +147,7 @@ export function parseRecordHistory(value: unknown): ReviewRecord[] {
 }
 
 export function humanFeedback(comment: ReviewComment): string {
-  return JSON.stringify([comment.body, comment.targets.map(target => [target.kind, target.id]).sort(),
+  return JSON.stringify([comment.body, comment.basis ?? null, comment.targets.map(target => [target.kind, target.id]).sort(),
     (comment.replies ?? []).filter(reply => reply.author === 'reviewer')
       .map(reply => [reply.id, reply.body, reply.createdAt, reply.revision]).sort()])
 }

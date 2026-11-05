@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { newId } from './id.ts'
-import { parsePendingSession, pendingMatchesSession, reviewMutations, sameVisibleReview, currentRequest as sessionRequest, snapshotRequest, SessionRequestError } from './session-client.ts'
+import { baselineRequest, parsePendingSession, pendingMatchesSession, reviewMutations, sameVisibleReview, currentRequest as sessionRequest, snapshotRequest, SessionRequestError } from './session-client.ts'
 import type { PendingSession } from './session-client.ts'
 import type { CurrentSession, SessionOptions } from './session-types.ts'
 import type { ReviewDocument } from './types.ts'
@@ -29,6 +29,9 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
   const generation = useRef(0)
   const readyRef = useRef(false)
   const [snapshots, setSnapshots] = useState(new Map<number, ReviewDocument>())
+  const [baseline, setBaseline] = useState<ReviewDocument | null>(null)
+  const baselineCache = useRef<ReviewDocument | null>(null)
+  const baselineTask = useRef<Promise<ReviewDocument> | null>(null)
   const snapshotCache = useRef(new Map<number, ReviewDocument>())
   const snapshotTasks = useRef(new Map<number, Promise<ReviewDocument>>())
   const key = `logic-margin:session:${sessionId}:pending`
@@ -80,6 +83,7 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     generation.current++
     current.current = null; displayed.current = null; pending.current = null; task.current = null
     snapshotCache.current = new Map(); snapshotTasks.current = new Map(); setSnapshots(new Map())
+    baselineCache.current = null; baselineTask.current = null; setBaseline(null)
     setSession(null); setError(''); setBusy(false); setPendingCount(0); setPendingRecovery(null); setAvailability('active')
     readyRef.current = false
     setReady(false)
@@ -204,6 +208,22 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     snapshotTasks.current.set(round, operation)
     return operation
   }, [sessionId])
-  return { session, ready, busy, error, pendingRecovery, availability, stop, enqueue, flush, finish, create, retry, recoverRemote, snapshots, loadSnapshot,
+  const loadBaseline = useCallback((): Promise<ReviewDocument> => {
+    const info = current.current?.baseline
+    if (!sessionId || !info) return Promise.reject(new Error('未提供修改前基线'))
+    if (baselineCache.current?.snapshot.fingerprint === info.snapshot.fingerprint) return Promise.resolve(baselineCache.current)
+    if (baselineTask.current) return baselineTask.current
+    const started = generation.current
+    const expectedReviewId = current.current!.review.id
+    const operation = baselineRequest(sessionId).then(review => {
+      if (generation.current !== started) throw new Error('会话已切换')
+      if (review.id !== expectedReviewId || review.revision !== info.revision || review.snapshot.fingerprint !== info.snapshot.fingerprint) throw new Error('基线流程与会话来源不一致')
+      baselineCache.current = review; setBaseline(review)
+      return review
+    }).finally(() => { if (generation.current === started) baselineTask.current = null })
+    baselineTask.current = operation
+    return operation
+  }, [sessionId])
+  return { session, ready, busy, error, pendingRecovery, availability, stop, enqueue, flush, finish, create, retry, recoverRemote, snapshots, loadSnapshot, baseline, loadBaseline,
     saveState: error ? '同步暂停' : busy || pendingCount ? '正在同步' : ready ? '已保存到会话' : '正在连接会话' }
 }

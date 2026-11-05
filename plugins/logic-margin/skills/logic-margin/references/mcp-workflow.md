@@ -53,11 +53,16 @@ node "$LM_CLI" server status
 
 ```sh
 node "$LM_CLI" start review.logic-margin.json --source-root /path/to/workspace --purpose "实际目的" --wait
+node "$LM_CLI" start current.logic-margin.json --source-root /path/to/current --baseline-file before.logic-margin.json --baseline-source-root /path/to/before --purpose "核对本次修改" --wait
+node "$LM_CLI" start before.logic-margin.json --source-root /path/to/original --baseline-review --purpose "先在原系统上讨论改造" --wait
+node "$LM_CLI" baseline SESSION_ID before.logic-margin.json --source-root /path/to/before
 node "$LM_CLI" wait SESSION_ID --after SUBMISSION_ID
 node "$LM_CLI" ack SESSION_ID SUBMISSION_ID
 node "$LM_CLI" reply SESSION_ID COMMENT_ID --body "临时回应"
 ```
 
 CLI `wait` 保留原来的自动领取，以及已授权策略下输出通过结果后归档的行为；MCP `wait_review` 只交付结果，实际读到反馈后另调 `acknowledge_review`，通过后另调 `cleanup_review`。两者的交付语义不同，恢复时核对固定历史和实际处理游标。
+
+固定基线 B 的生成与核验见 [评审格式](review-format.md#固定基线-b)。MCP 的 `start_review`、`verify_review` 接受可选 `baseline_file` 与 `baseline_source_root`；图中已嵌入 B 时仍须明确旧树根目录。先在原系统上提出改造时，`start_review` 使用原版 `review_file`、其 `source_root` 与 `baseline_review: true`，随后按意见修改实际源码并发布 R1。旧会话补录使用 `attach_review_baseline(session_id, baseline_file, source_root)`，其中 `source_root` 指向修改前源码。后续 `revise_review` 自动继承 B，`base_round` 始终填写 `get_review` 或 `wait_review` 返回的实际轮次。
 
 CLI 在 stdout 输出 JSON，在 stderr 输出链接；原生包直接调用对应可执行文件。完整命令由 `--help` 查询。显式 `--url` / `LOGIC_MARGIN_URL` 只连接指定评审 API，不会替换成本机新会话。若兼容宿主让 CLI 等待命令频繁返回运行句柄，继续等待仍可能需要模型调用，应如实说明该限制。

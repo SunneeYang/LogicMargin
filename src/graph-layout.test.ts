@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { layoutGraph } from './graph-layout.ts'
+import { routeGraphEdges } from './graph-routing.ts'
+import { comparisonLayout } from './graph-focus.ts'
 import type { LayoutNode, LayoutPoint } from './graph-layout.ts'
 import { parseReview } from './model.ts'
 import { sampleReview } from './sample.ts'
@@ -16,6 +18,23 @@ const edge = (id: string, source: string, target: string): ReviewEdge => ({
 })
 const overlaps = (a: LayoutNode, b: LayoutNode) => a.position.x < b.position.x + b.width && a.position.x + a.width > b.position.x
   && a.position.y < b.position.y + b.height && a.position.y + a.height > b.position.y
+
+function longestSharedTrack(routes: ReadonlyMap<string, { points: LayoutPoint[] }>) {
+  let longest = 0
+  const entries = [...routes.values()]
+  for (let one = 0; one < entries.length; one++) for (let two = one + 1; two < entries.length; two++) {
+    const first = entries[one].points, second = entries[two].points
+    for (let a = 1; a < first.length; a++) for (let b = 1; b < second.length; b++) {
+      const p = first[a - 1], q = first[a], r = second[b - 1], s = second[b]
+      if (p.x === q.x && r.x === s.x && p.x === r.x) {
+        longest = Math.max(longest, Math.min(Math.max(p.y, q.y), Math.max(r.y, s.y)) - Math.max(Math.min(p.y, q.y), Math.min(r.y, s.y)))
+      } else if (p.y === q.y && r.y === s.y && p.y === r.y) {
+        longest = Math.max(longest, Math.min(Math.max(p.x, q.x), Math.max(r.x, s.x)) - Math.max(Math.min(p.x, q.x), Math.min(r.x, s.x)))
+      }
+    }
+  }
+  return longest
+}
 
 function crossesInterior(a: LayoutPoint, b: LayoutPoint, node: LayoutNode) {
   let enter = 0, exit = 1
@@ -63,6 +82,16 @@ test('parallel edges have separate routes, handles and boundary ports', () => {
       const span = port.side === 'top' || port.side === 'bottom' ? placed.width : placed.height
       assert.ok(port.offset >= -0.001 && port.offset <= span + 0.001)
     }
+  }
+})
+
+test('short conditions reserve width for revision and comment status in both layout paths', () => {
+  const collapsed = ['start', 'end'].map(node)
+  const authored = collapsed.map((item, index) => ({ ...item, position: { x: 0, y: index * 220 } }))
+  for (const nodes of [collapsed, authored]) {
+    const route = layoutGraph(nodes, [edge('continue', 'start', 'end')]).edges.get('continue')!
+    assert.ok(route.labelWidth! >= 120)
+    assert.ok(route.labelHeight! >= 40)
   }
 })
 
@@ -138,6 +167,117 @@ test('all bundled scenes route shared failure exits without entering unrelated n
           }
         }
       }
+    }
+  }
+})
+
+test('authored stages keep a cyclic workbench narrow and route every condition around cards', () => {
+  const nodes = Array.from({ length: 12 }, (_, index) => ({ ...node(`stage-${index}`),
+    kind: index === 10 ? 'failure' as const : index === 9 || index === 11 ? 'result' as const : 'action' as const,
+    position: { x: index >= 10 ? 600 : 0, y: index === 10 ? 880 : index === 11 ? 440 : index * 220 },
+  }))
+  const pairs = [[0, 1], [0, 10], [1, 2], [1, 11], [1, 10], [2, 3], [2, 4], [2, 7], [2, 8], [2, 11],
+    [3, 2], [3, 10], [3, 11], [4, 5], [4, 10], [4, 11], [5, 2], [5, 6], [6, 2], [6, 2],
+    [7, 7], [7, 2], [7, 2], [7, 11], [8, 2], [8, 9], [8, 10], [8, 11], [10, 0], [9, 0], [2, 10]]
+  const edges = pairs.map(([source, target], index) => ({ ...edge(`condition-${index}`, `stage-${source}`, `stage-${target}`),
+    label: index % 3 ? '条件通过后继续处理' : '读取失败或当前状态已经改变，结束本次处理',
+  }))
+  const result = layoutGraph(nodes, edges)
+  const placed = [...result.nodes.values()]
+  assert.ok(Math.max(...placed.map(item => item.position.x + item.width)) - Math.min(...placed.map(item => item.position.x)) < 1600)
+  for (let index = 1; index < 10; index++) assert.ok(result.nodes.get(`stage-${index}`)!.position.y > result.nodes.get(`stage-${index - 1}`)!.position.y)
+  assert.equal(result.edges.size, edges.length)
+  assert.ok(longestSharedTrack(result.edges) <= 24, 'independent conditions must not share long track segments')
+  const labelBoxes: LayoutNode[] = []
+  for (const edge of edges) {
+    const route = result.edges.get(edge.id)!
+    const bounds = { position: { x: route.label.x - route.labelWidth! / 2, y: route.label.y - route.labelHeight! / 2 }, width: route.labelWidth!, height: route.labelHeight!, ports: [] }
+    assert.ok(bounds.width > 0 && bounds.height >= 40)
+    assert.ok(placed.every(item => !overlaps(bounds, item)), `${edge.id}: condition covers a card`)
+    assert.ok(labelBoxes.every(item => !overlaps(bounds, item)), `${edge.id}: conditions overlap`)
+    labelBoxes.push(bounds)
+    for (let index = 1; index < route.points.length; index++) {
+      const one = route.points[index - 1], two = route.points[index]
+      assert.ok(one.x === two.x || one.y === two.y, `${edge.id}: route is not orthogonal`)
+      for (const [id, item] of result.nodes) {
+        if (id === edge.source || id === edge.target) continue
+        assert.equal(crossesInterior(one, two, item), false, `${edge.id}: crosses ${id}`)
+      }
+    }
+  }
+  assert.equal(result.edges.get('condition-24')!.kind, 'return')
+  assert.equal(result.edges.get('condition-26')!.kind, 'exception')
+  const comparisonNodes = nodes.map((item, index) => ({ ...item, title: index ? `处理步骤 ${index}` : '准备执行',
+    summary: '核对本步骤的输入和结果；失败时保留当前状态。',
+  }))
+  const baselineNodes = structuredClone(comparisonNodes)
+  comparisonNodes[4].summary += ' 当前实现增加了再次核对。'
+  const comparison = comparisonLayout(comparisonNodes, edges, baselineNodes, edges,
+    new Map(comparisonNodes.map((item, index) => [item.id, { width: 248, height: index === 4 ? 170 : 148 }])))
+  const comparisonLabels = [...comparison.edges].map(([id, route]) => ({ id, position: {
+    x: route.label.x - route.labelWidth! / 2, y: route.label.y - route.labelHeight! / 2,
+  }, width: route.labelWidth!, height: route.labelHeight!, ports: [] }))
+  for (let index = 0; index < comparisonLabels.length; index++) {
+    for (const other of comparisonLabels.slice(index + 1)) assert.equal(overlaps(comparisonLabels[index], other), false,
+      `comparison conditions overlap: ${comparisonLabels[index].id} / ${other.id}`)
+  }
+  assert.ok(longestSharedTrack(comparison.edges) <= 24)
+  const reordered = layoutGraph([...nodes].reverse(), [...edges].reverse())
+  for (const item of nodes) assert.deepEqual(reordered.nodes.get(item.id)!.position, result.nodes.get(item.id)!.position)
+  for (const item of edges) assert.deepEqual(reordered.edges.get(item.id), result.edges.get(item.id))
+  const positions = [...result.nodes].map(([id, item]) => [id, item.position])
+  const subset = edges.slice(0, 2)
+  const rerouted = routeGraphEdges(result.nodes, subset, new Map(nodes.map(item => [item.id, item.kind])))
+  assert.deepEqual([...result.nodes].map(([id, item]) => [id, item.position]), positions)
+  assert.deepEqual([...rerouted.keys()], subset.map(item => item.id))
+  assert.equal([...result.nodes.values()].reduce((sum, item) => sum + item.ports.length, 0), subset.length * 2)
+})
+
+test('high-fan returns use separate parallel tracks and ordered station entrances', () => {
+  const nodes = Array.from({ length: 9 }, (_, index) => ({ ...node(`station-${index}`), position: { x: 0, y: index * 220 } }))
+  const edges = nodes.slice(1).flatMap((item, index) => [
+    edge(`out-${index}`, 'station-0', item.id),
+    { ...edge(`back-${index}`, item.id, 'station-0'), label: index % 2 ? '继续' : '条件条件条件条件条abcdefgh' },
+  ])
+  const result = layoutGraph(nodes, edges)
+  assert.equal(result.edges.size, edges.length)
+  assert.ok(longestSharedTrack(result.edges) <= 24, `shared track length: ${longestSharedTrack(result.edges)}`)
+  const ports = result.nodes.get('station-0')!.ports.filter(port => port.side === 'left').sort((a, b) => a.offset - b.offset)
+  for (let index = 1; index < ports.length; index++) assert.ok(ports[index].offset - ports[index - 1].offset >= 8)
+})
+
+test('nine failure exits keep independent tracks and staggered station approaches', () => {
+  const positions = [[0, 0], [0, 220], [0, 440], [600, 440], [0, 660], [600, 880],
+    [0, 880], [0, 1100], [0, 1320], [600, 1320], [0, 1540], [0, 1760]]
+  const nodes = positions.map(([x, y], index) => ({ ...node(`step-${index}`), position: { x, y },
+    kind: index === 3 || index === 9 ? 'failure' as const : index === 11 ? 'result' as const : 'action' as const,
+  }))
+  const pairs = [[0, 1], [0, 9], [1, 2], [1, 9], [2, 3], [2, 4], [4, 6], [4, 5], [4, 9], [5, 7],
+    [6, 7], [5, 9], [6, 9], [7, 8], [7, 9], [8, 9], [8, 10], [10, 11], [10, 9], [11, 9]]
+  const edges = pairs.map(([source, target], index) => ({ ...edge(`condition-${index}`, `step-${source}`, `step-${target}`),
+    label: '条件成立后继续'.repeat(index % 3 + 1),
+  }))
+  for (const sizes of [new Map(), new Map(nodes.map(item => [item.id, { width: 248, height: 150 }]))]) {
+    const result = layoutGraph(nodes, edges, sizes)
+    assert.equal(result.edges.size, edges.length)
+    assert.ok(longestSharedTrack(result.edges) <= 24)
+    const approaches = edges.filter(item => item.target === 'step-9').flatMap(item => {
+      const route = result.edges.get(item.id)!, target = result.nodes.get('step-9')!
+      const port = target.ports.find(port => port.id === route.targetHandle)!
+      const turn = route.points.at(-2)!, prior = route.points.at(-3)!
+      return port.side === 'left' && turn.x === prior.x ? [{ x: turn.x, low: Math.min(turn.y, prior.y), high: Math.max(turn.y, prior.y) }] : []
+    })
+    for (let one = 0; one < approaches.length; one++) for (let two = one + 1; two < approaches.length; two++) {
+      const a = approaches[one], b = approaches[two]
+      if (Math.min(a.high, b.high) > Math.max(a.low, b.low)) assert.ok(Math.abs(a.x - b.x) >= 8)
+    }
+    const labelBoxes: LayoutNode[] = []
+    for (const item of edges) {
+      const route = result.edges.get(item.id)!
+      const bounds = { position: { x: route.label.x - route.labelWidth! / 2, y: route.label.y - route.labelHeight! / 2 }, width: route.labelWidth!, height: route.labelHeight!, ports: [] }
+      assert.ok([...result.nodes.values()].every(node => !overlaps(bounds, node)))
+      assert.ok(labelBoxes.every(prior => !overlaps(bounds, prior)))
+      labelBoxes.push(bounds)
     }
   }
 })

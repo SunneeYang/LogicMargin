@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2563eb?style=flat-square" alt="Version 0.6.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.7.0-2563eb?style=flat-square" alt="Version 0.7.0" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Requires Node.js 22.18 or later" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -66,7 +66,8 @@ These screenshots show the current Chinese UI with fictional order data. They co
 | --- | --- |
 | **Review directly on the diagram** | Comment on nodes, edges, multiple objects, a whole scenario, or the entire review, with the relevant flow in view. |
 | **Keep source context** | Inspect rules, inputs, outputs, source references, and snapshot metadata to understand what the review covers. |
-| **See changes across rounds** | Switch between the previous and current diagrams, inspect field changes, and return to the original location of a removed target. |
+| **See changes across rounds** | Compare R1 onward against a fixed baseline B or the previous round, inspect field changes, and return to the original location of a removed target. |
+| **Plan changes on the original system** | Annotate baseline B with redesign requirements, then review the agent's implementation in R1 alongside the original diagram and comments. |
 | **Work with a coding agent** | Submit a round explicitly, let the agent wait, revise, reply, and publish a new diagram, then verify or approve the result yourself. |
 | **Separate review purposes** | Associate multiple independent reviews with one agent conversation while keeping their comments, drafts, and rounds separate. |
 | **Control your data** | Import and export JSON, download full backups, archive and restore reviews, or explicitly delete them. Optional automatic archival follows approval. |

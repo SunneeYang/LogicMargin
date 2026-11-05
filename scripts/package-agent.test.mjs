@@ -336,7 +336,7 @@ test('one packaged daemon serves UI, API and multiple MCP clients and restores a
   const health = await (await fetch(`${first.url}/api/health`)).json()
   const client = await connect(first.mcpUrl)
   const sibling = await connect(first.mcpUrl)
-  assert.equal((await client.listTools()).tools.length, 10)
+  assert.equal((await client.listTools()).tools.length, 11)
   const review = await sourceReview(cwd)
   const reviewFile = join(cwd, 'review.json')
   await writeFile(reviewFile, JSON.stringify(review))

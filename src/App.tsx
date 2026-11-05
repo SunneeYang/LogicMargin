@@ -11,7 +11,7 @@ import CommentComposer from './CommentComposer.tsx'
 import { sampleReview } from './sample.ts'
 import { useReviewSession } from './useReviewSession.ts'
 import type { CurrentSession, SessionSummary } from './session-types.ts'
-import { getRevisionChanges } from './revisions.ts'
+import { getRevisionChanges, graphVersionLabel } from './revisions.ts'
 import { cleanupSession, currentPendingFeedback, listSessions, recordRequest, sessionRequest } from './session-client.ts'
 import RevisionControls, { RevisionChangesPanel } from './RevisionControls.tsx'
 import CommentThreads from './CommentThreads.tsx'
@@ -86,6 +86,9 @@ export default function App() {
   const [selection, setSelection] = useState<Target[]>([])
   const [tab, setTab] = useState<'detail' | 'comments' | 'drafts' | 'changes'>('comments')
   const [viewRound, setViewRound] = useState<number | null>(null)
+  const [viewBaseline, setViewBaseline] = useState(false)
+  const [comparisonSource, setComparisonSource] = useState<'baseline' | 'previous'>('baseline')
+  const [comparisonError, setComparisonError] = useState('')
   const receivedRound = useRef(0)
   const [panelOpen, setPanelOpen] = useState(false)
   const [navOpen, setNavOpen] = useState(() => matchMedia('(min-width: 901px)').matches)
@@ -142,25 +145,25 @@ export default function App() {
   const graph = useRef<GraphCanvasHandle>(null)
   const unresolved = useMemo(() => review.comments.filter(comment => comment.status !== 'resolved'), [review.comments])
   const currentDrafts = drafts.filter(draft => draft.documentId === review.id && draft.revision === review.revision && draft.fingerprint === review.snapshot.fingerprint)
-  const validDrafts = currentDrafts.filter(draft => draft.replyTo ? review.comments.some(comment => comment.id === draft.replyTo) : draft.targets.every(target => targetExists(review, target)))
   const selectedComments = useMemo(() => {
     const targets = new Set(selection.map(keyOf))
-    return review.comments.filter(comment => comment.targets.some(target => targets.has(keyOf(target))))
-  }, [review.comments, selection])
+    return review.comments.filter(comment => (!viewBaseline || comment.basis === 'baseline') && comment.targets.some(target => targets.has(keyOf(target))))
+  }, [review.comments, selection, viewBaseline])
   const discussionComments = useMemo(() => {
     if (!discussionTargets) return []
     const targets = new Set(discussionTargets.map(keyOf))
-    return review.comments.filter(comment => comment.targets.some(target => targets.has(keyOf(target))))
-  }, [review.comments, discussionTargets])
+    return review.comments.filter(comment => (!viewBaseline || comment.basis === 'baseline') && comment.targets.some(target => targets.has(keyOf(target))))
+  }, [review.comments, discussionTargets, viewBaseline])
   const commentOrder = useMemo(() => review.comments.map(comment => comment.id), [review.comments])
   const reviewIdentity = useMemo(() => SESSION_ID ? '' : JSON.stringify(parseReview(review)), [review])
   const localApproved = useMemo(() => history.some(record => record.kind === 'logic-margin-approval' && JSON.stringify(record.review) === reviewIdentity), [history, reviewIdentity])
   const graphSelection = useCallback((targets: Target[]) => setSelection(targets), [])
   const receiveSession = useCallback((next: CurrentSession) => {
     if (receivedRound.current && receivedRound.current !== next.round) {
-      setViewRound(null); setSelection([]); setComposer(null); setDiscussionTargets(null); setSubmitting(false); setContinuous(false)
+      setViewRound(null); setViewBaseline(false); setSelection([]); setComposer(null); setDiscussionTargets(null); setSubmitting(false); setContinuous(false)
     }
     receivedRound.current = next.round
+    if (next.baselineReview && next.round === 1) setViewBaseline(true)
     latestReview.current = next.review; setReview(next.review)
   }, [])
   const session = useReviewSession(SESSION_ID, receiveSession)
@@ -172,28 +175,37 @@ export default function App() {
   const pending = useMemo(() => session.session ? currentPendingFeedback(review, session.session) : pendingFeedback(review, history), [review, history, session.session])
   const approved = session.session ? session.session.phase === 'approved' && review === session.session.review : localApproved
   const activeRound = session.session && viewRound !== null && session.session.snapshots.some(snapshot => snapshot.round === viewRound) ? viewRound : session.session?.round ?? 1
-  const historical = !!session.session && activeRound !== session.session.round
+  const previousRound = session.session?.snapshots.at(-1)?.publication?.baseRound ?? (session.session?.round ?? 1) - 1
+  const taskBaseline = review.baseline ?? session.baseline ?? undefined
+  const hasTaskBaseline = !!(review.baseline || session.session?.baseline)
+  const comparingBaseline = hasTaskBaseline && comparisonSource === 'baseline'
+  const baselineReview = comparingBaseline ? taskBaseline : session.snapshots.get(previousRound)
+  const baseline = baselineReview ? { review: baselineReview, label: comparingBaseline ? '基线 B' : graphVersionLabel(session.session ?? {}, previousRound) } : undefined
+  const roundHistorical = !!session.session && activeRound !== session.session.round
+  const historical = roundHistorical
+  const baselinePlanning = !!session.session?.baselineReview && session.session.round === 1
+  const roundLabel = useCallback((round: number) => graphVersionLabel(session.session ?? {}, round), [session.session?.baselineReview])
+  const completeReview = taskBaseline ? { ...review, baseline: taskBaseline } : review
+  const validDrafts = currentDrafts.filter(draft => draft.replyTo ? review.comments.some(comment => comment.id === draft.replyTo) : draft.targets.every(target => targetExists(draft.basis === 'baseline' && taskBaseline ? taskBaseline : review, target)))
   const displayReview = useMemo(() => {
-    const snapshot = historical ? session.snapshots.get(activeRound) : undefined
+    if (viewBaseline && taskBaseline) return { ...taskBaseline, comments: review.comments.filter(comment => comment.basis === 'baseline' && comment.targets.some(target => targetExists(taskBaseline, target))) }
+    const snapshot = roundHistorical ? session.snapshots.get(activeRound) : undefined
     if (!snapshot || !session.session) return review
     const origins = new Map(session.session.commentOrigins.map(item => [item.commentId, item.round]))
     return { ...snapshot, comments: review.comments.filter(comment => (origins.get(comment.id) ?? Infinity) <= activeRound && comment.targets.some(target => targetExists(snapshot, target))) }
-  }, [historical, session.snapshots, session.session, activeRound, review])
-  const baselineRound = session.session?.snapshots.at(-1)?.publication?.baseRound ?? (session.session?.round ?? 1) - 1
-  const baselineReview = session.snapshots.get(baselineRound)
-  const baseline = baselineReview ? { round: baselineRound, review: baselineReview } : undefined
+  }, [viewBaseline, taskBaseline, roundHistorical, session.snapshots, session.session, activeRound, review])
   const sessionChanges = useMemo(() => baselineReview ? getRevisionChanges(baselineReview, review) : undefined, [baselineReview, review])
   const changes = sessionChanges ?? importChanges
-  const graphChanges = historical && activeRound !== baseline?.round ? EMPTY_CHANGES : changes
+  const graphChanges = viewBaseline || (roundHistorical && (comparingBaseline || activeRound !== previousRound)) ? EMPTY_CHANGES : changes
   const publication = session.session?.snapshots.find(snapshot => snapshot.round === session.session!.round)?.publication
   const publicationPending = session.session?.phase === 'agent-working' || session.session?.phase === 'feedback-ready'
   const scene = displayReview.scenes.find(item => item.id === sceneId) ?? displayReview.scenes[0]
-  const canvasKey = JSON.stringify([SESSION_ID ?? review.id, session.session ? activeRound : [review.revision, review.snapshot.fingerprint], scene.id])
+  const canvasKey = JSON.stringify([SESSION_ID ?? review.id, viewBaseline ? ['baseline', taskBaseline?.snapshot.fingerprint] : session.session ? activeRound : [review.revision, review.snapshot.fingerprint], scene.id])
   const selectedNode = selection.length === 1 && selection[0].kind === 'node' ? displayReview.nodes.find(node => node.id === selection[0].id) : undefined
   const selectedEdge = selection.length === 1 && selection[0].kind === 'edge' ? displayReview.edges.find(edge => edge.id === selection[0].id) : undefined
   const displaySaveState = SESSION_ID ? session.saveState : saveState
-  const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction || session.availability !== 'active')
-  const reviewBlocked = sessionBlocked || historical || publicationPending
+  const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction || session.availability !== 'active' || (hasTaskBaseline && !taskBaseline))
+  const reviewBlocked = sessionBlocked || historical || publicationPending || baselinePlanning
   const needsReviewCount = unresolved.filter(comment => comment.status === 'needs-review').length
   const activeFilter = filter ?? (!approved && needsReviewCount ? 'needs-review' : 'all')
   const commentCounts = { all: review.comments.length, open: unresolved.length - needsReviewCount, 'needs-review': needsReviewCount, resolved: review.comments.length - unresolved.length }
@@ -203,7 +215,7 @@ export default function App() {
   }, [filter, panelOpen, tab, session.ready, activeFilter])
   const hasFeedback = pending.length > 0
   const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
-  const finishLabel = hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
+  const finishLabel = baselinePlanning ? '提交改造意见' : hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
   const replyComment = discussionComments.find(comment => comment.id === threadId) ?? discussionComments.at(-1)
 
   useEffect(stopFlow, [scene.id, stopFlow])
@@ -250,9 +262,14 @@ export default function App() {
     }
   }, [navOpen, compactToolbar, focusMode, session.ready])
 
-  useEffect(() => {
-    if (baselineRound >= 1 && session.session) void session.loadSnapshot(baselineRound).catch(error => setNotice(`读取修改前流程失败：${error instanceof Error ? error.message : '请重试'}`))
-  }, [baselineRound, session.session?.id, session.loadSnapshot])
+  const loadComparison = useCallback(async () => {
+    setComparisonError('')
+    try {
+      if (comparingBaseline && session.session?.baseline) await session.loadBaseline()
+      else if (previousRound >= 1 && session.session) await session.loadSnapshot(previousRound)
+    } catch (error) { setComparisonError(error instanceof Error ? error.message : '读取修改前流程失败') }
+  }, [comparingBaseline, session.session?.id, session.session?.baseline?.snapshot.fingerprint, previousRound, session.loadBaseline, session.loadSnapshot])
+  useEffect(() => { void loadComparison() }, [loadComparison])
 
   useEffect(() => {
     if (SESSION_ID) return
@@ -358,9 +375,10 @@ export default function App() {
   }, [])
 
   const replaceReview = useCallback((next: ReviewDocument) => {
-    if (SESSION_ID) session.enqueue(latestReview.current, next)
-    latestReview.current = next; setReview(next)
-  }, [session.enqueue])
+    const complete = taskBaseline?.id === next.id ? { ...next, baseline: taskBaseline } : next
+    if (SESSION_ID) session.enqueue(latestReview.current, complete)
+    latestReview.current = complete; setReview(complete)
+  }, [session.enqueue, taskBaseline])
   async function startSession() {
     setSessionAction(true)
     try {
@@ -440,6 +458,14 @@ export default function App() {
       download(JSON.stringify(record, null, 2), `${filename(record.review.id)}-${record.id}.json`)
     } catch (error) { setNotice(error instanceof Error ? error.message : '评审记录读取失败') }
   }
+  async function exportReview() {
+    closeMenus()
+    try {
+      const baseline = SESSION_ID && session.session?.baseline ? await session.loadBaseline() : review.baseline
+      const complete = baseline ? { ...review, baseline } : review
+      download(serializeReview(complete), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`)
+    } catch (error) { setNotice(error instanceof Error ? error.message : '导出评审失败，请重试') }
+  }
   function remember(draft: CommentDraft) {
     try { const next = withDraft(draftsRef.current, draft); draftsRef.current = next; setDrafts(next) }
     catch (error) { setNotice(error instanceof Error ? error.message : '草稿无法保存，请导出后再离开。') }
@@ -473,19 +499,33 @@ export default function App() {
     setFocusMode(current => !current)
   }
   async function switchRound(round: number) {
-    if (round === activeRound) return
+    if (round === activeRound && !viewBaseline) return
     try {
-      const document = round !== session.session?.round ? await session.loadSnapshot(round) : review
+      const document = !session.session || round === session.session.round ? review : await session.loadSnapshot(round)
       const keepThread = panelOpen && tab === 'detail' && selectedComments.some(comment => comment.id === threadId)
-      const targets = keepThread ? selection.filter(target => targetExists(document, target)) : []
+      const targets = keepThread || viewBaseline || comparingBaseline ? selection.filter(target => targetExists(document, target)) : []
       if (keepThread && !targets.length) { setTab('comments'); setFilter('all') }
-      setViewRound(round); setSelection(targets); closeComposer(false); setContinuous(false); setSubmitting(false)
+      setViewRound(round); setViewBaseline(false); setSelection(targets); closeComposer(false); setContinuous(false); setSubmitting(false)
     } catch (error) { setNotice(`读取历史流程失败：${error instanceof Error ? error.message : '请重试'}`) }
+  }
+  async function showBaseline(targets = selection) {
+    try {
+      const document = taskBaseline ?? await session.loadBaseline()
+      const id = targets.map(target => targetSceneId(document, target)).find(Boolean) ?? (document.scenes.some(item => item.id === scene.id) ? scene.id : document.scenes[0].id)
+      setSceneId(id); setViewBaseline(true); setComparisonSource('baseline'); setViewRound(null)
+      setSelection(targets.filter(target => targetExists(document, target) && targetSceneId(document, target) === id))
+      setDiscussionTargets(null); closeComposer(false); setContinuous(false); setSubmitting(false)
+    } catch (error) { setComparisonError(error instanceof Error ? error.message : '基线读取失败') }
+  }
+  function changeComparison(source: 'baseline' | 'previous') {
+    setComparisonSource(source); setViewBaseline(false); setViewRound(null)
+    setSelection(current => current.filter(target => targetExists(review, target)))
   }
   const showTargets = useCallback(async (targets: Target[], round = activeRound) => {
     try {
       const document = session.session && round !== session.session.round ? await session.loadSnapshot(round) : review
       if (session.session) setViewRound(round)
+      setViewBaseline(false)
       const id = targets.map(target => targetSceneId(document, target)).find(Boolean) ?? document.scenes[0].id
       setSceneId(id)
       setSelection(targets.filter(target => (target.kind === 'node' || target.kind === 'edge') && targetExists(document, target) && targetSceneId(document, target) === id))
@@ -495,34 +535,48 @@ export default function App() {
   const openComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string, inDiscussion = false) => {
     if (historical) { setStatus('历史流程只读，请回到当前版本继续讨论。'); return }
     try {
-      const key = draftKey(review, targets, replyTo)
+      const basis = replyTo ? review.comments.find(comment => comment.id === replyTo)?.basis : viewBaseline || baselinePlanning ? 'baseline' : undefined
+      const draftReview = taskBaseline ? { ...review, baseline: taskBaseline } : review
+      const key = draftKey(draftReview, targets, replyTo, basis)
       const existing = draftsRef.current.find(item => item.key === key)
-      const draft = existing ?? makeDraft(review, targets, '', replyTo)
+      const draft = existing ?? makeDraft(draftReview, targets, '', replyTo, basis)
       origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       if (!inDiscussion) { setDiscussionTargets(null); setPoint(at) }
       stopFlow(); setComposer(draft); setDocked(!!replyTo && !inDiscussion)
       if (replyTo && !inDiscussion) { setFocusMode(false); setPanelOpen(true); setTab('comments') }
       setStatus('')
     } catch (error) { setNotice(error instanceof Error ? error.message : '无法打开编辑器') }
-  }, [review, historical, stopFlow])
+  }, [review, historical, stopFlow, viewBaseline, baselinePlanning, taskBaseline])
   const openDiscussionComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string) => {
     openComposer(targets, at, replyTo, true)
     if (replyTo) setThreadId(replyTo)
   }, [openComposer])
-  const openThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target | Target[]) => {
+  const openThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target | Target[], followOrigin = true) => {
     const comment = review.comments.find(item => item.id === id)
     if (!comment) return
+    const baselineOrigin = comment.basis === 'baseline' && (followOrigin || viewBaseline)
+    const targetReview = baselineOrigin ? taskBaseline : followOrigin && viewBaseline ? review : displayReview
+    if (!targetReview) { setNotice('基线正在读取，请稍后重试'); return }
+    if (followOrigin) {
+      setViewBaseline(baselineOrigin)
+      if (baselineOrigin) setComparisonSource('baseline')
+      if (baselineOrigin || viewBaseline) setViewRound(null)
+    }
     stopFlow(); closeComposer(false); setThreadId(id)
     if (at) {
       const targets = target ? Array.isArray(target) ? target : [target] : comment.targets
       discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       setDiscussionTargets(targets); setPoint(at); setDocked(false); setContinuous(false)
-      setSelection(targets.filter(item => (item.kind === 'node' || item.kind === 'edge') && targetExists(displayReview, item) && targetSceneId(displayReview, item) === scene.id))
+      const targetScene = targets.map(item => targetSceneId(targetReview, item)).find(Boolean) ?? scene.id
+      setSceneId(targetScene)
+      setSelection(targets.filter(item => (item.kind === 'node' || item.kind === 'edge') && targetExists(targetReview, item) && targetSceneId(targetReview, item) === targetScene))
     } else {
       setDiscussionTargets(null); setFilter('all'); setTab('comments'); setFocusMode(false); setPanelOpen(true)
-      void showTargets(comment.targets)
+      if (baselineOrigin) void showBaseline(comment.targets)
+      else void showTargets(comment.targets)
     }
-  }, [review, displayReview, scene.id, closeComposer, showTargets, stopFlow])
+  }, [review, displayReview, scene.id, closeComposer, showTargets, stopFlow, taskBaseline, viewBaseline])
+  const openCanvasThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target) => openThread(id, at, target, false), [openThread])
   function startReview() {
     if (!unresolved.length) return
     const ordered = [...unresolved.filter(item => item.status === 'needs-review'), ...unresolved.filter(item => item.status === 'open')]
@@ -533,8 +587,8 @@ export default function App() {
     if (historical || sessionBlocked) return '请回到当前版本并等待同步完成后保存'
     if (!composer) return '请先选择批注位置'
     try {
-      if (composer.key !== draftKey(latestReview.current, composer.targets, composer.replyTo)) throw new Error('这是旧版本草稿，请回到草稿列表导出后核对新版。')
-      const next = composer.replyTo ? addReply(latestReview.current, composer.replyTo, composer.body) : addComment(latestReview.current, composer.targets, composer.body)
+      if (composer.key !== draftKey(completeReview, composer.targets, composer.replyTo, composer.basis)) throw new Error('这是旧版本草稿，请回到草稿列表导出后核对新版。')
+      const next = composer.replyTo ? addReply(completeReview, composer.replyTo, composer.body) : addComment(completeReview, composer.targets, composer.body, composer.basis)
       replaceReview(next); remember({ ...composer, body: '' }); setThreadId(composer.replyTo ?? next.comments.at(-1)!.id)
       if (docked) { setTab('comments'); setFilter('all') }
       closeComposer(); setStatus(composer.replyTo ? '回复已保存。' : '批注已保存。')
@@ -560,7 +614,7 @@ export default function App() {
     const next = previous ? rebaseReview(previous, incoming) : incoming
     if (next.id !== latestReview.current.id) setFilter(null)
     setChanges(previous ? getChanges(previous, incoming) : EMPTY_CHANGES)
-    replaceReview(next); switchScene(next.scenes[0].id); setThreadId(null); setSubmitting(false); setContinuous(false); setNotice('')
+    replaceReview(next); setViewBaseline(false); setComparisonSource('baseline'); switchScene(next.scenes[0].id); setThreadId(null); setSubmitting(false); setContinuous(false); setNotice('')
     setStatus('评审已导入，原批注与各版本草稿均保留。')
     return true
   }
@@ -637,12 +691,12 @@ export default function App() {
     if (historical) return
     setSessionAction(true)
     try {
-      let next = latestReview.current
+      let next = completeReview
       if (saveDrafts) for (const draft of currentDrafts) {
-        if (draft.key !== draftKey(next, draft.targets, draft.replyTo)) throw new Error('流程已更新，旧版本草稿已保留，请先核对新版。')
+        if (draft.key !== draftKey(next, draft.targets, draft.replyTo, draft.basis)) throw new Error('流程已更新，旧版本草稿已保留，请先核对新版。')
         if (!validDrafts.some(item => item.key === draft.key)) throw new Error('有草稿的目标已移除，请先到草稿列表核对或导出。')
         if (draft.replyTo && next.comments.find(comment => comment.id === draft.replyTo)?.status !== 'open') throw new Error('有回复属于待复核或已解决意见，请先保存回复并复核，再提交本轮。')
-        next = draft.replyTo ? addReply(next, draft.replyTo, draft.body) : addComment(next, draft.targets, draft.body)
+        next = draft.replyTo ? addReply(next, draft.replyTo, draft.body) : addComment(next, draft.targets, draft.body, draft.basis)
       }
       const comments = session.session ? currentPendingFeedback(next, session.session) : pendingFeedback(next, history)
       if (!comments.length) throw new Error('没有新的待处理意见；待复核意见请先确认处理结果。')
@@ -700,7 +754,7 @@ export default function App() {
       {!tasks.length && !taskBusy && <p className="muted">尚无相关任务。</p>}
       {tasks.map(task => <article className="task-entry" key={task.id} aria-label={task.scope?.purpose ?? task.title}>
         <strong>{task.scope?.purpose ?? task.title}{task.id === SESSION_ID ? ' · 当前任务' : ''}</strong>{task.scope?.purpose && <p>{task.title}</p>}
-        <p className="muted">R{task.round} · {task.archivedAt ? '已归档' : phaseLabels[task.phase]}{task.scope?.context ? ` · ${task.scope.context}` : ''}</p>
+        <p className="muted">{graphVersionLabel(task, task.round)} · {task.archivedAt ? '已归档' : phaseLabels[task.phase]}{task.scope?.context ? ` · ${task.scope.context}` : ''}</p>
         <div className="task-actions">{task.archivedAt ? <button className="button" disabled={taskBusy} onClick={() => void restoreTask(task)}>恢复任务</button> : <a className="button" href={`/?session=${encodeURIComponent(task.id)}`}>打开任务</a>}
           <details className="task-options"><summary className="button subtle">更多操作</summary><div>
             <button className="button" disabled={taskBusy} onClick={() => { setTaskError(''); void downloadTask(task).catch(error => setTaskError(error instanceof Error ? error.message : '备份失败')) }}>下载完整备份</button>
@@ -717,9 +771,9 @@ export default function App() {
   if (SESSION_ID && !session.ready) return <main className="session-loading"><h1>LogicMargin</h1><p role={session.error ? 'alert' : 'status'}>{session.error || '正在恢复评审会话…'}</p>{session.error && <button className="button" onClick={session.retry}>重新连接</button>}{session.pendingRecovery && <><button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button><button className="button" disabled={session.busy} onClick={() => void backupAndRecoverSession()}>备份未同步意见并恢复服务端版本</button></>}<a href="/">打开本机评审</a>{taskManager}</main>
 
   const threadProps = {
-    review, session: session.session, snapshots: session.snapshots, changes,
+    review: completeReview, session: session.session, snapshots: session.snapshots, changes,
     threadId, continuous, historical, reviewBlocked, sessionBlocked, viewRound: activeRound,
-    setThreadId, showTargets, openComposer, closeComposer, reviewNext,
+    setThreadId, showTargets, showBaseline, openComposer, closeComposer, reviewNext,
   }
   const scopeButtons = <>
     <button className="button" onClick={() => { closeMenus(); openComposer([{ kind: 'scene', id: scene.id }]) }}>批注此场景</button>
@@ -745,7 +799,7 @@ export default function App() {
         <input className="screen-reader-only" ref={inputRef} type="file" accept=".json,application/json" aria-label="导入评审文件" onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = '' }} />
         <details className="workspace-menu file-menu"><summary className="button">文件<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">
           {!SESSION_ID && <button className="button" onClick={() => { closeMenus(); inputRef.current?.click() }}><Upload size={15} />导入评审</button>}
-          <button className="button" onClick={() => { closeMenus(); download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`) }}><ArrowDownToLine size={15} />导出评审</button>
+          <button className="button" onClick={() => void exportReview()}><ArrowDownToLine size={15} />导出评审</button>
           {!SESSION_ID && HAS_BUNDLED_SPIRIT_REVIEW && <button className="button" disabled={loadingSpiritSanctum} aria-busy={loadingSpiritSanctum} onClick={() => { closeMenus(); void openSpiritSanctum() }}>{loadingSpiritSanctum ? '正在打开魔灵秘境…' : '打开魔灵秘境评审'}</button>}
           {!SESSION_ID && review.id !== sampleReview.id && <button className="button" onClick={() => { closeMenus(); void importFile(new File([JSON.stringify(sampleReview)], 'sample.json')) }}>打开 Vast 样例</button>}
           <button className="button" onClick={openTasks}>评审任务</button>
@@ -759,7 +813,7 @@ export default function App() {
     {taskManager}
     <div className="workspace-notifications">
       {session.error && <div className="notice error" role="alert"><p>{session.error}</p><button className="button" onClick={session.retry}>重新连接</button>{session.pendingRecovery && <><button className="button" onClick={() => download(session.pendingRecovery!, 'logic-margin-unsent.json')}>导出未同步意见</button><button className="button" disabled={session.busy} onClick={() => void backupAndRecoverSession()}>备份未同步意见并恢复服务端版本</button></>}</div>}
-      {focusMode && displaySaveState.includes('失败') && <div className="notice error" role="alert"><p>{displaySaveState}</p><button className="button" onClick={() => download(serializeReview(review), `${filename(`${review.id}-${review.revision}`)}.logic-margin.json`)}>导出评审</button></div>}
+      {focusMode && displaySaveState.includes('失败') && <div className="notice error" role="alert"><p>{displaySaveState}</p><button className="button" onClick={() => void exportReview()}>导出评审</button></div>}
       {notice && <div className="notice error" role="alert"><p>{notice}</p><button className="icon-button button" aria-label="关闭提示" onClick={() => setNotice('')}><X size={16} /></button></div>}
       {status && <div className="notice status-notice" role="status"><p>{status}</p><button className="icon-button button" aria-label="关闭状态提示" onClick={() => setStatus('')}><X size={16} /></button></div>}
       {Object.entries(recovery).map(([key, raw]) => raw !== null && <div className="notice error" key={key}><p>{key === 'review' ? '自动保存已暂停，避免覆盖损坏的记录。' : `${key === 'drafts' ? '草稿' : '评审历史'}原始数据已保留，自动保存暂停。`}</p><button className="button" onClick={() => { download(raw, `logic-margin-${key}-recovery.txt`, 'text/plain'); setRecovery(current => ({ ...current, [key]: null })); setNotice('') }}>{key === 'review' ? '备份原记录并启用保存' : `备份${key === 'drafts' ? '草稿' : '历史'}原记录并启用保存`}</button></div>)}
@@ -778,7 +832,8 @@ export default function App() {
           <details className={`canvas-tools${compactToolbar ? ' workspace-menu' : ''}`} open={!compactToolbar}>
             <summary className="button" aria-label="画布工具"><SlidersHorizontal size={15} />工具{mode === 'select' && <span className="badge">框选中</span>}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
             <div className="canvas-tool-content" onClick={event => { if (compactToolbar && (event.target as Element).closest('button')) closeMenus() }}>
-              {session.session && <RevisionControls session={session.session} viewRound={activeRound} onViewRound={switchRound} onOpenChanges={() => openPanel('changes')} />}
+              <RevisionControls session={session.session ?? undefined} viewRound={activeRound} onViewRound={round => void switchRound(round)} onOpenChanges={() => openPanel('changes')}
+                baseline={hasTaskBaseline ? { showing: viewBaseline, source: comparisonSource, onSourceChange: changeComparison, onShow: () => void showBaseline() } : undefined} />
               <div className="tool-group canvas-mode-switch" role="group" aria-label="画布操作模式"><button className={`button ${mode === 'pan' ? 'active' : ''}`} aria-label="浏览" aria-pressed={mode === 'pan'} onClick={() => setMode('pan')}><Hand size={14} /><span className="tool-label">浏览</span></button><button className={`button ${mode === 'select' ? 'active' : ''}`} aria-label="框选" aria-pressed={mode === 'select'} onClick={() => setMode('select')}><Scan size={14} /><span className="tool-label">框选</span></button></div>
               <div className="tool-group toolbar-actions">
                 {!historical && (compactToolbar
@@ -805,22 +860,36 @@ export default function App() {
             <button className="button" onClick={() => setSubmitting(false)}>取消</button>
           </div>
         </section>}
-        {publicationPending && <div className="revision-banner publication-pending" role="status"><strong>修改中，新版尚未发布</strong><p>当前仍是 R{session.session?.round} 的流程图。代理交流回复不代表修改已完成；新版发布后才能确认处理结果。</p></div>}
-        {historical && <div className="revision-banner historical-banner"><span>正在查看 R{activeRound} 的历史流程 · 只读。</span><button className="button subtle" onClick={() => void switchRound(session.session!.round)}>返回当前 R{session.session?.round}</button></div>}
+        {publicationPending && <div className="revision-banner publication-pending" role="status"><strong>修改中，新版尚未发布</strong><p>当前仍是 {roundLabel(session.session!.round)} 的流程图。代理交流回复不代表修改已完成；新版发布后才能确认处理结果。</p></div>}
+        {(viewBaseline || historical) && <div className="revision-banner historical-banner"><span>{viewBaseline ? baselinePlanning ? '在基线 B 上提出改造意见，提交后交给代理实现。' : '正在查看固定基线 B，可针对原流程批注。' : `正在查看 ${roundLabel(activeRound)} 的历史流程 · 只读。`}</span>{!baselinePlanning && <button className="button subtle" onClick={() => void switchRound(session.session?.round ?? 1)}>{session.session ? `返回当前 ${roundLabel(session.session.round)}` : '返回修改后'}</button>}</div>}
         <GraphCanvas ref={graph} key={canvasKey} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode}
+          readingScopeKey={JSON.stringify([SESSION_ID ?? review.id, scene.id])}
+          comparisonReview={viewBaseline || (roundHistorical && !comparingBaseline && activeRound === previousRound) ? review : !roundHistorical ? baselineReview : undefined}
           flowPulse={flowPulse} onSelectIntent={replayFlow} onHoverIntent={discussionTargets || composer ? undefined : replayFlow}
           nodeAppearance={nodeAppearance} onNodeAppearanceChange={changeNodeAppearance}
-          readOnly={historical} viewportKey={canvasKey} changeSide={historical ? 'before' : 'after'} commentOrder={commentOrder}
-          onOpenComposer={openComposer} onOpenThread={openThread} onViewportChange={reposition} />
-        <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">右键批注，滚轮缩放。更多操作见图例</span><span>{unresolved.length} 条待处理意见</span></div>
+          readOnly={historical} viewportKey={canvasKey} changeSide={viewBaseline || historical ? 'before' : 'after'} commentOrder={commentOrder}
+          onOpenComposer={openComposer} onOpenThread={openCanvasThread} onViewportChange={reposition} />
+        <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">{baselinePlanning ? '基线评审 · 提出改造要求' : viewBaseline ? '基线 B · 原版流程' : baseline && sessionChanges ? `${baseline.label} → ${session.session ? roundLabel(session.session.round) : '当前'} · 新增 ${changes.added.length}，修改 ${changes.changed.length}，移除 ${changes.removed.length}` : '右键批注，滚轮缩放。更多操作见图例'}</span><span>{unresolved.length} 条待处理意见</span></div>
       </main>
       <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}`} aria-label="步骤详情与批注">
-        <div className="inspector-tabs" role="group" aria-label="评审面板内容" data-keep-composer><button className={tab === 'comments' ? 'active' : ''} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>讨论 {review.comments.length}</button><button className={tab === 'detail' ? 'active' : ''} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>详情</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>草稿 {drafts.length}</button>}{baseline && <button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>变化</button>}<button className="button icon-button" aria-label="收起侧栏" onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
+        <div className="inspector-tabs" role="group" aria-label="评审面板内容" data-keep-composer><button className={tab === 'comments' ? 'active' : ''} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>讨论 {review.comments.length}</button><button className={tab === 'detail' ? 'active' : ''} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>详情</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>草稿 {drafts.length}</button>}<button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>变化</button><button className="button icon-button" aria-label="收起侧栏" onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
         <div className="inspector-body" hidden={!!composer && docked}>
-          {tab === 'changes' && !baseline && <div className="empty-state"><p>正在读取修改前流程…</p><button className="button" onClick={() => void session.loadSnapshot(baselineRound).catch(error => setNotice(error instanceof Error ? error.message : '历史读取失败'))}>重新读取</button></div>}
+          {tab === 'changes' && !baseline && <div className="empty-state">
+            {hasTaskBaseline || previousRound >= 1 ? <><p role={comparisonError ? 'alert' : 'status'}>{comparisonError || '正在读取修改前流程…'}</p><button className="button" onClick={() => void loadComparison()}>重新读取</button></>
+              : <><h3>未提供修改前基线</h3><p>请让发起评审的代理补入原版流程图及源码基线，再核对本次修改。</p></>}
+          </div>}
           {tab === 'changes' && baseline && sessionChanges && <>
-            <section className="detail-section publication-summary"><h3>R{baseline.round} → R{session.session?.round}</h3><p>{publication?.summary ?? '此轮由旧版客户端发布，未记录发布说明。'}</p>{publication?.unchangedReason && <p>流程未变原因：{publication.unchangedReason}</p>}{publication && <p className="muted">已核验 {publication.source.files.length} 个源文件 · {new Date(publication.source.checkedAt).toLocaleString('zh-CN')}</p>}</section>
-            <RevisionChangesPanel before={baseline.review} after={review} changes={sessionChanges} onLocate={(target, side) => showTargets([target], side === 'before' ? baseline.round : session.session!.round)} />
+            <section className="detail-section publication-summary"><h3>{baselinePlanning ? '基线改造评审' : `${baseline.label} → ${session.session ? roundLabel(session.session.round) : '当前'}`}</h3>
+              {comparingBaseline ? <p className="muted">基线版本 {baseline.review.revision} · {baseline.review.snapshot.commit}</p> : <><p>{publication?.summary ?? '此轮由旧版客户端发布，未记录发布说明。'}</p>{publication?.unchangedReason && <p>流程未变原因：{publication.unchangedReason}</p>}{publication && <p className="muted">已核验 {publication.source.files.length} 个源文件 · {new Date(publication.source.checkedAt).toLocaleString('zh-CN')}</p>}</>}
+              {!!(changes.added.length + changes.changed.length + changes.removed.length) && <button className="button" onClick={() => {
+                const targets = [...changes.changed, ...changes.added, ...changes.removed].filter(target => targetExists(displayReview, target) && targetSceneId(displayReview, target) === scene.id)
+                if (targets.length) graph.current?.focusRelated(targets)
+              }}>聚焦当前场景改动</button>}
+            </section>
+            {baselinePlanning ? <p className="muted">请在基线图上提出改造要求。代理修改实现并发布 R1 后，在这里核对相对基线的变化。</p> : <RevisionChangesPanel before={baseline.review} after={review} changes={sessionChanges} comparisonLabel={comparingBaseline ? '本次改动' : '本轮变化'} onLocate={(target, side) => {
+              if (side === 'before' && comparingBaseline) void showBaseline([target])
+              else void showTargets([target], side === 'before' ? previousRound : session.session?.round ?? 1)
+            }} />}
           </>}
           {tab === 'detail' && <>
             {!selection.length ? <div className="empty-state"><MousePointer2 size={24} /><h3>选择一个步骤</h3><p>点击图中步骤或连线，查看规则与源码依据。</p></div> : <div className="inspector-heading"><span className="project-label">{selectedNode ? kindLabels[selectedNode.kind] : selectedEdge ? '连线与条件' : `已选 ${selection.length} 项`}</span><h3 className="panel-title">{selectedNode?.title ?? selectedEdge?.label ?? '这一段流程'}</h3></div>}
@@ -831,19 +900,19 @@ export default function App() {
             </>}
             {selectedEdge && <section className="detail-section"><h3>流转条件</h3><p>{selectedEdge.detail}</p><p>{targetLabel(displayReview, { kind: 'node', id: selectedEdge.source })} → {targetLabel(displayReview, { kind: 'node', id: selectedEdge.target })}</p></section>}
             {selection.length > 1 && <div className="selection-list">{selection.map(target => <div className="selection-item" key={keyOf(target)}><span>{targetLabel(displayReview, target)}</span><button className="button icon-button" aria-label={`移除选择：${targetLabel(displayReview, target)}`} onClick={() => setSelection(current => current.filter(item => keyOf(item) !== keyOf(target)))}><X size={13} /></button></div>)}</div>}
-            {selectedComments.length > 0 && <section className="detail-section target-discussions" aria-label="所选对象的相关讨论"><button className="button" onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); openThread(selectedComments[0].id, { x: rect.left, y: rect.bottom }, selection) }}><MessageSquare size={14} />查看相关讨论 {selectedComments.length}</button></section>}
+            {selectedComments.length > 0 && <section className="detail-section target-discussions" aria-label="所选对象的相关讨论"><button className="button" onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); openThread(selectedComments[0].id, { x: rect.left, y: rect.bottom }, selection, false) }}><MessageSquare size={14} />查看相关讨论 {selectedComments.length}</button></section>}
           </>}
           {tab === 'comments' && <>
             {!!review.comments.length && <div className="review-navigation"><p>{unresolved.length} 条尚未确认{pending.length > 0 && ` · ${pending.length} 条可提交`}</p>{!continuous && !reviewBlocked && unresolved.length > 0 && <button className="button" onClick={startReview}>开始逐条复核</button>}{continuous && <button className="button subtle" onClick={() => setContinuous(false)}>退出连续复核</button>}</div>}
             {!!review.comments.length && <div className="comment-filter" aria-label="筛选批注">{(['all', 'open', 'needs-review', 'resolved'] as const).map(item => <button key={item} className={activeFilter === item ? 'active' : ''} aria-pressed={activeFilter === item} onClick={() => setFilter(item)}>{item === 'all' ? '全部' : statusLabels[item]} <span className="filter-count">{commentCounts[item]}</span></button>)}</div>}
             {!visibleComments.length && <div className="empty-state"><MessageSquare size={24} /><h3>{review.comments.length ? '此状态下暂无批注' : '让意见落在具体流程上'}</h3><p>在图中选择步骤、连线或一段流程，也可以批注遗漏的场景。</p></div>}
             <CommentThreads {...threadProps} comments={visibleComments} openThread={openThread} />
-            {SESSION_ID ? !!session.session?.history.length && <details className="record-list"><summary>会话评审记录 · {session.session.history.length}</summary>{session.session.history.slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '已提交的意见包' : '整轮通过记录'}</strong><small>R{record.round} · {record.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => void downloadRecord(record.id)}>下载固定记录</button></div>)}</details> : !!history.filter(record => record.review.id === review.id).length && <details className="record-list"><summary>本地评审记录 · {history.filter(record => record.review.id === review.id).length}</summary>{history.filter(record => record.review.id === review.id).slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '意见包 · 待交给代理' : '整轮通过记录'}</strong><small>{record.review.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => download(JSON.stringify(record, null, 2), `${filename(record.review.id)}-${record.id}.json`)}>下载固定记录</button></div>)}</details>}
+            {SESSION_ID ? !!session.session?.history.length && <details className="record-list"><summary>会话评审记录 · {session.session.history.length}</summary>{session.session.history.slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '已提交的意见包' : '整轮通过记录'}</strong><small>{roundLabel(record.round)} · {record.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => void downloadRecord(record.id)}>下载固定记录</button></div>)}</details> : !!history.filter(record => record.review.id === review.id).length && <details className="record-list"><summary>本地评审记录 · {history.filter(record => record.review.id === review.id).length}</summary>{history.filter(record => record.review.id === review.id).slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? '意见包 · 待交给代理' : '整轮通过记录'}</strong><small>{record.review.revision} · {new Date(record.createdAt).toLocaleString('zh-CN')}</small><button className="button" onClick={() => download(JSON.stringify(record, null, 2), `${filename(record.review.id)}-${record.id}.json`)}>下载固定记录</button></div>)}</details>}
           </>}
           {tab === 'drafts' && <section className="draft-list"><p className="muted">未保存的内容自动保留。旧版本草稿可导出核对。</p>{!drafts.length && <div className="empty-state"><p>没有未保存的意见。</p></div>}{drafts.map(draft => {
             const valid = validDrafts.some(item => item.key === draft.key)
             return <article className="draft-entry" key={draft.key}><strong>{draft.replyTo ? '讨论回复 · ' : ''}{draft.labels.join(' · ')}</strong><small>{draft.revision}{!valid && ' · 旧版本或原目标不可用'}</small><p>{draft.body}</p>
-              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { showTargets(draft.targets); openComposer(draft.targets, undefined, draft.replyTo); setDocked(true); setPanelOpen(true) }}>继续编辑</button>}
+              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setDocked(true); setPanelOpen(true) }}>继续编辑</button>}
                 <details className="draft-options"><summary className="button subtle">更多操作</summary><div><button className="button" onClick={() => download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`)}>导出这份草稿</button><button className="button subtle" onClick={() => { download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`); remember({ ...draft, body: '' }) }}>导出并移除草稿</button></div></details>
               </div>
             </article>
@@ -853,14 +922,14 @@ export default function App() {
           discussion={discussionTargets ? {
             key: discussionTargets.map(keyOf).join('|'),
             title: discussionTargets.map(target => targetLabel(displayReview, target)).join('、'),
-            context: `${session.session ? `R${activeRound} · ` : ''}${displayReview.revision}${historical ? ' · 历史流程只读' : ''}`,
+            context: `${viewBaseline ? '基线 B · ' : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? ' · 只读' : ''}`,
             content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} /></>,
             replyLabel: composer?.replyTo ? `回复意见 #${review.comments.findIndex(comment => comment.id === composer.replyTo) + 1}` : undefined,
             canReply: !!replyComment && !historical && !sessionBlocked,
             onReply: () => { if (replyComment) openDiscussionComposer(replyComment.targets, undefined, replyComment.id) },
             onCollapse: () => closeComposer(false),
           } : undefined}
-          onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer} onClose={() => discussionTargets ? closeDiscussion() : closeComposer()} onToggle={() => { setDocked(current => !current); if (!docked) { setFocusMode(false); setPanelOpen(true); showTargets(composer?.targets ?? []) } }} />
+          onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer} onClose={() => discussionTargets ? closeDiscussion() : closeComposer()} onToggle={() => { setDocked(current => !current); if (!docked) { setFocusMode(false); setPanelOpen(true); if (composer?.basis === 'baseline') { setViewBaseline(true); setComparisonSource('baseline') } else void showTargets(composer?.targets ?? []) } }} />
       </aside>
     </div>
   </div>

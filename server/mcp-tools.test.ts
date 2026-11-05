@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -63,7 +63,7 @@ test('review tools expose bounded schemas and reject relative files, extra desti
   await source()
   const catalog = await client.listTools()
   assert.deepEqual(catalog.tools.map(tool => tool.name).sort(), [
-    'acknowledge_review', 'cleanup_review', 'get_review', 'list_reviews', 'reply_review',
+    'acknowledge_review', 'attach_review_baseline', 'cleanup_review', 'get_review', 'list_reviews', 'reply_review',
     'restore_review', 'revise_review', 'start_review', 'verify_review', 'wait_review',
   ])
   assert.equal(catalog.tools.find(tool => tool.name === 'wait_review')!.annotations!.readOnlyHint, true)
@@ -79,6 +79,82 @@ test('review tools expose bounded schemas and reject relative files, extra desti
   assert.equal(stale.isError, true)
   assert.match(resultText(stale), /来源文件已变化/)
   assert.equal((await call('list_reviews', {})).sessions.length, 0)
+})
+
+test('MCP creates R1 with a separately verified baseline and can attach B to an existing R1', async t => {
+  const { directory, reviewFile, client, call, source } = await setup(t)
+  const review = await source()
+  const baselineRoot = join(directory, 'before-source')
+  await mkdir(baselineRoot)
+  const beforeContent = 'checkBefore()\nrunBefore()\n'
+  const baseline = structuredClone(review)
+  baseline.revision = 'before-task'
+  baseline.nodes[0].summary = '任务开始前的规则。'
+  baseline.snapshot.files = [{ path: 'logic.ts', sha256: sha256(beforeContent) }]
+  baseline.snapshot.fingerprint = sha256(JSON.stringify(baseline.snapshot.files))
+  const baselineFile = join(directory, 'before.json')
+  await writeFile(join(baselineRoot, 'logic.ts'), beforeContent)
+  await writeFile(baselineFile, JSON.stringify(baseline))
+  const args = { review_file: reviewFile, source_root: directory, baseline_file: baselineFile }
+  const missingRoot = await client.callTool({ name: 'start_review', arguments: { ...args, purpose: '缺旧树应停止' } })
+  assert.equal(missingRoot.isError, true)
+  assert.match(resultText(missingRoot), /需要 --baseline-source-root/)
+  assert.equal((await call('list_reviews', {})).sessions.length, 0)
+  const verified = await call('verify_review', { ...args, baseline_source_root: baselineRoot })
+  assert.equal(verified.baseline.fingerprint, baseline.snapshot.fingerprint)
+  const started = await call('start_review', { ...args, baseline_source_root: baselineRoot, purpose: '核对首轮固定基线' })
+  const first = await call('get_review', { session_id: started.sessionId })
+  assert.equal(first.round, 1)
+  assert.deepEqual(first.review.baseline, baseline)
+
+  const legacy = await call('start_review', { review_file: reviewFile, source_root: directory, purpose: '补录首轮基线' })
+  const attached = await call('attach_review_baseline', { session_id: legacy.sessionId, baseline_file: baselineFile, source_root: baselineRoot })
+  assert.equal(attached.sessionId, legacy.sessionId)
+  assert.equal(attached.round, 1)
+  assert.equal(attached.version, 2)
+  const saved = await call('get_review', { session_id: legacy.sessionId })
+  assert.deepEqual(saved.review.baseline, baseline)
+  await writeFile(join(baselineRoot, 'logic.ts'), 'unexpected edit\n')
+  const stale = await client.callTool({ name: 'attach_review_baseline', arguments: {
+    session_id: legacy.sessionId, baseline_file: baselineFile, source_root: baselineRoot,
+  } })
+  assert.equal(stale.isError, true)
+  assert.match(resultText(stale), /来源文件已变化/)
+  assert.equal((await call('get_review', { session_id: legacy.sessionId })).version, saved.version)
+})
+
+test('baseline-first MCP review collects redesign feedback on B and publishes actual implementation as R1', async t => {
+  const { directory, reviewFile, call, api, source } = await setup(t)
+  const original = await source('check()\nchargeBeforeSuccess()\n')
+  const started = await call('start_review', { review_file: reviewFile, source_root: directory,
+    baseline_review: true, purpose: '先审原系统，再提出改造' })
+  assert.equal(started.baselineReview, true)
+  const first = await call('get_review', { session_id: started.sessionId })
+  assert.equal(first.round, 1)
+  assert.equal(first.baselineReview, true)
+  assert.deepEqual(first.review.baseline, original)
+  const comment = addComment(first.review, [{ kind: 'node', id: original.nodes[0].id }], '请改为执行成功后扣费。', 'baseline').comments[0]
+  const saved = await api(`/${started.sessionId}/mutations`, { round: first.round, revision: first.review.revision,
+    fingerprint: first.review.snapshot.fingerprint, mutations: [{ kind: 'add-comment', comment }] })
+  assert.equal(saved.review.comments[0].basis, 'baseline')
+  const submitted = await api(`/${started.sessionId}/finish`, { expectedVersion: saved.version, kind: 'feedback' })
+  const received = await call('wait_review', { session_id: started.sessionId })
+  assert.equal(received.baselineReview, true)
+  assert.equal(received.submission.review.comments[0].basis, 'baseline')
+  await call('acknowledge_review', { session_id: started.sessionId, submission_id: submitted.history[0].id })
+
+  const implemented = await source('check()\nrun()\nchargeAfterSuccess()\n', first.review)
+  implemented.revision = 'implemented-r1'
+  implemented.nodes[0].summary = '执行成功后再扣费。'
+  await writeFile(reviewFile, JSON.stringify(implemented))
+  const revised = await call('revise_review', { session_id: started.sessionId, review_file: reviewFile,
+    source_root: directory, base_round: first.round, summary: '已修改真实执行顺序并核验当前源码' })
+  assert.equal(revised.round, 2)
+  assert.equal(revised.baselineReview, true)
+  const current = await call('get_review', { session_id: started.sessionId })
+  assert.deepEqual(current.review.baseline, original)
+  assert.equal(current.review.nodes[0].summary, implemented.nodes[0].summary)
+  assert.equal(current.review.comments[0].basis, 'baseline')
 })
 
 test('MCP review lifecycle waits for submission, explicitly acknowledges and keeps approval until cleanup', async t => {

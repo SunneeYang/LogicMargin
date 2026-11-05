@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.6.0-2563eb?style=flat-square" alt="版本 0.6.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.7.0-2563eb?style=flat-square" alt="版本 0.7.0" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="需要 Node.js 22.18 或更高版本" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -66,7 +66,8 @@ LogicMargin 是一个本地运行的逻辑评审工具，供策划、产品和�
 | --- | --- |
 | **直接在图上评审** | 对节点、连线、多个对象、整个场景或整张图留下意见，讨论始终带着流程上下文。 |
 | **保留源码依据** | 查看步骤的规则、输入输出、源码引用与快照信息，明确这次评审覆盖什么。 |
-| **看见每轮变化** | 切换修改前与当前图，核对字段差异；节点移除后，原意见仍可回到历史位置查看。 |
+| **看见每轮变化** | 从 R1 开始对照固定基线 B，也可相对上一轮核对字段差异；节点移除后，原意见仍可回到历史位置查看。 |
+| **先讨论原系统改造** | 直接在基线 B 上批注改造要求，Agent 修改实现后发布 R1，保留原图与意见供复核。 |
 | **与 Agent 完成闭环** | 明确提交本轮意见，Agent 等待、修改、回应并发布新图，再由人确认解决或通过。 |
 | **按目的隔离任务** | 同一段对话可关联多个独立评审；不同目的的批注、草稿与轮次分别保留。 |
 | **掌握数据的去留** | JSON 导入导出、完整备份、可恢复归档与显式永久删除；支持完成后自动归档。 |

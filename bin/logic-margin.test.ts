@@ -39,6 +39,25 @@ async function revisionFixture(t: TestContext, current = fixture()) {
   return { dir, reviewFile, next: review }
 }
 
+async function baselineFixture(t: TestContext) {
+  const current = await revisionFixture(t)
+  const baselineRoot = await mkdtemp(join(tmpdir(), 'logic-margin-baseline-cli-'))
+  t.after(() => rm(baselineRoot, { recursive: true, force: true }))
+  const content = 'check()\nchargeBeforeSuccess()\n'
+  const digest = (value: string) => createHash('sha256').update(value).digest('hex')
+  const baseline = structuredClone(current.next)
+  baseline.revision = 'baseline'
+  baseline.comments = []
+  baseline.nodes[0].summary = '原版先扣费再执行。'
+  baseline.nodes[0].evidence[0].digest = digest(content.slice(0, -1))
+  baseline.snapshot.files = [{ path: 'logic.ts', sha256: digest(content) }]
+  baseline.snapshot.fingerprint = digest(JSON.stringify(baseline.snapshot.files))
+  const baselineFile = join(baselineRoot, 'before.json')
+  await writeFile(join(baselineRoot, 'logic.ts'), content)
+  await writeFile(baselineFile, JSON.stringify(baseline))
+  return { ...current, baselineRoot, baselineFile, baseline }
+}
+
 function output() {
   let out = '', err = ''
   return { io: { out: (value: string) => { out += value }, err: (value: string) => { err += value } },
@@ -257,6 +276,109 @@ test('verify checks source provenance offline and prints a complete manifest', a
   assert.deepEqual(result.value.files, next.snapshot.files)
   assert.equal(result.value.fingerprint, next.snapshot.fingerprint)
   assert.equal(result.err, '')
+})
+
+test('start verifies separate current and baseline trees before creating R1', async t => {
+  const { dir, reviewFile, next, baselineRoot, baselineFile, baseline } = await baselineFixture(t)
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async (_url: string, init?: RequestInit) => {
+    requests++
+    const payload = JSON.parse(String(init?.body))
+    assert.deepEqual(payload.review, { ...next, baseline })
+    const current = fixture()
+    return Response.json({ ...current, review: payload.review })
+  })
+  const result = output()
+  await runCli(['start', reviewFile, '--source-root', dir, '--baseline-file', baselineFile,
+    '--baseline-source-root', baselineRoot, '--url', 'http://local.test'], result.io)
+  assert.equal(requests, 1)
+  assert.equal(result.value.round, 1)
+  assert.equal(result.value.sessionId, 'session-1')
+})
+
+test('baseline-review starts from the verified original system without a separate old tree', async t => {
+  const { dir, reviewFile, next } = await revisionFixture(t)
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async (_url: string, init?: RequestInit) => {
+    requests++
+    const payload = JSON.parse(String(init?.body))
+    const original = { ...next, comments: [] }
+    assert.deepEqual(payload, { review: { ...original, baseline: original }, baselineReview: true })
+    return Response.json({ ...fixture(), baselineReview: true, review: payload.review })
+  })
+  const args = ['start', reviewFile, '--baseline-review', '--source-root', dir, '--url', 'http://local.test']
+  const started = output()
+  await runCli(args, started.io)
+  assert.equal(started.value.baselineReview, true)
+  assert.equal(started.value.round, 1)
+  await assert.rejects(runCli([...args, '--baseline-file', reviewFile], output().io), /不能同时指定独立基线/)
+  await assert.rejects(runCli(['verify', reviewFile, '--baseline-review'], output().io), /仅用于 start/)
+  await writeFile(join(dir, 'logic.ts'), 'source changed\n')
+  await assert.rejects(runCli(args, output().io), /来源文件已变化/)
+  assert.equal(requests, 1)
+})
+
+test('verify requires an explicit baseline tree and rejects stale baseline sources offline', async t => {
+  const { dir, reviewFile, next, baselineRoot, baselineFile, baseline } = await baselineFixture(t)
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => { requests++; throw new Error('unexpected network access') })
+  const args = ['verify', reviewFile, '--source-root', dir, '--baseline-file', baselineFile]
+  await assert.rejects(runCli(args, output().io), /需要 --baseline-source-root/)
+  await assert.rejects(runCli([...args, '--baseline-source-root', dir], output().io), /来源文件已变化/)
+  const verified = output()
+  await runCli([...args, '--baseline-source-root', baselineRoot], verified.io)
+  assert.equal(verified.value.fingerprint, next.snapshot.fingerprint)
+  assert.equal(verified.value.baseline.fingerprint, baseline.snapshot.fingerprint)
+  await writeFile(reviewFile, JSON.stringify({ ...next, baseline }))
+  await assert.rejects(runCli(['verify', reviewFile, '--source-root', dir], output().io), /核验修改前基线需要/)
+  const embedded = output()
+  await runCli(['verify', reviewFile, '--source-root', dir, '--baseline-source-root', baselineRoot], embedded.io)
+  assert.deepEqual(embedded.value.baseline.files, baseline.snapshot.files)
+  await writeFile(join(baselineRoot, 'logic.ts'), 'old tree changed\n')
+  await assert.rejects(runCli(['start', reviewFile, '--source-root', dir, '--baseline-source-root', baselineRoot], output().io), /来源文件已变化/)
+  assert.equal(requests, 0)
+})
+
+test('baseline verifies the old tree and attaches to the existing session with a version guard', async t => {
+  const { baselineRoot, baselineFile, baseline } = await baselineFixture(t)
+  const current = fixture()
+  let writes = 0
+  t.mock.method(globalThis, 'fetch', async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      writes++
+      assert.equal(url, 'http://local.test/api/review-sessions/session-1/baseline')
+      assert.deepEqual(JSON.parse(String(init.body)), { expectedVersion: current.version, baseline })
+      return Response.json({ ...current, version: 2, review: { ...current.review, baseline } })
+    }
+    return Response.json(current)
+  })
+  await assert.rejects(runCli(['baseline', current.id, baselineFile, '--url', 'http://local.test'], output().io), /需要 --source-root/)
+  const attached = output()
+  await runCli(['baseline', current.id, baselineFile, '--source-root', baselineRoot, '--url', 'http://local.test'], attached.io)
+  assert.equal(writes, 1)
+  assert.equal(attached.value.sessionId, current.id)
+  assert.equal(attached.value.round, 1)
+  assert.equal(attached.value.version, 2)
+  await writeFile(baselineFile, JSON.stringify({ ...baseline, id: 'other-review' }))
+  await assert.rejects(runCli(['baseline', current.id, baselineFile, '--source-root', baselineRoot, '--url', 'http://local.test'], output().io), /相同评审 ID/)
+  assert.equal(writes, 1)
+})
+
+test('separate baseline and current files retain the combined 10MB review limit', async t => {
+  const { dir, reviewFile, next, baselineRoot, baselineFile, baseline } = await baselineFixture(t)
+  const padding = Array.from({ length: 540 }, (_, index) => ({ ...next.nodes[0], id: `size-padding-${index}`, evidence: [], detail: 'x'.repeat(10000) }))
+  next.nodes.push(...padding)
+  baseline.nodes.push(...structuredClone(padding))
+  for (const [path, value] of [[reviewFile, next], [baselineFile, baseline]] as const) {
+    const content = JSON.stringify(value)
+    assert.ok(Buffer.byteLength(content) < 10 * 1024 * 1024)
+    await writeFile(path, content)
+  }
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => { requests++; throw new Error('unexpected network access') })
+  await assert.rejects(runCli(['start', reviewFile, '--source-root', dir, '--baseline-file', baselineFile,
+    '--baseline-source-root', baselineRoot, '--url', 'http://local.test'], output().io), /合计超过10MB/)
+  assert.equal(requests, 0)
 })
 
 test('revise rejects stale source and invalid final replies before contacting a service', async t => {

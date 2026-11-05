@@ -4,13 +4,13 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { gzip, gunzip } from 'node:zlib'
 import { promisify } from 'node:util'
-import { addReply, parseReview, rebaseReview, targetExists } from '../src/model.ts'
+import { addReply, parseReview, parseReviewBaseline, rebaseReview, targetExists } from '../src/model.ts'
 import { logicIdentity } from '../src/revisions.ts'
 import { validatePublication } from './publication.ts'
 import { currentSession } from './session-view.ts'
 import { createApprovalRecord, createFeedbackPackage, parseRecordHistory, pendingFeedback } from '../src/workspace.ts'
 import { parseSessionOptions } from '../src/session-lifecycle.ts'
-import type { ReviewComment, ReviewDocument, ReviewRecord } from '../src/types.ts'
+import type { ReviewBaseline, ReviewComment, ReviewDocument, ReviewRecord } from '../src/types.ts'
 import type { CleanupResult, CurrentSession, ReviewSession, ReviewSnapshot, SessionSummary } from '../src/session-types.ts'
 
 const MAX_CACHE_BYTES = 64 * 1024 * 1024
@@ -56,6 +56,8 @@ function parseSession(value: unknown): ReviewSession {
   const source = object(value)
   if (source.schemaVersion !== 1 || typeof source.phase !== 'string' || !phases.includes(source.phase)) throw new SessionError('会话格式无效')
   const review = checkedReview(source.review)
+  const options = parseSessionOptions(source)
+  if (options.baselineReview && !review.baseline) throw new SessionError('基线改造评审缺少固定基线 B')
   const history = parseRecordHistory(source.history)
   if (!Array.isArray(source.snapshots) || !source.snapshots.length) throw new SessionError('会话快照无效')
   const snapshots = source.snapshots.map(value => {
@@ -72,10 +74,12 @@ function parseSession(value: unknown): ReviewSession {
   const round = integer(source.round, '轮次')
   checkCommentRounds(review, round)
   if (snapshots.length !== round || snapshots.some((item, i) => item.round !== i + 1 || item.review.id !== review.id) || history.some(item => item.review.id !== review.id)) throw new SessionError('会话历史所属评审或轮次不一致')
+  if ([...snapshots.map(item => item.review), ...history.map(item => item.review)].some(item =>
+    item.baseline && (!review.baseline || !equal(item.baseline, review.baseline)))) throw new SessionError('会话历史中的固定基线不一致')
   const acknowledgedSubmission = source.acknowledgedSubmission === undefined ? undefined : id(source.acknowledgedSubmission)
   if (acknowledgedSubmission && !history.some(item => item.id === acknowledgedSubmission && item.kind === 'logic-margin-feedback')) throw new SessionError('会话接收记录不存在')
   return { schemaVersion: 1, id: sessionId(source.id), version: integer(source.version, '版本'), round,
-    ...parseSessionOptions(source),
+    ...options,
     phase: source.phase as ReviewSession['phase'], createdAt: date(source.createdAt), updatedAt: date(source.updatedAt), review, history, snapshots,
     ...(acknowledgedSubmission ? { acknowledgedSubmission } : {}) }
 }
@@ -193,6 +197,25 @@ export class SessionStore {
     if (!snapshot) throw new SessionError('找不到这个流程版本', 404)
     return structuredClone(snapshot)
   }
+  async getBaseline(session: string): Promise<{ review: ReviewBaseline }> {
+    await this.serial.get(session)
+    const baseline = (await this.load(session)).review.baseline
+    if (!baseline) throw new SessionError('未提供修改前基线', 404)
+    return { review: structuredClone(baseline) }
+  }
+  attachBaseline<V extends View = undefined>(session: string, value: unknown, view?: V): Promise<Result<V>> {
+    const input = object(value)
+    integer(input.expectedVersion, '版本')
+    return this.update(session, state => {
+      const baseline = parseReviewBaseline(input.baseline, state.review.id)
+      if (state.review.baseline) {
+        if (equal(state.review.baseline, baseline)) return state
+        throw new SessionError('固定基线已存在，不能替换', 409)
+      }
+      if (input.expectedVersion !== state.version) throw new SessionError('会话已有更新，请读取最新版本后补录基线', 409)
+      return { ...state, review: { ...state.review, baseline } }
+    }, view)
+  }
   async getRecord(session: string, recordId: string): Promise<ReviewRecord> {
     id(recordId)
     await this.serial.get(session)
@@ -302,11 +325,17 @@ export class SessionStore {
       return structuredClone(restored)
     })
   }
-  create<V extends View = undefined>(value: unknown, view?: V, options: { scope?: unknown; cleanupPolicy?: unknown } = {}): Promise<Result<V>> {
+  create<V extends View = undefined>(value: unknown, view?: V, options: { scope?: unknown; cleanupPolicy?: unknown; baselineReview?: unknown } = {}): Promise<Result<V>> {
     const sessionKey = randomUUID()
     return this.queue(sessionKey, async () => {
       const incoming = checkedReview(value)
       const metadata = parseSessionOptions(options)
+      if (metadata.baselineReview) {
+        const { baseline, comments: _comments, ...currentGraph } = incoming
+        if (!baseline) throw new SessionError('基线改造评审必须提供固定基线 B')
+        const { comments: _baselineComments, ...baselineGraph } = baseline
+        if (!equal(currentGraph, baselineGraph)) throw new SessionError('基线改造评审的初始图必须与固定基线 B 一致')
+      }
       const review = { ...incoming, comments: (metadata.scope ? [] : incoming.comments).map(comment => ({ ...comment, originRound: 1,
         ...(comment.reviewedRound === undefined ? {} : { reviewedRound: 1 }),
         ...(comment.replies === undefined ? {} : { replies: comment.replies.map(reply => ({ ...reply, round: 1 })) }) })) }
@@ -335,10 +364,11 @@ export class SessionStore {
           const candidate = checkedReview({ ...review, comments: [raw] }).comments[0]
           const existing = review.comments.find(item => item.id === candidate.id)
           if (existing) {
-            if (!equal([existing.body, existing.targets, existing.createdAt, existing.revision], [candidate.body, candidate.targets, candidate.createdAt, candidate.revision])) throw new SessionError('相同批注标识的内容冲突', 409)
+            if (!equal([existing.body, existing.basis, existing.targets, existing.createdAt, existing.revision], [candidate.body, candidate.basis, candidate.targets, candidate.createdAt, candidate.revision])) throw new SessionError('相同批注标识的内容冲突', 409)
             continue
           }
-          if (candidate.revision !== review.revision || candidate.status !== 'open' || candidate.replies?.length || candidate.reviewedRevision || candidate.reviewedRound !== undefined || candidate.targets.some(target => !targetExists(review, target))) throw new SessionError('新批注必须指向当前版本的现有目标且处于待处理状态')
+          const document = candidate.basis === 'baseline' ? review.baseline : review
+          if (candidate.revision !== review.revision || candidate.status !== 'open' || candidate.replies?.length || candidate.reviewedRevision || candidate.reviewedRound !== undefined || !document || candidate.targets.some(target => !targetExists(document, target))) throw new SessionError('新批注必须指向所属流程图的现有目标且处于待处理状态')
           review = checkedReview({ ...review, comments: [...review.comments, { ...candidate, originRound: state.round }] })
         } else if (mutation.kind === 'add-reply') {
           const commentId = id(mutation.commentId)
@@ -377,6 +407,7 @@ export class SessionStore {
         return state
       }
       if (input.expectedVersion !== state.version) throw new SessionError('会话已有更新，请核对最新批注后重新提交', 409)
+      if (input.kind === 'approval' && state.baselineReview && state.round === 1) throw new SessionError('基线 B 用于提出改造要求，请提交意见后等待首个修改版本', 409)
       if (input.kind === 'approval' && (state.phase === 'agent-working' || state.phase === 'feedback-ready')) throw new SessionError('新版流程尚未发布，不能确认整轮通过', 409)
       const pending = pendingFeedback(state.review, state.history)
       if (input.kind === 'feedback' && !pending.length) throw new SessionError('没有新的待处理意见可提交')
@@ -401,6 +432,8 @@ export class SessionStore {
     return this.update(session, state => {
       if (input.expectedVersion !== state.version) throw new SessionError('会话已有更新，请读取最新意见后发布新版', 409)
       if (review.id !== state.review.id) throw new SessionError('只能发布相同评审 ID 的新版')
+      if (!state.review.baseline && review.baseline) throw new SessionError('请先补录固定基线，再发布新版', 409)
+      if (state.review.baseline && review.baseline && !equal(state.review.baseline, review.baseline)) throw new SessionError('固定基线已存在，不能随新版替换', 409)
       const publication = validatePublication(input.publication, review)
       if (publication.baseRound !== state.round) throw new SessionError('发布基线不是当前固定流程，请重新读取本轮意见', 409)
       if (logicIdentity(state.review) === logicIdentity(review) && !publication.unchangedReason) throw new SessionError('流程没有逻辑变化，请说明流程未变的原因')

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sampleReview } from './sample.ts'
 import { addComment, addReply } from './model.ts'
-import { commentOrigin, comparisonSnapshot, getRevisionChanges, logicIdentity, parsePublication, reviewAtRound } from './revisions.ts'
+import { commentOrigin, comparisonSnapshot, getRevisionChanges, graphVersionLabel, logicIdentity, parsePublication, reviewAtRound } from './revisions.ts'
 import type { ReviewSession } from './session-types.ts'
 
 test('semantic changes, evidence updates and layout changes are distinct', () => {
@@ -17,6 +17,21 @@ test('semantic changes, evidence updates and layout changes are distinct', () =>
   layout.nodes[0].output += ' 新的状态变化'
   assert.deepEqual(getRevisionChanges(before, layout).changed, [{ kind: 'node', id: layout.nodes[0].id }])
   assert.notEqual(logicIdentity(layout), logicIdentity(before))
+})
+
+test('baseline-first graph labels and baseline comment origins remain independent from review rounds', () => {
+  assert.equal(graphVersionLabel({}, 1), 'R1')
+  assert.equal(graphVersionLabel({ baselineReview: true }, 1), '基线 B')
+  assert.equal(graphVersionLabel({ baselineReview: true }, 2), 'R1')
+  assert.equal(graphVersionLabel({ baselineReview: true }, 3), 'R2')
+  const baseline = { ...structuredClone(sampleReview), comments: [] }
+  const review = addComment({ ...structuredClone(baseline), baseline }, [{ kind: 'node', id: baseline.nodes[0].id }], '原版改造意见', 'baseline')
+  review.comments[0].originRound = 1
+  const session: ReviewSession = { schemaVersion: 1, id: 'baseline-test', baselineReview: true, round: 2, version: 3, phase: 'awaiting-review',
+    createdAt: '2026-11-03T00:00:00Z', updatedAt: '2026-11-03T00:00:00Z', review, history: [],
+    snapshots: [{ round: 1, openedAt: '2026-11-03T00:00:00Z', review: baseline }, { round: 2, openedAt: '2026-11-03T00:00:00Z', review }] }
+  assert.equal(commentOrigin(session, review.comments[0]), undefined)
+  assert.equal(reviewAtRound(session, 1).comments[0].basis, 'baseline')
 })
 
 test('historical graph projects later-created original comments and current replies without adding future opinions', () => {

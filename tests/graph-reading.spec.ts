@@ -50,7 +50,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     })
     const curvedPath = await outgoing.locator('.react-flow__edge-path').getAttribute('d')
-    expect(curvedPath).toContain('Q')
+    expect(curvedPath).toMatch(/^M.+ L/)
     for (const layer of ['.edge-crossing-gap', '.react-flow__edge-interaction', '.edge-flow-light']) {
       await expect(outgoing.locator(layer)).toHaveAttribute('d', curvedPath!)
     }
