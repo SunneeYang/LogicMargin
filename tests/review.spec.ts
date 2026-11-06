@@ -32,10 +32,11 @@ async function importReview(page: Page, review: ReviewDocument) {
 
 async function saveScopeComment(page: Page, scope: 'scene' | 'review', body: string) {
   await commentScope(page, scope)
-  const editor = page.getByRole('dialog', { name: '流程批注', exact: true })
+  const editor = page.getByRole('dialog', { name: '节点讨论', exact: true })
   await editor.getByLabel('问题与预期行为').fill(body)
   await editor.getByRole('button', { name: '添加批注', exact: true }).click()
-  await expect(editor).not.toBeVisible()
+  await expect(editor.getByLabel('问题与预期行为')).toHaveCount(0)
+  await editor.getByRole('button', { name: '关闭讨论', exact: true }).click()
 }
 
 async function openComments(page: Page, count: number) {
@@ -55,9 +56,10 @@ test('scene and review anchors survive a new revision while old drafts remain ex
     [{ kind: 'scene', id: 'upgrade' }], [{ kind: 'review', id: sampleReview.id }],
   ])
   await page.locator('.react-flow__node[data-id="upgrade-start"]').hover()
-  await page.getByRole('button', { name: '批注：发起总等级升级', exact: true }).click()
+  await page.getByRole('button', { name: '讨论：发起总等级升级', exact: true }).click()
+  await page.locator('[data-composer]').getByRole('button', { name: '添加新批注', exact: true }).click()
   await page.getByLabel('问题与预期行为').fill('属于旧源码版本的未完成意见。')
-  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
+  await page.getByRole('button', { name: '关闭讨论', exact: true }).click()
   const oldDraft = (await savedDrafts(page))[0]
   const next = structuredClone(sampleReview)
   next.revision = 'review-v2'
@@ -93,7 +95,7 @@ test('feedback packages freeze a snapshot, deduplicate submissions, and offer bo
   await saveScopeComment(page, 'scene', '已保存的场景意见。')
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('暂留在草稿的整轮意见。')
-  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
+  await page.getByRole('button', { name: '关闭讨论', exact: true }).click()
   await page.locator('.topbar').getByRole('button', { name: '提交本轮（1）', exact: true }).click()
   const summary = page.getByRole('region', { name: '提交本轮意见', exact: true })
   await expect(summary).toContainText('1 条新意见 · 1 份本版本草稿')
@@ -167,7 +169,7 @@ test('reviewer replies and repeated agent imports lead to human re-review and a 
   const firstCard = page.getByRole('article', { name: '意见 1', exact: true })
   const secondCard = page.getByRole('article', { name: '意见 2', exact: true })
   await firstCard.getByRole('button', { name: '回复讨论', exact: true }).click()
-  const replyEditor = page.getByRole('dialog', { name: '回复讨论', exact: true })
+  const replyEditor = page.getByRole('dialog', { name: '节点讨论', exact: true })
   await replyEditor.getByLabel('补充说明').fill('请保留拒绝分支的状态说明。')
   await replyEditor.getByRole('button', { name: '保存回复', exact: true }).click()
   await expect(firstCard.locator('.reply-card')).toContainText('评审补充')

@@ -14,12 +14,8 @@
   line-height: 1;
 }
 .node-comment-button:hover { background: var(--color-accent-paper); border-color: var(--color-accent); }
-.node-comment-button.is-empty { opacity: 0; pointer-events: none; background: var(--color-clear); color: var(--color-muted); }
+.node-comment-button.is-empty { background: var(--color-clear); color: var(--color-muted); }
 .node-comment-button.is-empty:hover { color: var(--color-accent); background: var(--color-accent-paper); }
-.review-node:hover .node-comment-button.is-empty,
-.review-node:focus-within .node-comment-button.is-empty,
-.react-flow__node.selected .node-comment-button.is-empty,
-.react-flow__node:focus-visible .node-comment-button.is-empty { opacity: 1; pointer-events: auto; }
 .canvas-selection-actions { position: absolute; top: var(--space-md); right: var(--space-md); z-index: 5; display: flex; align-items: center; gap: var(--space-xs); max-width: calc(100% - 24px); }
 .canvas-selection-actions .button { max-width: 100%; white-space: nowrap; }
 .canvas-comment-index { position: absolute; top: var(--space-md); left: var(--space-md); z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); max-width: min(45%, 300px); max-height: 120px; overflow-y: auto; padding: 2px; }
@@ -75,10 +71,10 @@
 .composer-hint { margin-top: var(--space-sm); color: var(--color-muted); font-size: var(--text-xs); }
 .composer-error { margin-top: var(--space-sm); color: var(--color-error); font-size: var(--text-sm); }
 .discussion-reply-label { margin-bottom: var(--space-sm); color: var(--color-muted); font-size: var(--text-xs); }
-.discussion-reply-toggle { min-height: 36px; }
 .collapse-reply { margin-right: auto; }
 @media (max-width: 900px) {
   .comment-composer.is-inline, .comment-composer.is-inline.has-discussion, .comment-composer.is-inline.has-inspection, .comment-composer.is-docked, .comment-composer.is-docked.has-inspection { position: fixed; z-index: 90; right: 8px; left: 8px !important; top: auto !important; bottom: max(8px, calc(100dvh - var(--app-height) - var(--viewport-top) + 8px)); width: auto; max-height: calc(var(--app-height, 100dvh) * .62); margin: 0; border: 1px solid var(--color-rule); border-radius: var(--panel-radius); transform-origin: 50% 100%; }
+  .comment-composer.has-inspection[data-tab="code"] { max-height: calc(var(--app-height, 100dvh) * .74); }
   .comment-composer[data-composing="true"], .comment-composer.has-inspection[data-composing="true"], .comment-composer.has-discussion[data-composing="true"] { max-height: calc(var(--app-height, 100dvh) * .78); }
   .comment-composer textarea { min-height: 72px; max-height: 100px; font-size: 16px; }
   .composer-header, .discussion-heading, .composer-footer, .discussion-threads, .inspection-content { padding: var(--space-sm) var(--space-md); }

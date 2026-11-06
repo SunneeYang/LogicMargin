@@ -244,6 +244,11 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
   const asset = await fetch(new URL(script, status.url))
   assert.equal(asset.status, 200)
   assert.match(asset.headers.get('content-type'), /javascript/)
+  const codeChunk = (await asset.text()).match(/CodeDiffEditor-[\w-]+\.js/)?.[0]
+  assert.ok(codeChunk, 'The code comparison tool must remain a lazy local asset')
+  const codeAsset = await fetch(new URL(codeChunk, new URL(script, status.url)))
+  assert.equal(codeAsset.status, 200, 'The standalone package must serve the code comparison chunk offline')
+  assert.match(await codeAsset.text(), /cm-mergeView/)
   assert.equal((await fetch(`${status.url}/reviews/spirit-sanctum.logic-margin.json`)).status, 404)
   const comment = addComment(review, [{ kind: 'review', id: review.id }], '原生包重启后仍保留的意见。').comments.at(-1)
   const saved = await fetch(`${status.url}/api/review-sessions/${identity.sessionId}/mutations`, {

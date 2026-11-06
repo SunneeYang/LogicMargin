@@ -35,7 +35,7 @@ test('different purposes in one Agent context keep separate comments, rounds and
   expect((await (await request.get(`/api/review-sessions/${second.id}`)).json()).review.comments).toEqual([])
   await commentScope(page, 'review')
   await page.getByLabel('问题与预期行为').fill('留在原目的的草稿')
-  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
+  await page.getByRole('button', { name: '关闭讨论', exact: true }).click()
   await openMenu(page, '.file-menu')
   await openTasks(page)
   const dialog = page.getByRole('dialog', { name: '评审任务', exact: true })

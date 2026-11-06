@@ -10,7 +10,7 @@ async function openReview(page: Page) {
   review = addReply(review, review.comments[0].id, '请核对功能开关、等级配置和消耗校验的先后顺序。失败出口需要保留原资源。')
   await page.getByLabel('导入评审文件').setInputFiles({ name: 'themes.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(review)) })
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
-  await page.getByRole('button', { name: '批注：通灵功能是否开放？（1 条）', exact: true }).click()
+  await page.getByRole('button', { name: '讨论：通灵功能是否开放？（1 条）', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '节点讨论', exact: true })).toBeVisible()
 }
 
@@ -42,7 +42,7 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     await openReview(page)
-    await page.getByRole('button', { name: '回复当前意见', exact: true }).click()
+    await page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true }).click()
     const input = page.getByLabel('补充说明', { exact: true })
     await input.fill('主题切换时保留这份回复草稿。')
     const camera = await page.locator('.react-flow__viewport').getAttribute('style')
@@ -62,7 +62,7 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
     await page.getByRole('button', { name: '收起回复', exact: true }).click()
     await page.screenshot({ path: info.outputPath(`${theme}-${mode}-desktop.png`) })
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect(page.getByRole('button', { name: '回复当前意见', exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true })).toBeInViewport({ ratio: 1 })
     await expect.poll(() => page.evaluate(() => {
       const target = document.querySelector('.react-flow__node[data-id="upgrade-toggle"] .review-node')!.getBoundingClientRect()
       const canvas = document.querySelector('.canvas')!.getBoundingClientRect()
@@ -70,7 +70,7 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
       return target.top >= canvas.top && target.bottom <= discussion.top - 4
     })).toBe(true)
     await page.screenshot({ path: info.outputPath(`${theme}-${mode}-phone.png`) })
-    await page.getByRole('button', { name: '回复当前意见', exact: true }).click()
+    await page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true }).click()
     await expect(input).toHaveValue('主题切换时保留这份回复草稿。')
     await page.setViewportSize({ width: 320, height: 500 })
     await expect(page.getByRole('button', { name: '保存回复', exact: true })).toBeInViewport({ ratio: 1 })
@@ -85,7 +85,7 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
 
 test('explicit selection replays a bounded flow without changing the open discussion or its draft', async ({ page }) => {
   await openReview(page)
-  await page.getByRole('button', { name: '回复当前意见', exact: true }).click()
+  await page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true }).click()
   await page.getByLabel('补充说明', { exact: true }).fill('仍在回复原节点。')
   const node = page.locator('.react-flow__node[data-id="upgrade-start"]')
   await node.locator('.node-title').click()
@@ -179,7 +179,7 @@ test('lifted cards keep their actual ports attached and discussion motion can re
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect.poll(gap).toBeLessThan(1)
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  const badge = page.getByRole('button', { name: '批注：通灵功能是否开放？（1 条）', exact: true })
+  const badge = page.getByRole('button', { name: '讨论：通灵功能是否开放？（1 条）', exact: true })
   await badge.click()
   await discussion.evaluate(element => {
     const animation = element.getAnimations()[0]

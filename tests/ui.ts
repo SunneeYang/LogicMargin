@@ -30,6 +30,8 @@ export async function openTasks(page: Page) {
 }
 
 export async function commentScope(page: Page, scope: 'scene' | 'review') {
+  const openDiscussion = page.locator('[data-composer][data-state="open"]')
+  if (await openDiscussion.isVisible()) await openDiscussion.getByRole('button', { name: '关闭讨论', exact: true }).click()
   await openMenu(page, await page.locator('.scope-actions-inline').count() ? '.canvas-tools' : '.scope-actions')
   await page.getByRole('button', { name: scope === 'scene' ? '批注此场景' : '批注整个评审', exact: true }).click()
 }

@@ -225,7 +225,6 @@ export default function App() {
   const hasFeedback = pending.length > 0
   const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
   const finishLabel = baselinePlanning ? '提交改造意见' : hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
-  const replyComment = discussionComments.find(comment => comment.id === threadId) ?? discussionComments.at(-1)
   const codeBefore = viewBaseline ? undefined : comparingBaseline ? taskBaseline : session.snapshots.get(activeRound - 1)
   const [codeError, setCodeError] = useState('')
   useEffect(() => {
@@ -550,9 +549,9 @@ export default function App() {
       requestAnimationFrame(() => graph.current?.focusTargets(targets))
     } catch (error) { setNotice(`定位历史流程失败：${error instanceof Error ? error.message : '请重试'}`) }
   }, [review, session.session, session.loadSnapshot, activeRound])
-  const openDetails = useCallback((targets: Target[], at?: { x: number; y: number }) => {
+  const openInspection = useCallback((targets: Target[], at?: { x: number; y: number }, tab: InspectionTab = 'comments') => {
     discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    setComposer(null); setDiscussionTargets(targets); setWindowTab('detail'); setPoint(at); setThreadId(null)
+    setComposer(null); setDiscussionTargets(targets); setWindowTab(tab); setPoint(at); setThreadId(null)
     setSelection(targets); stopFlow()
     if (docked) { setFocusMode(false); setPanelOpen(true) }
   }, [docked, stopFlow])
@@ -565,7 +564,7 @@ export default function App() {
       const existing = draftsRef.current.find(item => item.key === key)
       const draft = existing ?? makeDraft(draftReview, targets, '', replyTo, basis)
       origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      if (!inDiscussion) { setDiscussionTargets(null); setPoint(at) }
+      if (!inDiscussion) { discussionOrigin.current = origin.current; setDiscussionTargets(targets); setPoint(at) }
       stopFlow(); setComposer(draft); setWindowTab('comments')
       if (replyTo && !inDiscussion) setDocked(true)
       if (docked || replyTo && !inDiscussion) { setFocusMode(false); setPanelOpen(true); setTab('comments') }
@@ -897,7 +896,7 @@ export default function App() {
           flowPulse={flowPulse} onSelectIntent={replayFlow} onHoverIntent={discussionTargets || composer ? undefined : replayFlow}
           nodeAppearance={nodeAppearance} onNodeAppearanceChange={changeNodeAppearance}
           readOnly={historical} viewportKey={canvasKey} changeSide={viewBaseline || historical ? 'before' : 'after'} commentOrder={commentOrder}
-          onOpenComposer={openComposer} onOpenDetails={openDetails} onOpenThread={openCanvasThread} onViewportChange={reposition} />
+          onOpenComposer={openComposer} onOpenInspection={openInspection} onOpenThread={openCanvasThread} onViewportChange={reposition} />
         <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">{baselinePlanning ? '基线评审 · 提出改造要求' : viewBaseline ? '基线 B · 原版流程' : baseline && sessionChanges ? `${baseline.label} → ${session.session ? roundLabel(session.session.round) : '当前'} · 新增 ${changes.added.length}，修改 ${changes.changed.length}，移除 ${changes.removed.length}` : '滚轮平移，Ctrl/⌘＋滚轮缩放。更多操作见图例'}</span><span>{unresolved.length} 条待处理意见</span></div>
       </main>
       <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}${windowDocked ? ' node-window-docked' : ''}`} aria-label="步骤详情与批注">
@@ -941,7 +940,7 @@ export default function App() {
           {tab === 'drafts' && <section className="draft-list"><p className="muted">未保存的内容自动保留。旧版本草稿可导出核对。</p>{!drafts.length && <div className="empty-state"><p>没有未保存的意见。</p></div>}{drafts.map(draft => {
             const valid = validDrafts.some(item => item.key === draft.key)
             return <article className="draft-entry" key={draft.key}><strong>{draft.replyTo ? '讨论回复 · ' : ''}{draft.labels.join(' · ')}</strong><small>{draft.revision}{!valid && ' · 旧版本或原目标不可用'}</small><p>{draft.body}</p>
-              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setWindowTab('comments'); setDocked(true); setPanelOpen(true) }}>继续编辑</button>}
+              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setDiscussionTargets(draft.targets); setWindowTab('comments'); setDocked(true); setPanelOpen(true) }}>继续编辑</button>}
                 <details className="draft-options"><summary className="button subtle">更多操作</summary><div><button className="button" onClick={() => download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`)}>导出这份草稿</button><button className="button subtle" onClick={() => { download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`); remember({ ...draft, body: '' }) }}>导出并移除草稿</button></div></details>
               </div>
             </article>
@@ -950,7 +949,7 @@ export default function App() {
         <CommentComposer draft={composer} docked={docked} position={position} onInteract={stopFlow}
           inspection={windowTargets ? {
             key: JSON.stringify([displayReview.revision, displayReview.snapshot.fingerprint, viewBaseline, activeRound, windowTargets]),
-            title: windowTargets.map(target => targetLabel(displayReview, target)).join('、'),
+            title: `${windowTargets.length > 1 ? `所选 ${windowTargets.length} 项 · ` : ''}${windowTargets.map(target => targetLabel(displayReview, target)).join('、')}`,
             context: `${viewBaseline ? '基线 B · ' : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? ' · 只读' : ''}`,
             tab: windowTab, onTabChange: setWindowTab,
             detail: <TargetDetails review={displayReview} targets={windowTargets} />,
@@ -960,10 +959,8 @@ export default function App() {
             key: discussionTargets.map(keyOf).join('|'),
             title: discussionTargets.map(target => targetLabel(displayReview, target)).join('、'),
             context: `${viewBaseline ? '基线 B · ' : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? ' · 只读' : ''}`,
-            content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}{!discussionComments.length && <p className="muted">这个步骤还没有批注。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!composer && !historical && <button className="button node-window-new-comment" disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>添加新批注</button>}</>,
+            content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}{!discussionComments.length && <p className="muted">这个步骤还没有批注。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" chronological comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!composer && !historical && <button className="button node-window-new-comment" disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>添加新批注</button>}</>,
             replyLabel: composer?.replyTo ? `回复意见 #${review.comments.findIndex(comment => comment.id === composer.replyTo) + 1}` : undefined,
-            canReply: !!replyComment && !historical && !sessionBlocked,
-            onReply: () => { if (replyComment) openDiscussionComposer(replyComment.targets, undefined, replyComment.id) },
             onCollapse: () => closeComposer(false),
           } : undefined}
           onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer}

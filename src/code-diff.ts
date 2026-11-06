@@ -13,17 +13,6 @@ export interface CodePair {
   ambiguous: boolean
 }
 
-export interface DiffLine {
-  kind: 'context' | 'removed' | 'added'
-  text: string
-  beforeLine?: number
-  afterLine?: number
-}
-
-const MAX_DIFF_LINES = 2000
-const MAX_DIFF_CELLS = 1_000_000
-const MAX_DIFF_CHARACTERS = 240_000
-
 export function collectCodeReferences(review: ReviewDocument, targets: Target[]): CodeReference[] {
   const nodeIds = new Set<string>()
   for (const target of targets) {
@@ -87,51 +76,4 @@ export function pairCodeReferences(before: CodeReference[], after: CodeReference
     for (const current of right) add(undefined, current, ambiguous)
   }
   return pairs
-}
-
-export function diffCode(before: string, after: string, beforeStart = 1, afterStart = 1): { lines: DiffLine[]; limited: boolean } {
-  const old = before.split('\n')
-  const current = after.split('\n')
-  // shortcut: quadratic comparison is bounded; larger excerpts remain available as unmarked source text.
-  if (old.length + current.length > MAX_DIFF_LINES || (old.length + 1) * (current.length + 1) > MAX_DIFF_CELLS || before.length + after.length > MAX_DIFF_CHARACTERS) {
-    return { lines: [], limited: true }
-  }
-  const width = current.length + 1
-  const table = new Uint16Array((old.length + 1) * width)
-  for (let i = old.length - 1; i >= 0; i--) for (let j = current.length - 1; j >= 0; j--) {
-    table[i * width + j] = old[i] === current[j] ? table[(i + 1) * width + j + 1] + 1 : Math.max(table[(i + 1) * width + j], table[i * width + j + 1])
-  }
-  const lines: DiffLine[] = []
-  let i = 0
-  let j = 0
-  while (i < old.length || j < current.length) {
-    if (i < old.length && j < current.length && old[i] === current[j]) {
-      lines.push({ kind: 'context', text: old[i], beforeLine: beforeStart + i++, afterLine: afterStart + j++ })
-    } else if (i < old.length && (j === current.length || table[(i + 1) * width + j] >= table[i * width + j + 1])) {
-      lines.push({ kind: 'removed', text: old[i], beforeLine: beforeStart + i++ })
-    } else lines.push({ kind: 'added', text: current[j], afterLine: afterStart + j++ })
-  }
-  return { lines, limited: false }
-}
-
-export function diffCodePair(pair: CodePair) {
-  const old = pair.before?.evidence
-  const current = pair.after?.evidence
-  return old?.code !== undefined && current?.code !== undefined ? diffCode(old.code, current.code, old.startLine, current.startLine) : undefined
-}
-
-export function splitDiffLines(lines: DiffLine[]): { before?: DiffLine; after?: DiffLine }[] {
-  const rows: { before?: DiffLine; after?: DiffLine }[] = []
-  let removed: DiffLine[] = []
-  let added: DiffLine[] = []
-  const flush = () => {
-    for (let i = 0; i < Math.max(removed.length, added.length); i++) rows.push({ before: removed[i], after: added[i] })
-    removed = []; added = []
-  }
-  for (const line of lines) {
-    if (line.kind === 'context') { flush(); rows.push({ before: line, after: line }) }
-    else (line.kind === 'removed' ? removed : added).push(line)
-  }
-  flush()
-  return rows
 }

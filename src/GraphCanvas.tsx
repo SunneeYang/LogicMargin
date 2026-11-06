@@ -28,7 +28,7 @@ export interface GraphCanvasProps {
   nodeAppearance: NodeAppearance
   onNodeAppearanceChange: (appearance: NodeAppearance) => void
   onOpenComposer: (targets: Target[], point?: Point) => void
-  onOpenDetails: (targets: Target[], point?: Point) => void
+  onOpenInspection: (targets: Target[], point?: Point, tab?: 'comments' | 'detail') => void
   onOpenThread: (commentId: string, point?: Point, target?: Target) => void
   onViewportChange?: () => void
   readOnly?: boolean
@@ -55,10 +55,8 @@ type FlowNode = Node<{
   item: ReviewNode
   count: number
   change?: ChangeKind
-  readOnly: boolean
   layout: LayoutNode
   onComment: (target: Target, point: Point) => void
-  onInspect: (targets: Target[], point?: Point) => void
   onPortsReady: (id: string, handles: string[]) => void
 }, 'review'>
 
@@ -111,21 +109,13 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
     <div className="node-topline">
       <span className="node-kind"><KindIcon aria-hidden="true" />{kindLabels[data.item.kind]}</span>
       {data.change && <span className={`badge revision-badge revision-${data.change}`}>{changeLabels[data.change]}</span>}
-      {(!data.readOnly || data.count > 0) && <button className={`node-comment-button nodrag nopan ${data.count ? '' : 'is-empty'}`}
-        aria-label={`批注：${data.item.title}${data.count ? `（${data.count} 条）` : ''}`}
+      <button className={`node-comment-button nodrag nopan ${data.count ? '' : 'is-empty'}`}
+        aria-label={`讨论：${data.item.title}${data.count ? `（${data.count} 条）` : ''}`} title="打开讨论、详情与代码对照" data-keep-composer
         onClick={event => {
           event.stopPropagation()
           const rect = event.currentTarget.getBoundingClientRect()
           data.onComment({ kind: 'node', id: data.item.id }, { x: rect.right, y: rect.bottom })
-        }}>
-        <MessageSquare size={13} /><span>{data.count || '批注'}</span>
-      </button>}
-      <button className="node-details-button nodrag nopan" aria-label={`详情：${data.item.title}`} title="展开详情与相关代码" data-keep-composer
-        onClick={event => {
-          event.stopPropagation()
-          const rect = event.currentTarget.getBoundingClientRect()
-          data.onInspect([{ kind: 'node', id: data.item.id }], { x: rect.right, y: rect.bottom })
-        }}><Info size={14} /></button>
+        }}><MessageSquare size={14} /><span>{data.count || '讨论'}</span></button>
     </div>
     <strong className="node-title">{data.item.title}</strong>
     <p className="node-summary">{data.item.summary}</p>
@@ -145,7 +135,7 @@ const graphAriaLabels = {
 const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas({
   review, sceneId, selection, setSelection, changes, mode,
   nodeAppearance, onNodeAppearanceChange,
-  onOpenComposer, onOpenDetails, onOpenThread, onViewportChange, readOnly = false,
+  onOpenComposer, onOpenInspection, onOpenThread, onViewportChange, readOnly = false,
   viewportKey, changeSide = 'after', commentOrder,
   flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey,
 }, ref) {
@@ -421,8 +411,8 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   const openNodeComment = useCallback((target: Target, point: Point) => {
     const latest = commentIndex.latest.get(keyOf(target))
     if (latest) onOpenThread(latest, point, target)
-    else openComposer([target], point)
-  }, [commentIndex, onOpenThread, openComposer])
+    else onOpenInspection([target], point)
+  }, [commentIndex, onOpenThread, onOpenInspection])
 
   const openContextComment = useCallback((target: Target, point: Point) => {
     if (readOnly) openNodeComment(target, point)
@@ -456,8 +446,8 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
           data: {
             item,
             count: commentIndex.counts.get(key) ?? 0,
-            change, readOnly,
-            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onInspect: onOpenDetails, onPortsReady,
+            change,
+            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onPortsReady,
           },
         }
       })
@@ -478,7 +468,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenDetails, onPortsReady])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection, onPortsReady])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
@@ -662,7 +652,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     {!!selection.length && <div className={`canvas-selection-actions${selection.length === 1 && selection[0].kind === 'node' ? ' is-single-node' : ''}`}>
       {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
-        onOpenDetails(selection, { x: rect.left, y: rect.bottom })
+        onOpenInspection(selection, { x: rect.left, y: rect.bottom }, 'detail')
       }}><Info size={14} />查看详情</button>}
       {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />聚焦关联流程</button>}
       {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" onClick={event => {

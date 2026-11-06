@@ -11,7 +11,7 @@ test('more than two hundred drafts remain editable and can be exported without d
   await commentScope(page, 'scene')
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByLabel('问题与预期行为').fill('超过旧上限后保留的新意见')
-  await page.getByRole('button', { name: '关闭编辑器并保留草稿', exact: true }).click()
+  await page.getByRole('button', { name: '关闭讨论', exact: true }).click()
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!).length)).toBe(202)
   await openInspector(page, 'drafts')
   const download = page.waitForEvent('download')

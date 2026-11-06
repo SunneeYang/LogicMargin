@@ -10,7 +10,7 @@ const inspectionTabs: { id: InspectionTab; label: string }[] = [
 
 export default function CommentComposer({ draft, discussion, inspection, docked, position, onChange, onSave, onClose, onToggle, onInteract }: {
   draft: CommentDraft | null
-  discussion?: { key: string; title: string; context: string; content: ReactNode; replyLabel?: string; canReply: boolean; onReply: () => void; onCollapse: () => void }
+  discussion?: { key: string; title: string; context: string; content: ReactNode; replyLabel?: string; onCollapse: () => void }
   inspection?: { key: string; title: string; context: string; tab: InspectionTab; onTabChange: (tab: InspectionTab) => void; detail: ReactNode; code: ReactNode }
   docked: boolean
   position: { left: number; top: number }
@@ -25,6 +25,8 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
   const input = useRef<HTMLTextAreaElement>(null)
   const selection = useRef<{ start: number; end: number } | null>(null)
   const [error, setError] = useState('')
+  const [codeKey, setCodeKey] = useState<string | undefined>()
+  useEffect(() => { if (inspection?.tab === 'code') setCodeKey(inspection.key) }, [inspection?.key, inspection?.tab])
   const open = !!(draft || discussion || inspection)
   const [present, setPresent] = useState(open)
   const last = useRef({ draft, discussion, inspection, docked })
@@ -60,7 +62,7 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
     if (!open) return
     setError('')
     if (draft && (!inspection || inspection.tab === 'comments')) {
-      if (discussion || matchMedia('(min-width: 901px) and (pointer: fine)').matches) {
+      if (draft.replyTo || matchMedia('(min-width: 901px) and (pointer: fine)').matches) {
         input.current?.focus({ preventScroll: true })
         if (discussion) input.current?.scrollIntoView({ block: 'nearest' })
       } else container.current?.scrollIntoView({ block: 'nearest' })
@@ -105,8 +107,8 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
     <div className="composer-comment-panel" role={inspection ? 'tabpanel' : undefined} id={`${id}-panel-comments`} aria-labelledby={inspection ? `${id}-tab-comments` : undefined} hidden={!commentsShown}>
     {!discussion && draft && <p className="composer-targets">{draft.targets.length > 1 && <strong>所选 {draft.targets.length} 项 · </strong>}{draft.labels.join(' · ')}</p>}
     {discussion && <div className="discussion-threads">{discussion.content}</div>}
-    {!draft && !discussion && inspection && <div className="discussion-threads"><div className="empty-state"><p>此处还没有批注。可通过节点的批注按钮发起讨论。</p></div></div>}
-    <div className="composer-footer">
+    {!draft && !discussion && inspection && <div className="discussion-threads"><div className="empty-state"><p>此处还没有批注。</p></div></div>}
+    <div className="composer-footer" hidden={!draft}>
     {draft && <form onSubmit={event => { event.preventDefault(); save() }}>
       {discussion?.replyLabel && <p className="discussion-reply-label">{discussion.replyLabel}</p>}
       <label htmlFor={`${id}-body`}>{draft.replyTo ? '补充说明' : '问题与预期行为'}</label>
@@ -116,12 +118,11 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
         onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.preventDefault(); save() } }} />
       {error && <p className="composer-error" id={`${id}-error`} role="alert">{error}</p>}
       <p className="composer-hint" id={`${id}-hint`}>草稿自动保留 · ⌘ / Ctrl + Enter 保存</p>
-      <div className="composer-actions">{discussion && <button className="button collapse-reply" type="button" aria-expanded="true" onClick={discussion.onCollapse}>收起回复</button>}<button className="button primary" type="submit" disabled={!draft.body.trim()}><Plus size={14} />{draft.replyTo ? '保存回复' : '添加批注'}</button></div>
+      <div className="composer-actions">{discussion && <button className="button collapse-reply" type="button" aria-expanded="true" onClick={discussion.onCollapse}>{draft.replyTo ? '收起回复' : '收起输入'}</button>}<button className="button primary" type="submit" disabled={!draft.body.trim()}><Plus size={14} />{draft.replyTo ? '保存回复' : '添加批注'}</button></div>
     </form>}
-    {discussion && !draft && <button className="button discussion-reply-toggle" type="button" aria-label="回复当前意见" aria-expanded="false" disabled={!discussion.canReply} onClick={discussion.onReply}>回复</button>}
     </div>
     </div>
     {inspection && <><div className="inspection-content" role="tabpanel" id={`${id}-panel-detail`} aria-labelledby={`${id}-tab-detail`} hidden={inspection.tab !== 'detail'} tabIndex={0}>{inspection.detail}</div>
-      <div className="inspection-content inspection-code" role="tabpanel" id={`${id}-panel-code`} aria-labelledby={`${id}-tab-code`} hidden={inspection.tab !== 'code'} tabIndex={0}>{inspection.code}</div></>}
+      <div className="inspection-content inspection-code" role="tabpanel" id={`${id}-panel-code`} aria-labelledby={`${id}-tab-code`} hidden={inspection.tab !== 'code'} tabIndex={0}>{(inspection.tab === 'code' || codeKey === inspection.key) && inspection.code}</div></>}
   </section>
 }

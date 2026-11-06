@@ -17,8 +17,9 @@ test('switching node appearance changes whole cards without moving the flow or l
   await page.mouse.down()
   await page.mouse.move(canvas.x + 60, canvas.y + 140, { steps: 4 })
   await page.mouse.up()
-  await selected.getByRole('button', { name: '批注：发起总等级升级', exact: true }).click()
-  const editor = page.getByRole('dialog', { name: '流程批注', exact: true })
+  await selected.getByRole('button', { name: '讨论：发起总等级升级', exact: true }).click()
+  await page.locator('[data-composer]').getByRole('button', { name: '添加新批注', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: '节点讨论', exact: true })
   const input = editor.getByLabel('问题与预期行为')
   await input.fill('换一种显示方式后继续核对这一步。')
   const before = await page.evaluate(() => ({

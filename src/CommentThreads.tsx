@@ -13,6 +13,7 @@ interface Props {
   session: CurrentSession | null
   snapshots: Map<number, ReviewDocument>
   comments: ReviewComment[]
+  chronological?: boolean
   idPrefix?: string
   viewRound?: number
   changes: ReviewChanges
@@ -30,10 +31,10 @@ interface Props {
   reviewNext: (id: string, resolved: boolean) => void
 }
 
-export default memo(function CommentThreads({ review, session, snapshots, comments, idPrefix = 'thread', viewRound = session?.round, changes, threadId, continuous, historical, reviewBlocked, sessionBlocked, setThreadId, showTargets, showBaseline, openComposer, openThread, closeComposer, reviewNext }: Props) {
+export default memo(function CommentThreads({ review, session, snapshots, comments, idPrefix = 'thread', chronological = false, viewRound = session?.round, changes, threadId, continuous, historical, reviewBlocked, sessionBlocked, setThreadId, showTargets, showBaseline, openComposer, openThread, closeComposer, reviewNext }: Props) {
   const origins = useMemo(() => new Map(session?.commentOrigins.map(item => [item.commentId, item]) ?? []), [session])
   const numbers = useMemo(() => new Map(review.comments.map((comment, index) => [comment.id, index + 1])), [review.comments])
-  return <>{[...comments].reverse().map(comment => {
+  return <>{(chronological ? comments : [...comments].reverse()).map(comment => {
               const original = origins.get(comment.id)
               const baselineComment = comment.basis === 'baseline'
               const originalGraph = baselineComment ? review.baseline ?? review : original ? snapshots.get(original.round) ?? review : review
