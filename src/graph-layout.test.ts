@@ -257,7 +257,7 @@ test('nine failure exits keep independent tracks and staggered station approache
   const edges = pairs.map(([source, target], index) => ({ ...edge(`condition-${index}`, `step-${source}`, `step-${target}`),
     label: '条件成立后继续'.repeat(index % 3 + 1),
   }))
-  for (const sizes of [new Map(), new Map(nodes.map(item => [item.id, { width: 248, height: 150 }]))]) {
+  for (const sizes of [new Map(), ...[150, 150.5].map(height => new Map(nodes.map(item => [item.id, { width: 248, height }])))]) {
     const result = layoutGraph(nodes, edges, sizes)
     assert.equal(result.edges.size, edges.length)
     assert.ok(longestSharedTrack(result.edges) <= 24)

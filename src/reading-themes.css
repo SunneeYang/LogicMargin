@@ -45,6 +45,7 @@ html { background: var(--color-paper); scrollbar-color: var(--color-control-bord
 [data-theme="glass"] .react-flow__background { opacity: .3; }
 [data-theme="glass"] .review-node, [data-theme="glass"] .comment-composer, [data-theme="glass"] .react-flow__controls, [data-theme="glass"] .sidebar { backdrop-filter: blur(24px) saturate(1.3); -webkit-backdrop-filter: blur(24px) saturate(1.3); }
 [data-theme="glass"] .comment-composer { background: color-mix(in srgb, var(--color-surface-solid) 96%, transparent); border-color: var(--color-glass-edge); }
+[data-theme="glass"] .app-shell:not(.is-focused) .panel-open .inspector { background: var(--color-surface-solid); }
 [data-theme="glass"] .app-shell .topbar, [data-theme="glass"] .app-shell .graph-toolbar, [data-theme="glass"] .app-shell .canvas-caption { background: var(--color-nav); }
 
 @media (hover: hover) and (pointer: fine) {

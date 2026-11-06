@@ -1,7 +1,7 @@
 import { Graph, layout } from '@dagrejs/dagre'
 import type { EdgeLabel, GraphLabel, NodeLabel } from '@dagrejs/dagre'
 import type { ReviewEdge, ReviewNode } from './types.ts'
-import { authoredLayout } from './graph-routing.ts'
+import { authoredPositions, routeGraphEdges } from './graph-routing.ts'
 import { measureEdgeLabel } from './graph-label.ts'
 
 export interface LayoutPoint { x: number; y: number }
@@ -39,8 +39,8 @@ export function layoutGraph(
   nodes: readonly ReviewNode[], edges: readonly ReviewEdge[],
   sizes: ReadonlyMap<string, { width: number; height: number }> = new Map(),
 ) {
-  const authored = authoredLayout(nodes, edges, sizes)
-  if (authored) return { ...authored, usesAuthoredPositions: true }
+  const authored = authoredPositions(nodes, edges, sizes)
+  if (authored) return { nodes: authored, edges: routeGraphEdges(authored, edges, new Map(nodes.map(node => [node.id, node.kind]))), usesAuthoredPositions: true }
   const graph = new Graph<GraphLabel, NodeLabel, EdgeLabel>({ directed: true, multigraph: true })
   graph.setGraph({ rankdir: 'TB', ranksep: 88, nodesep: 72, edgesep: 32, marginx: 24, marginy: 24 })
   // Seed Dagre's crossing reducer with normal steps first, keeping each group's original order.
