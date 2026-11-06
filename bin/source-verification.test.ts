@@ -26,7 +26,7 @@ async function fixture(t: TestContext, entries: Record<string, string | Buffer> 
   return { root, review }
 }
 
-test('verifies exact file contents and sorts the manifest without mutating the review', async t => {
+test('captures verified evidence and the sorted manifest only after all source checks succeed', async t => {
   const { root, review } = await fixture(t, { 'z.md': '规格\n', 'src/a.ts': 'check()\nrun()\n' })
   review.nodes[0].evidence = [{ path: 'src/a.ts', symbol: 'check', startLine: 1, endLine: 2, digest: sha256('check()\nrun()') }]
   const before = structuredClone(review)
@@ -35,7 +35,11 @@ test('verifies exact file contents and sorts the manifest without mutating the r
   assert.ok(Number.isFinite(Date.parse(result.checkedAt)))
   assert.deepEqual(result.files.map(file => file.path), ['src/a.ts', 'z.md'])
   assert.equal(result.fingerprint, review.snapshot.fingerprint)
+  before.nodes[0].evidence[0].code = 'check()\nrun()'
+  before.snapshot.files = result.files
   assert.deepEqual(review, before)
+  await writeFile(join(root, 'src/a.ts'), 'changed later\n')
+  assert.equal(review.nodes[0].evidence[0].code, 'check()\nrun()')
 })
 
 test('derives a unique manifest from evidence when a legacy review has no file list', async t => {
@@ -46,7 +50,9 @@ test('derives a unique manifest from evidence when a legacy review has no file l
   delete review.snapshot.files
   const result = await verifyReviewSources(review, root)
   assert.deepEqual(result.files, expected)
-  assert.equal(review.snapshot.files, undefined)
+  assert.deepEqual(review.snapshot.files, expected)
+  assert.equal(review.nodes[0].evidence[0].code, 'check()')
+  assert.equal(review.nodes[1].evidence[0].code, 'check()')
 })
 
 test('hashes full-file bytes while normalizing CRLF only for source snippets', async t => {
@@ -55,6 +61,29 @@ test('hashes full-file bytes while normalizing CRLF only for source snippets', a
   const result = await verifyReviewSources(review, root)
   assert.equal(result.files[0].sha256, sha256('check()\r\nrun()\r\n'))
   assert.notEqual(result.files[0].sha256, sha256('check()\nrun()\n'))
+  assert.equal(review.nodes[0].evidence[0].code, 'check()\nrun()')
+})
+
+test('never partially captures a failed verification or trusts incoming snippet text', async t => {
+  const { root, review } = await fixture(t)
+  review.nodes[0].evidence = [{ path: 'logic.ts', symbol: 'check', startLine: 1, endLine: 1, digest: sha256('check()'), code: 'forged()' }]
+  const fingerprint = review.snapshot.fingerprint
+  review.snapshot.fingerprint = '0'.repeat(64)
+  const before = structuredClone(review)
+  await assert.rejects(verifyReviewSources(review, root), /流程快照指纹与来源不符/)
+  assert.deepEqual(review, before)
+  review.snapshot.fingerprint = fingerprint
+  await verifyReviewSources(review, root)
+  assert.equal(review.nodes[0].evidence[0].code, 'check()')
+})
+
+test('oversized evidence remains verifiable without retaining an unbounded code payload', async t => {
+  for (const content of ['x'.repeat(100_001), Array.from({ length: 2001 }, () => 'x').join('\n')]) {
+    const { root, review } = await fixture(t, { 'logic.ts': content })
+    review.nodes[0].evidence = [{ path: 'logic.ts', symbol: 'large', startLine: 1, endLine: content.split('\n').length, digest: sha256(content), code: 'untrusted' }]
+    await verifyReviewSources(review, root)
+    assert.equal(review.nodes[0].evidence[0].code, undefined)
+  }
 })
 
 test('accepts document-only provenance without node evidence', async t => {

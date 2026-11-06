@@ -9,6 +9,7 @@ test('semantic changes, evidence updates and layout changes are distinct', () =>
   const before = structuredClone(sampleReview)
   const layout = structuredClone(before)
   layout.nodes[0].position.y += 200
+  layout.nodes[0].evidence[0].code = 'newly captured source text'
   assert.equal(logicIdentity(layout), logicIdentity(before))
   assert.deepEqual(getRevisionChanges(before, layout), { added: [], changed: [], removed: [], evidenceChanged: [], metadataChanged: false })
   layout.nodes[0].evidence[0].digest = 'new-evidence'

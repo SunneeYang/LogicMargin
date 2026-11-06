@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { readFile, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
-import { parseSourceFiles } from '../src/model.ts'
-import type { ReviewDocument } from '../src/types.ts'
+import { MAX_EVIDENCE_CODE_CHARS, MAX_EVIDENCE_CODE_LINES, parseSourceFiles } from '../src/model.ts'
+import type { Evidence, ReviewDocument } from '../src/types.ts'
 import type { SourceVerification } from '../src/session-types.ts'
 
 const digest = (value: string | Buffer) => createHash('sha256').update(value).digest('hex')
@@ -18,6 +18,7 @@ export async function verifyReviewSources(review: ReviewDocument, sourceRoot: st
   const covered = new Set(selected.map(file => file.path))
   if (evidence.some(item => !covered.has(item.path))) throw new Error('图内源码依据必须全部包含在来源文件清单中')
   const files: SourceVerification['files'] = []
+  const captured = new Map<Evidence, string>()
   let total = 0
   for (const file of selected) {
     const path = await realpath(resolve(root, file.path))
@@ -40,12 +41,21 @@ export async function verifyReviewSources(review: ReviewDocument, sourceRoot: st
       const lines = content.replaceAll('\r\n', '\n').split('\n')
       for (const item of references) {
         if (item.startLine < 1 || item.endLine < item.startLine || item.endLine > lines.length) throw new Error(`源码依据行号越界：${file.path}:${item.startLine}–${item.endLine}`)
-        const actual = digest(lines.slice(item.startLine - 1, item.endLine).join('\n'))
+        const code = lines.slice(item.startLine - 1, item.endLine).join('\n')
+        const actual = digest(code)
         if (item.digest !== actual) throw new Error(`源码依据已变化：${file.path}:${item.startLine}–${item.endLine}；当前片段 SHA-256 为 ${actual}，请更新流程及依据`)
+        if (code.length <= MAX_EVIDENCE_CODE_CHARS && item.endLine - item.startLine + 1 <= MAX_EVIDENCE_CODE_LINES && !code.includes('\0')) captured.set(item, code)
       }
     }
   }
   const fingerprint = digest(JSON.stringify(files))
   if (review.snapshot.fingerprint !== fingerprint) throw new Error(`流程快照指纹与来源不符；当前指纹为 ${fingerprint}，请重新核对流程后更新评审文件`)
+  // Capture only after every source matches, from the same bytes that were verified.
+  review.nodes = review.nodes.map(node => ({ ...node, evidence: node.evidence.map(item => {
+    const { code: _previous, ...reference } = item
+    const code = captured.get(item)
+    return { ...reference, ...(code === undefined ? {} : { code }) }
+  }) }))
+  review.snapshot = { ...review.snapshot, files }
   return { algorithm: 'sha256-path-content-v1', checkedAt: new Date().toISOString(), files, fingerprint }
 }

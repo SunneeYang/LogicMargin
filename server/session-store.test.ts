@@ -59,6 +59,50 @@ test('saving is separate from Finish; submissions, acknowledgement and opinions 
   assert.deepEqual(await store.finish(session.id, { expectedVersion: saved.version, kind: 'feedback', submissionId: 'finish-1' }), acknowledged)
 })
 
+test('saved source code stays version-bound through comments, publication, history and restart', async t => {
+  const { store, directory } = await setup(t)
+  const sha256 = (value: string) => createHash('sha256').update(value).digest('hex')
+  function sourceReview(code: string, revision: string) {
+    const review = structuredClone(sampleReview)
+    review.comments = []
+    review.revision = revision
+    const files = [{ path: 'logic.ts', sha256: sha256(`${code}\n`) }]
+    review.snapshot = { ...review.snapshot, files, fingerprint: sha256(JSON.stringify(files)) }
+    review.nodes.forEach(node => { node.evidence = [] })
+    review.nodes[0].evidence = [{ path: 'logic.ts', symbol: 'charge', startLine: 1, endLine: 1, digest: sha256(code), code }]
+    return review
+  }
+  const baseline = sourceReview('chargeBeforeSuccess()', 'B')
+  const review = { ...sourceReview('chargeAfterSuccess()', 'R1'), baseline }
+  const first = await store.create(review)
+  const corrupted = structuredClone(review)
+  corrupted.nodes[0].evidence[0].code = 'forged()'
+  await assert.rejects(store.create(corrupted), /片段与摘要不一致/)
+  const badBaseline = structuredClone(review)
+  badBaseline.baseline.nodes[0].evidence[0].code = 'forged()'
+  await assert.rejects(store.create(badBaseline), /片段与摘要不一致/)
+  const badManifest = structuredClone(review)
+  badManifest.snapshot.files![0].sha256 = '0'.repeat(64)
+  await assert.rejects(store.create(badManifest), /来源清单与快照指纹不一致/)
+  const commented = await store.mutate(first.id, { ...commentBatch(first), review: corrupted })
+  assert.equal(commented.review.nodes[0].evidence[0].code, 'chargeAfterSuccess()')
+  const submitted = await store.finish(first.id, { expectedVersion: commented.version, kind: 'feedback' })
+  const next = sourceReview('chargeOnlyOnce()', 'R2')
+  const publication: RevisionPublication = { baseRound: 1, summary: '增加幂等校验', unchangedReason: '补充同一流程步骤的实现', source: {
+    algorithm: 'sha256-path-content-v1', checkedAt: new Date().toISOString(), files: next.snapshot.files!, fingerprint: next.snapshot.fingerprint,
+  } }
+  const published = await store.revise(first.id, { expectedVersion: submitted.version, review: next, publication })
+  assert.equal(published.review.nodes[0].evidence[0].code, 'chargeOnlyOnce()')
+  assert.equal((await store.getSnapshot(first.id, 1)).review.nodes[0].evidence[0].code, 'chargeAfterSuccess()')
+  assert.equal((await store.getBaseline(first.id)).review.nodes[0].evidence[0].code, 'chargeBeforeSuccess()')
+  assert.equal(published.history[0].review.nodes[0].evidence[0].code, 'chargeAfterSuccess()')
+  assert.deepEqual(await new SessionStore(directory).get(first.id), published)
+  const corruptedHistory = structuredClone(published)
+  corruptedHistory.history[0].review.nodes[0].evidence[0].code = 'forged()'
+  await writeFile(join(directory, `${first.id}.json`), JSON.stringify(corruptedHistory))
+  await assert.rejects(new SessionStore(directory).get(first.id), /片段与摘要不一致/)
+})
+
 test('fixed baseline B is present in R1, survives R2 and records, and is read separately from current views', async t => {
   const { store, directory } = await setup(t)
   const baseline = { ...structuredClone(sampleReview), revision: 'baseline-code', comments: [] }

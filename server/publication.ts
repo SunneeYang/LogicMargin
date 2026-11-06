@@ -3,6 +3,17 @@ import { parseSourceFiles } from '../src/model.ts'
 import { parsePublication } from '../src/revisions.ts'
 import type { ReviewDocument } from '../src/types.ts'
 
+export function validateEvidenceCode(review: ReviewDocument) {
+  const evidence = review.nodes.flatMap(node => node.evidence).filter(item => item.code !== undefined)
+  if (evidence.length) {
+    const files = parseSourceFiles(review.snapshot.files)
+    const fingerprint = createHash('sha256').update(JSON.stringify(files)).digest('hex')
+    if (review.snapshot.fingerprint !== fingerprint) throw new Error('源码片段的来源清单与快照指纹不一致')
+    for (const item of evidence) if (createHash('sha256').update(item.code!).digest('hex') !== item.digest) throw new Error(`源码片段与摘要不一致：${item.path}:${item.startLine}–${item.endLine}`)
+  }
+  if (review.baseline) validateEvidenceCode(review.baseline)
+}
+
 export function validatePublication(value: unknown, review: ReviewDocument) {
   const publication = parsePublication(value)
   const files = parseSourceFiles(publication.source.files)

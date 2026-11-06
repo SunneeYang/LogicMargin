@@ -155,6 +155,7 @@ test('distributed CLI runs outside the repo and completes wait, reply, revision 
   const fetched = await run(['get', identity.sessionId]).result
   assert.equal(fetched.code, 0, fetched.stderr)
   const restored = JSON.parse(fetched.stdout)
+  assert.equal(restored.review.nodes[0].evidence[0].code, `${sourceText}失败时不扣升级费用。`)
   assert.equal(restored.review.comments[0].status, 'needs-review')
   assert.equal(restored.review.comments[0].revision, review.revision)
   assert.equal(restored.review.comments[0].replies[0].body, '包级测试回应：已补充失败出口。\n请复核新版规则。')
@@ -343,6 +344,7 @@ test('one packaged daemon serves UI, API and multiple MCP clients and restores a
   const created = await tool(client, 'start_review', { review_file: reviewFile, source_root: cwd, purpose: '打包后 MCP 恢复' })
   const found = await tool(sibling, 'get_review', { session_id: created.sessionId })
   assert.equal(found.id, created.sessionId)
+  assert.equal(found.review.nodes[0].evidence[0].code, sourceText.replace(/\n$/, ''))
   assert.equal((await (await fetch(`${first.url}/api/health`)).json()).pid, health.pid)
   assert.equal((await fetch(first.url)).status, 200)
   let returned = false

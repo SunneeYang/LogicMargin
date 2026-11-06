@@ -76,6 +76,7 @@ type Node = {
     startLine: number
     endLine: number
     digest: string
+    code?: string
   }[]
 }
 type Edge = {
@@ -92,11 +93,16 @@ type Edge = {
 - `summary` 简述该步；`detail` 写规则与条件；`input/output` 写执行前后数据或资格变化。判断的分支在连线中标明条件，拒绝、失败和无副作用出口也应展示。
 - 布局建议每个场景从上向下排列，普通相邻节点纵向间距约 180–240；分支横向错开。坐标仅用于排版，批注锚定 ID。
 - `evidence.path` 使用来源工作区相对路径，且属于 `snapshot.files`；`symbol` 写真实函数或符号。行号从 1 开始且包含两端，`digest` 使用 UTF-8 片段的 SHA-256：将 CRLF 统一为 LF，按 `split('\n').slice(startLine - 1, endLine).join('\n')` 取片段后计算，不额外加入末尾换行。节点跨多个实现点时分别列依据。
+- `evidence.code` 可选，保存上述行号范围的原文，用于节点内的代码对照。CLI 在来源核验全部成功后，从同一份已核验字节自动捕获，随基线或轮次快照保存；不要另行编写或概括代码。每段最多 100,000 字符、2,000 行，超限时保留源码位置和摘要但不嵌入文本。提供文本时必须有对应 `snapshot.files`，其行数和 SHA-256 必须匹配依据。旧文件缺少文本仍可导入，界面明确提示缺少快照，不读取当前工作区替代历史代码。
 - 尚无源码的设计节点可用空 `evidence`，但应在节点说明和覆盖范围标明“设计/待实现”，不能伪造源码位置或摘要。
 
 ## 来源核验与新版发布
 
 `verify <review.json> --source-root <workspace>` 核验实际文件、所有图内片段和指纹；只读，不替代理更新文件或判断业务语义。来源根目录默认当前工作目录；清单路径和符号链接必须留在该目录内，每文件最多 10 MB、总计 64 MB。
+
+`start --source-root`、`baseline --source-root` 和 `revise --source-root` 会把已核验的源码片段连同清单保存到会话；`verify` 仅核验并输出清单，不重写输入文件。代码页签比较节点在两份固定快照中关联的片段；新增或取消源码关联不等于源文件中的代码新增或删除。
+
+旧会话的固定基线若未保存 `code`，需从对应版本核验源码，重新发起包含代码快照的评审；重新执行 `baseline` 不能补写或替换已有固定基线。
 
 `revise SESSION_ID <review.json> --base-round NUMBER --summary TEXT` 自动再核验，将核验后的 `files`、发布基线及说明保存到本轮快照。`NUMBER` 必须是代理从 `wait` 或 `get` 核对并实际处理的轮次；当前轮次已变化时重新读图处理，保留旧草稿的真实基线。逻辑未变时必填 `--unchanged-reason TEXT`，明确仅改依据、格式或说明的范围。
 

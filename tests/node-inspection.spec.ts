@@ -1,0 +1,167 @@
+import { createHash } from 'node:crypto'
+import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { sampleReview } from '../src/sample.ts'
+import type { ReviewDocument } from '../src/types.ts'
+import { openInspector, openMenu } from './ui.ts'
+
+const hash = (text: string) => createHash('sha256').update(text).digest('hex')
+const title = '发起总等级升级'
+const target = '.react-flow__node[data-id="upgrade-start"]'
+const surface = (page: Page) => page.locator('[data-composer][data-state="open"]')
+
+function fixture() {
+  const before: ReviewDocument = structuredClone(sampleReview)
+  before.id = 'node-inspection-fixture'; before.revision = 'baseline-b'; before.comments = []
+  before.scenes = before.scenes.slice(0, 1)
+  before.nodes = before.nodes.filter(node => node.sceneId === before.scenes[0].id).slice(0, 3)
+  const ids = new Set(before.nodes.map(node => node.id))
+  before.edges = before.edges.filter(edge => ids.has(edge.source) && ids.has(edge.target))
+  before.nodes.forEach(node => { node.evidence = [] })
+  const setCode = (review: ReviewDocument, code: string) => {
+    const path = 'server/upgrade.ts'
+    const files = [{ path, sha256: hash(`${'// context\n'.repeat(9)}${code}`) }]
+    review.snapshot = { ...review.snapshot, fingerprint: hash(JSON.stringify(files)), files }
+    review.nodes[0].evidence = [{ path, symbol: 'upgrade', startLine: 10, endLine: 9 + code.split('\n').length, digest: hash(code), code }]
+  }
+  setCode(before, 'function upgrade(level: number) {\n  const cost = 10;\n  charge(cost);\n  return level + 1;\n}')
+  const after = structuredClone(before)
+  after.revision = 'review-r1'
+  after.nodes[0].detail = Array.from({ length: 24 }, (_, index) => `规则 ${index + 1}：先核对角色资格与资源余额，失败时应保留原状态。`).join('\n\n')
+  setCode(after, 'function upgrade(level: number) {\n  const cost = 20;\n  validateBalance(cost);\n  charge(cost);\n  return level + 1;\n}')
+  after.baseline = before
+  return after
+}
+
+async function openFixture(page: Page, review = fixture()) {
+  await page.addInitScript(document => {
+    localStorage.setItem('logic-margin:active', document.id)
+    localStorage.setItem(`logic-margin:review:${document.id}`, JSON.stringify(document))
+  }, review)
+  await page.goto('/')
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+}
+
+test('node details, discussions and code share one window and preserve drafts and reading position', async ({ page }) => {
+  await openFixture(page)
+  await page.locator(`${target} .node-title`).click()
+  await expect(surface(page)).toHaveCount(0)
+  await page.getByRole('button', { name: `详情：${title}`, exact: true }).click()
+  const window = surface(page)
+  await expect(window.getByRole('tab', { name: '详情', exact: true })).toHaveAttribute('aria-selected', 'true')
+  const details = window.getByRole('tabpanel', { name: '详情', exact: true })
+  await expect(details).toContainText('规则 24')
+  await details.evaluate(element => { element.scrollTop = 300 })
+  await expect.poll(() => details.evaluate(element => element.scrollTop)).toBeGreaterThan(100)
+  const reading = await details.evaluate(element => element.scrollTop)
+  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await window.getByRole('button', { name: '添加新批注', exact: true }).click()
+  const input = window.getByLabel('问题与预期行为')
+  await input.fill('请核对资源不足时能否保持原状态。')
+  await input.evaluate(element => { element.dataset.identity = 'retained' })
+  await window.getByRole('tab', { name: '详情', exact: true }).click()
+  expect(await details.evaluate(element => element.scrollTop)).toBe(reading)
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window.locator('.code-diff-line.is-removed')).toContainText('const cost = 10;')
+  await expect(window.locator('.code-diff-line.is-added')).toHaveCount(2)
+  await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+  await expect(window).toHaveClass(/is-docked/)
+  await expect(page.locator('.inspector-tabs')).not.toBeVisible()
+  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await expect(input).toHaveAttribute('data-identity', 'retained')
+  await expect(input).toHaveValue('请核对资源不足时能否保持原状态。')
+  await window.getByRole('button', { name: '返回图内编辑', exact: true }).click()
+  await expect(window).toHaveClass(/is-inline/)
+  await expect(page.locator('.inspector')).not.toHaveClass(/is-open/)
+  await expect(input).toHaveAttribute('data-identity', 'retained')
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await page.keyboard.press('Escape')
+  const drafts = await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!))
+  expect(drafts[0].body).toBe('请核对资源不足时能否保持原状态。')
+  const draftsPanel = await openInspector(page, 'drafts')
+  await draftsPanel.getByRole('button', { name: '继续编辑', exact: true }).click()
+  await expect(input).toBeVisible()
+  await expect(input).toHaveValue(drafts[0].body)
+})
+
+test('code comparison has real line numbers, split layout and a baseline-only view', async ({ page }, info) => {
+  await openFixture(page)
+  await page.getByRole('button', { name: `详情：${title}`, exact: true }).click()
+  const window = surface(page)
+  const detail = window.getByRole('tab', { name: '详情', exact: true })
+  await detail.focus(); await page.keyboard.press('ArrowRight')
+  await expect(window.getByRole('tab', { name: '代码 diff', exact: true })).toBeFocused()
+  await expect(window.locator('.code-diff-line.is-removed .code-line-number').first()).toHaveText('11')
+  await expect(window.locator('.code-diff-line.is-added').first()).toContainText('20')
+  await window.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {}))) })
+  await page.screenshot({ path: info.outputPath('desktop-code-popup.png') })
+  await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+  await page.getByRole('separator', { name: '调整右侧栏宽度' }).focus()
+  await page.keyboard.press('End')
+  await window.getByRole('button', { name: '并排', exact: true }).click()
+  await expect(window.locator('.code-diff-split .code-diff-table')).toHaveCount(2)
+  await window.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {}))) })
+  await page.screenshot({ path: info.outputPath('desktop-code-sidebar.png') })
+  await openMenu(page, '.canvas-tools')
+  await page.getByRole('button', { name: '基线 B', exact: true }).click()
+  await page.getByRole('button', { name: `详情：${title}`, exact: true }).click()
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window).toContainText('当前查看基线 B')
+  await expect(window).toContainText('const cost = 10;')
+  await expect(window).not.toContainText('validateBalance')
+  await expect(window.locator('.code-diff-line.is-added')).toHaveCount(0)
+})
+
+test('both sidebar boundaries support pointer, keyboard and reload without squeezing out the graph', async ({ page }) => {
+  await openFixture(page)
+  const left = page.getByRole('separator', { name: '调整场景栏宽度' })
+  const boundary = await left.boundingBox()
+  await page.mouse.move(boundary!.x + 6, boundary!.y + 200)
+  await page.mouse.down(); await page.mouse.move(boundary!.x + 86, boundary!.y + 200, { steps: 5 }); await page.mouse.up()
+  await expect(left).toHaveAttribute('aria-valuenow', '272')
+  await page.getByRole('button', { name: /^评审面板/ }).click()
+  const right = page.getByRole('separator', { name: '调整右侧栏宽度' })
+  await right.focus(); await page.keyboard.press('ArrowLeft')
+  await expect(right).toHaveAttribute('aria-valuenow', '436')
+  await page.reload()
+  await expect(left).toHaveAttribute('aria-valuenow', '272')
+  await page.getByRole('button', { name: /^评审面板/ }).click()
+  await expect(right).toHaveAttribute('aria-valuenow', '436')
+  await page.setViewportSize({ width: 901, height: 900 })
+  await expect.poll(async () => (await page.locator('.canvas').boundingBox())!.width).toBeGreaterThanOrEqual(359)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(901)
+  await right.dblclick()
+  await expect(right).toHaveAttribute('aria-valuenow', (await right.getAttribute('aria-valuemax'))!)
+})
+
+test('legacy references show missing snapshot text without invented changes', async ({ page }) => {
+  const review = fixture()
+  delete review.baseline!.nodes[0].evidence[0].code
+  await openFixture(page, review)
+  await page.getByRole('button', { name: `详情：${title}`, exact: true }).click()
+  await surface(page).getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(surface(page)).toContainText('未保存两侧源码片段')
+  await expect(surface(page).locator('.code-diff-line')).toHaveCount(0)
+  await expect(surface(page)).toContainText('validateBalance(cost)')
+})
+
+test('mobile dark details and diff stay in the bottom sheet with the graph visible', async ({ page }, info) => {
+  await page.setViewportSize({ width: 320, height: 812 })
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
+  await openFixture(page)
+  await page.getByRole('button', { name: `详情：${title}`, exact: true }).click()
+  const window = surface(page)
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window.locator('.code-diff-line.is-added')).toHaveCount(2)
+  await expect(page.getByRole('separator')).toHaveCount(0)
+  const rect = await window.boundingBox()
+  expect(rect!.x).toBeGreaterThanOrEqual(0)
+  expect(rect!.width).toBeLessThanOrEqual(320)
+  expect(rect!.y).toBeGreaterThan(200)
+  expect(rect!.y + rect!.height).toBeLessThanOrEqual(812)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
+  await page.screenshot({ path: info.outputPath('mobile-code-dark.png') })
+  await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+  await expect(window.getByRole('tab', { name: '代码 diff', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
+})

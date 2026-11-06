@@ -7,6 +7,7 @@ export interface Evidence {
   startLine: number
   endLine: number
   digest: string
+  code?: string
 }
 
 export interface ReviewNode {

@@ -36,6 +36,7 @@ async function revisionFixture(t: TestContext, current = fixture()) {
   const reviewFile = join(dir, 'next.json')
   await writeFile(join(dir, 'logic.ts'), content)
   await writeFile(reviewFile, JSON.stringify(review))
+  review.nodes[0].evidence[0].code = content.slice(0, -1)
   return { dir, reviewFile, next: review }
 }
 
@@ -50,11 +51,13 @@ async function baselineFixture(t: TestContext) {
   baseline.comments = []
   baseline.nodes[0].summary = '原版先扣费再执行。'
   baseline.nodes[0].evidence[0].digest = digest(content.slice(0, -1))
+  delete baseline.nodes[0].evidence[0].code
   baseline.snapshot.files = [{ path: 'logic.ts', sha256: digest(content) }]
   baseline.snapshot.fingerprint = digest(JSON.stringify(baseline.snapshot.files))
   const baselineFile = join(baselineRoot, 'before.json')
   await writeFile(join(baselineRoot, 'logic.ts'), content)
   await writeFile(baselineFile, JSON.stringify(baseline))
+  baseline.nodes[0].evidence[0].code = content.slice(0, -1)
   return { ...current, baselineRoot, baselineFile, baseline }
 }
 

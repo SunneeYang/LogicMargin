@@ -4,7 +4,7 @@ import {
   MarkerType, useNodesState, useEdgesState, useUpdateNodeInternals,
 } from '@xyflow/react'
 import type { EdgeChange, Node, NodeChange, NodeProps, OnSelectionChangeParams, ReactFlowInstance, Viewport } from '@xyflow/react'
-import { Diamond, Flag, Focus, LogOut, MessageSquare, Scan, Square, X } from 'lucide-react'
+import { Diamond, Flag, Focus, Info, LogOut, MessageSquare, Scan, Square, X } from 'lucide-react'
 import type { ReviewChanges, ReviewComment, ReviewDocument, ReviewEdge, ReviewNode, Target } from './types.ts'
 import { indexGraph, indexGraphComments, targetKey as keyOf } from './graph-index.ts'
 import { layoutGraph } from './graph-layout.ts'
@@ -28,6 +28,7 @@ export interface GraphCanvasProps {
   nodeAppearance: NodeAppearance
   onNodeAppearanceChange: (appearance: NodeAppearance) => void
   onOpenComposer: (targets: Target[], point?: Point) => void
+  onOpenDetails: (targets: Target[], point?: Point) => void
   onOpenThread: (commentId: string, point?: Point, target?: Target) => void
   onViewportChange?: () => void
   readOnly?: boolean
@@ -57,6 +58,7 @@ type FlowNode = Node<{
   readOnly: boolean
   layout: LayoutNode
   onComment: (target: Target, point: Point) => void
+  onInspect: (targets: Target[], point?: Point) => void
   onPortsReady: (id: string, handles: string[]) => void
 }, 'review'>
 
@@ -118,6 +120,12 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
         }}>
         <MessageSquare size={13} /><span>{data.count || '批注'}</span>
       </button>}
+      <button className="node-details-button nodrag nopan" aria-label={`详情：${data.item.title}`} title="展开详情与相关代码" data-keep-composer
+        onClick={event => {
+          event.stopPropagation()
+          const rect = event.currentTarget.getBoundingClientRect()
+          data.onInspect([{ kind: 'node', id: data.item.id }], { x: rect.right, y: rect.bottom })
+        }}><Info size={14} /></button>
     </div>
     <strong className="node-title">{data.item.title}</strong>
     <p className="node-summary">{data.item.summary}</p>
@@ -137,7 +145,7 @@ const graphAriaLabels = {
 const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas({
   review, sceneId, selection, setSelection, changes, mode,
   nodeAppearance, onNodeAppearanceChange,
-  onOpenComposer, onOpenThread, onViewportChange, readOnly = false,
+  onOpenComposer, onOpenDetails, onOpenThread, onViewportChange, readOnly = false,
   viewportKey, changeSide = 'after', commentOrder,
   flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey,
 }, ref) {
@@ -449,7 +457,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
             item,
             count: commentIndex.counts.get(key) ?? 0,
             change, readOnly,
-            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onPortsReady,
+            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onInspect: onOpenDetails, onPortsReady,
           },
         }
       })
@@ -470,7 +478,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onPortsReady])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenDetails, onPortsReady])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
@@ -611,6 +619,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
       selectionOnDrag={mode === 'select'} selectionKeyCode={null} selectionMode={SelectionMode.Partial}
       panOnDrag={mode === 'pan' ? [0, 1, 2] : [1, 2]} multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
+      panOnScroll zoomOnScroll={false} zoomActivationKeyCode={['Control', 'Meta']}
       defaultViewport={{ x: 36, y: 32, zoom: 0.85 }} minZoom={0.05} maxZoom={1.6}
       ariaLabelConfig={readingNodeIds ? { ...graphAriaLabels, 'controls.fitView.ariaLabel': '显示关联流程总览' } : graphAriaLabels}>
       <Background gap={24} size={1} />
@@ -651,6 +660,10 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       </div></details>}
     </div>}
     {!!selection.length && <div className={`canvas-selection-actions${selection.length === 1 && selection[0].kind === 'node' ? ' is-single-node' : ''}`}>
+      {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer onClick={event => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        onOpenDetails(selection, { x: rect.left, y: rect.bottom })
+      }}><Info size={14} />查看详情</button>}
       {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />聚焦关联流程</button>}
       {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()

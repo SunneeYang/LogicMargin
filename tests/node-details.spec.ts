@@ -50,7 +50,7 @@ test('the panel opens with Enter and Space and remembers the last content tab', 
   await expect(panelButton).toHaveAttribute('aria-expanded', 'true')
 })
 
-test('switching panel tabs reveals their content without losing the docked editor or its frozen target', async ({ page }) => {
+test('switching node tabs preserves the docked editor and its frozen target before returning to the review panel', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.goto('/')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
@@ -65,22 +65,23 @@ test('switching panel tabs reveals their content without losing the docked edito
   await expect(editor).toBeVisible()
   await expect(input).toHaveValue(body)
   await expect(editor.locator('.composer-targets')).toHaveText(first.title)
-  await expect(page.locator('.inspector.is-open .panel-title')).toHaveText(first.title)
-  for (const tab of ['comments', 'drafts', 'detail'] as const) {
-    await editor.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
-    await expect(editor).toHaveClass(/is-docked/)
-    await openInspector(page, tab)
-    await expect(editor).toHaveClass(/is-inline/)
+  await expect(page.locator('.inspector-body .panel-title')).toHaveText(first.title)
+  await editor.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+  await expect(editor).toHaveClass(/is-docked/)
+  await page.locator(secondNode).locator('.node-title').click()
+  for (const tab of ['详情', '代码 diff', '讨论'] as const) {
+    await editor.getByRole('tab', { name: tab, exact: true }).click()
+    await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toBeVisible()
     await expect(input).toHaveAttribute('data-editor-identity', 'original')
     await expect(input).toHaveValue(body)
     await expect(editor.locator('.composer-targets')).toHaveText(first.title)
-    await expect(page.locator('.inspector-body')).not.toHaveAttribute('hidden')
-    if (tab === 'drafts') await expect(page.locator('.draft-list')).toBeVisible()
-    if (tab === 'comments') await expect(page.locator('.inspector-body .empty-state')).toBeVisible()
+    if (tab === '详情') await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toContainText(first.detail)
   }
+  await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
+  await openInspector(page, 'detail')
   await page.locator(secondNode).locator('.node-title').click()
   await expect(editor).not.toBeVisible()
-  await expect(page.locator('.inspector.is-open .panel-title')).toHaveText(second.title)
+  await expect(page.locator('.inspector-body .panel-title')).toHaveText(second.title)
   const drafts = await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!))
   expect(drafts[0]).toMatchObject({ body, targets: [{ kind: 'node', id: first.id }] })
   await openInspector(page, 'drafts')

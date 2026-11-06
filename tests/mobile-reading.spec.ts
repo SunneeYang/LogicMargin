@@ -164,7 +164,8 @@ for (const device of [
       await expect(discussion).toBeInViewport({ ratio: 1 })
       await expect(discussion.locator('.comment-body')).toHaveText(opinion)
       await expect(page.locator('.inspector')).not.toHaveClass(/is-open/)
-      expect(await discussion.evaluate(element => Boolean(element.closest('.inspector')))).toBe(false)
+      await expect(discussion).toHaveClass(/is-inline/)
+      await expect(discussion).toHaveCSS('position', 'fixed')
       await discussion.getByRole('button', { name: '回复讨论', exact: true }).tap()
       const reply = '手机复核补充：请核对失败出口。'
       await discussion.getByLabel('补充说明', { exact: true }).fill(reply)

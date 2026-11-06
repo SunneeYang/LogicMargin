@@ -8,6 +8,10 @@ import GraphCanvas from './GraphCanvas.tsx'
 import type { GraphCanvasHandle } from './GraphCanvas.tsx'
 import type { NodeAppearance } from './GraphLegend.tsx'
 import CommentComposer from './CommentComposer.tsx'
+import type { InspectionTab } from './CommentComposer.tsx'
+import TargetDetails from './TargetDetails.tsx'
+import NodeCodeDiff from './NodeCodeDiff.tsx'
+import SidebarResize, { useSidebarWidths } from './SidebarResize.tsx'
 import { sampleReview } from './sample.ts'
 import { useReviewSession } from './useReviewSession.ts'
 import type { CurrentSession, SessionSummary } from './session-types.ts'
@@ -107,11 +111,16 @@ export default function App() {
   const reviewQueue = useRef<string[]>([])
   const [composer, setComposer] = useState<CommentDraft | null>(null)
   const [discussionTargets, setDiscussionTargets] = useState<Target[] | null>(null)
+  const [windowTab, setWindowTab] = useState<InspectionTab>('comments')
   const [flowPulse, setFlowPulse] = useState(0)
   const pulseSequence = useRef(0)
   const stopFlow = useCallback(() => setFlowPulse(0), [])
   const replayFlow = useCallback(() => setFlowPulse(++pulseSequence.current), [])
   const [docked, setDocked] = useState(false)
+  const windowTargets = discussionTargets ?? composer?.targets ?? null
+  const windowDocked = docked && !!windowTargets
+  const sidebarWidths = useSidebarWidths(navOpen && !focusMode, panelOpen && !focusMode)
+  const compactCanvasTools = compactToolbar || sidebarWidths.canvasWidth < 780
   const [point, setPoint] = useState<{ x: number; y: number } | undefined>()
   const [position, setPosition] = useState({ left: 12, top: 12 })
   const origin = useRef<HTMLElement | null>(null)
@@ -150,10 +159,10 @@ export default function App() {
     return review.comments.filter(comment => (!viewBaseline || comment.basis === 'baseline') && comment.targets.some(target => targets.has(keyOf(target))))
   }, [review.comments, selection, viewBaseline])
   const discussionComments = useMemo(() => {
-    if (!discussionTargets) return []
-    const targets = new Set(discussionTargets.map(keyOf))
+    if (!windowTargets) return []
+    const targets = new Set(windowTargets.map(keyOf))
     return review.comments.filter(comment => (!viewBaseline || comment.basis === 'baseline') && comment.targets.some(target => targets.has(keyOf(target))))
-  }, [review.comments, discussionTargets, viewBaseline])
+  }, [review.comments, windowTargets, viewBaseline])
   const commentOrder = useMemo(() => review.comments.map(comment => comment.id), [review.comments])
   const reviewIdentity = useMemo(() => SESSION_ID ? '' : JSON.stringify(parseReview(review)), [review])
   const localApproved = useMemo(() => history.some(record => record.kind === 'logic-margin-approval' && JSON.stringify(record.review) === reviewIdentity), [history, reviewIdentity])
@@ -217,6 +226,15 @@ export default function App() {
   const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
   const finishLabel = baselinePlanning ? '提交改造意见' : hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
   const replyComment = discussionComments.find(comment => comment.id === threadId) ?? discussionComments.at(-1)
+  const codeBefore = viewBaseline ? undefined : comparingBaseline ? taskBaseline : session.snapshots.get(activeRound - 1)
+  const [codeError, setCodeError] = useState('')
+  useEffect(() => {
+    setCodeError('')
+    if (windowTab !== 'code' || !windowTargets || viewBaseline || comparingBaseline || !session.session || activeRound <= 1) return
+    let active = true
+    void session.loadSnapshot(activeRound - 1).catch(error => { if (active) setCodeError(error instanceof Error ? error.message : '读取代码比较版本失败') })
+    return () => { active = false }
+  }, [windowTab, !!windowTargets, viewBaseline, comparingBaseline, activeRound, session.loadSnapshot])
 
   useEffect(stopFlow, [scene.id, stopFlow])
   useEffect(() => {
@@ -299,7 +317,7 @@ export default function App() {
 
   const reposition = useCallback(() => {
     const targets = discussionTargets ?? composer?.targets
-    if (!targets || (!discussionTargets && docked)) return
+    if (!targets || docked) return
     const rect = graph.current?.getTargetRect(targets)
     const bounds = graph.current?.getCanvasRect()
     const x = rect?.right ?? point?.x ?? bounds?.left ?? 12
@@ -351,8 +369,8 @@ export default function App() {
       if (navOpen && compactToolbar) { setNavOpen(false); return }
       const menu = document.querySelector<HTMLDetailsElement>('details.workspace-menu[open]')
       if (menu) { closeMenus(); menu.querySelector('summary')?.focus(); return }
-      if (discussionTargets) { closeDiscussion(); return }
-      if (composer) { closeComposer(); return }
+      if (discussionTargets) { if (docked) setPanelOpen(false); closeDiscussion(); return }
+      if (composer) { if (docked) setPanelOpen(false); closeComposer(); return }
       if (submitting) { setSubmitting(false); return }
       if (focusMode) { setFocusMode(false); return }
       if (navOpen && matchMedia('(max-width: 900px)').matches) setNavOpen(false)
@@ -532,6 +550,12 @@ export default function App() {
       requestAnimationFrame(() => graph.current?.focusTargets(targets))
     } catch (error) { setNotice(`定位历史流程失败：${error instanceof Error ? error.message : '请重试'}`) }
   }, [review, session.session, session.loadSnapshot, activeRound])
+  const openDetails = useCallback((targets: Target[], at?: { x: number; y: number }) => {
+    discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setComposer(null); setDiscussionTargets(targets); setWindowTab('detail'); setPoint(at); setThreadId(null)
+    setSelection(targets); stopFlow()
+    if (docked) { setFocusMode(false); setPanelOpen(true) }
+  }, [docked, stopFlow])
   const openComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string, inDiscussion = false) => {
     if (historical) { setStatus('历史流程只读，请回到当前版本继续讨论。'); return }
     try {
@@ -542,11 +566,12 @@ export default function App() {
       const draft = existing ?? makeDraft(draftReview, targets, '', replyTo, basis)
       origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       if (!inDiscussion) { setDiscussionTargets(null); setPoint(at) }
-      stopFlow(); setComposer(draft); setDocked(!!replyTo && !inDiscussion)
-      if (replyTo && !inDiscussion) { setFocusMode(false); setPanelOpen(true); setTab('comments') }
+      stopFlow(); setComposer(draft); setWindowTab('comments')
+      if (replyTo && !inDiscussion) setDocked(true)
+      if (docked || replyTo && !inDiscussion) { setFocusMode(false); setPanelOpen(true); setTab('comments') }
       setStatus('')
     } catch (error) { setNotice(error instanceof Error ? error.message : '无法打开编辑器') }
-  }, [review, historical, stopFlow, viewBaseline, baselinePlanning, taskBaseline])
+  }, [review, historical, stopFlow, viewBaseline, baselinePlanning, taskBaseline, docked])
   const openDiscussionComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string) => {
     openComposer(targets, at, replyTo, true)
     if (replyTo) setThreadId(replyTo)
@@ -562,11 +587,12 @@ export default function App() {
       if (baselineOrigin) setComparisonSource('baseline')
       if (baselineOrigin || viewBaseline) setViewRound(null)
     }
-    stopFlow(); closeComposer(false); setThreadId(id)
+    stopFlow(); closeComposer(false); setThreadId(id); setWindowTab('comments')
     if (at) {
       const targets = target ? Array.isArray(target) ? target : [target] : comment.targets
       discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      setDiscussionTargets(targets); setPoint(at); setDocked(false); setContinuous(false)
+      setDiscussionTargets(targets); setPoint(at); setContinuous(false)
+      if (docked) { setFocusMode(false); setPanelOpen(true) }
       const targetScene = targets.map(item => targetSceneId(targetReview, item)).find(Boolean) ?? scene.id
       setSceneId(targetScene)
       setSelection(targets.filter(item => (item.kind === 'node' || item.kind === 'edge') && targetExists(targetReview, item) && targetSceneId(targetReview, item) === targetScene))
@@ -575,7 +601,7 @@ export default function App() {
       if (baselineOrigin) void showBaseline(comment.targets)
       else void showTargets(comment.targets)
     }
-  }, [review, displayReview, scene.id, closeComposer, showTargets, stopFlow, taskBaseline, viewBaseline])
+  }, [review, displayReview, scene.id, closeComposer, showTargets, stopFlow, taskBaseline, viewBaseline, docked])
   const openCanvasThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target) => openThread(id, at, target, false), [openThread])
   function startReview() {
     if (!unresolved.length) return
@@ -820,7 +846,10 @@ export default function App() {
       {draftSaveError && <div className="notice error" role="alert"><p>{draftSaveError}</p><button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>导出草稿</button></div>}
       {historySaveError && <div className="notice error" role="alert"><p>{historySaveError}</p><button className="button" onClick={() => download(JSON.stringify(history, null, 2), 'logic-margin-record-history.json')}>导出评审记录</button></div>}
     </div>
-    <div className={`workspace ${panelOpen ? 'panel-open' : 'panel-closed'} ${navOpen ? 'nav-open' : 'nav-collapsed'}`}>
+    <div className={`workspace ${panelOpen ? 'panel-open' : 'panel-closed'} ${navOpen ? 'nav-open' : 'nav-collapsed'}`}
+      style={{ '--sidebar-size': `${sidebarWidths.left}px`, '--inspector-size': `${sidebarWidths.right}px` } as React.CSSProperties}>
+      {navOpen && !compactToolbar && !focusMode && <SidebarResize side="left" width={sidebarWidths.left} max={sidebarWidths.leftMax} onChange={width => sidebarWidths.change('left', width)} />}
+      {panelOpen && !compactToolbar && !focusMode && <SidebarResize side="right" width={sidebarWidths.right} max={sidebarWidths.rightMax} onChange={width => sidebarWidths.change('right', width)} />}
       <button className="nav-shade" aria-label="关闭场景导航" onClick={() => setNavOpen(false)} />
       <aside id="scene-navigation" className="sidebar" aria-label="评审场景"><button className="button sidebar-close" aria-label="收起场景列表" onClick={() => setNavOpen(false)}><X size={16} />收起场景</button><div className="navigation-heading"><span>流程场景</span><span>{displayReview.scenes.length}</span></div>
         <nav>{displayReview.scenes.map((item, index) => <button key={item.id} className={`scene-button ${scene.id === item.id ? 'active' : ''}`} onClick={() => switchScene(item.id)} aria-current={scene.id === item.id ? 'page' : undefined}><span className="scene-number">{String(index + 1).padStart(2, '0')}</span><span><strong>{item.title}</strong><small>{displayReview.nodes.filter(node => node.sceneId === item.id).length} 个步骤</small></span><ChevronRight size={14} /></button>)}</nav>
@@ -828,15 +857,15 @@ export default function App() {
       <main className="review-main">
         <div className="graph-toolbar">
           <div className="scene-context"><h2 className="scene-title" title={`${scene.title} · ${scene.description}`}>{scene.title}</h2><label className="mobile-scene-select"><select aria-label="场景" value={scene.id} onChange={event => switchScene(event.target.value)}>{displayReview.scenes.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
-          <button className={`button panel-toggle ${panelOpen ? 'active' : ''}`} data-keep-composer aria-label={`评审面板${review.comments.length ? ` ${review.comments.length}` : ''}`} aria-expanded={panelOpen} aria-controls="node-inspector" onClick={() => { if (panelOpen) { setPanelOpen(false); if (docked) closeComposer(false) } else openPanel(tab) }}><MessageSquare size={14} /><span className="panel-label">评审面板</span>{review.comments.length > 0 && <span className="panel-count">{review.comments.length}</span>}</button>
-          <details className={`canvas-tools${compactToolbar ? ' workspace-menu' : ''}`} open={!compactToolbar}>
+          <button className={`button panel-toggle ${panelOpen ? 'active' : ''}`} data-keep-composer aria-label={`评审面板${review.comments.length ? ` ${review.comments.length}` : ''}`} aria-expanded={panelOpen} aria-controls="node-inspector" onClick={() => { if (panelOpen) { setPanelOpen(false); if (docked) closeDiscussion(false) } else openPanel(tab) }}><MessageSquare size={14} /><span className="panel-label">评审面板</span>{review.comments.length > 0 && <span className="panel-count">{review.comments.length}</span>}</button>
+          <details className={`canvas-tools${compactCanvasTools ? ' workspace-menu is-compact' : ''}`} open={!compactCanvasTools}>
             <summary className="button" aria-label="画布工具"><SlidersHorizontal size={15} />工具{mode === 'select' && <span className="badge">框选中</span>}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
-            <div className="canvas-tool-content" onClick={event => { if (compactToolbar && (event.target as Element).closest('button')) closeMenus() }}>
+            <div className="canvas-tool-content" onClick={event => { if (compactCanvasTools && (event.target as Element).closest('button')) closeMenus() }}>
               <RevisionControls session={session.session ?? undefined} viewRound={activeRound} onViewRound={round => void switchRound(round)} onOpenChanges={() => openPanel('changes')}
                 baseline={hasTaskBaseline ? { showing: viewBaseline, source: comparisonSource, onSourceChange: changeComparison, onShow: () => void showBaseline() } : undefined} />
               <div className="tool-group canvas-mode-switch" role="group" aria-label="画布操作模式"><button className={`button ${mode === 'pan' ? 'active' : ''}`} aria-label="浏览" aria-pressed={mode === 'pan'} onClick={() => setMode('pan')}><Hand size={14} /><span className="tool-label">浏览</span></button><button className={`button ${mode === 'select' ? 'active' : ''}`} aria-label="框选" aria-pressed={mode === 'select'} onClick={() => setMode('select')}><Scan size={14} /><span className="tool-label">框选</span></button></div>
               <div className="tool-group toolbar-actions">
-                {!historical && (compactToolbar
+                {!historical && (compactCanvasTools
                   ? <div className="scope-actions-inline" role="group" aria-label="批注范围"><span className="project-label">范围批注</span>{scopeButtons}</div>
                   : <details className="workspace-menu scope-actions"><summary className="button">添加批注<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">{scopeButtons}</div></details>)}
                 {!!selection.length && <><button className="button icon-button locate-selection" data-keep-composer aria-label="定位当前选择" title="定位当前选择" onClick={() => graph.current?.focusTargets(selection)}><Focus size={16} /></button><button className="button mobile-clear-selection" onClick={() => setSelection([])}><X size={14} />清除选择</button></>}
@@ -868,12 +897,12 @@ export default function App() {
           flowPulse={flowPulse} onSelectIntent={replayFlow} onHoverIntent={discussionTargets || composer ? undefined : replayFlow}
           nodeAppearance={nodeAppearance} onNodeAppearanceChange={changeNodeAppearance}
           readOnly={historical} viewportKey={canvasKey} changeSide={viewBaseline || historical ? 'before' : 'after'} commentOrder={commentOrder}
-          onOpenComposer={openComposer} onOpenThread={openCanvasThread} onViewportChange={reposition} />
-        <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">{baselinePlanning ? '基线评审 · 提出改造要求' : viewBaseline ? '基线 B · 原版流程' : baseline && sessionChanges ? `${baseline.label} → ${session.session ? roundLabel(session.session.round) : '当前'} · 新增 ${changes.added.length}，修改 ${changes.changed.length}，移除 ${changes.removed.length}` : '右键批注，滚轮缩放。更多操作见图例'}</span><span>{unresolved.length} 条待处理意见</span></div>
+          onOpenComposer={openComposer} onOpenDetails={openDetails} onOpenThread={openCanvasThread} onViewportChange={reposition} />
+        <div className="canvas-caption"><span className="selection-count">{selection.length ? `已选 ${selection.length} 项` : '选择步骤或连线'}</span><span className="canvas-help">{baselinePlanning ? '基线评审 · 提出改造要求' : viewBaseline ? '基线 B · 原版流程' : baseline && sessionChanges ? `${baseline.label} → ${session.session ? roundLabel(session.session.round) : '当前'} · 新增 ${changes.added.length}，修改 ${changes.changed.length}，移除 ${changes.removed.length}` : '滚轮平移，Ctrl/⌘＋滚轮缩放。更多操作见图例'}</span><span>{unresolved.length} 条待处理意见</span></div>
       </main>
-      <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}`} aria-label="步骤详情与批注">
+      <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}${windowDocked ? ' node-window-docked' : ''}`} aria-label="步骤详情与批注">
         <div className="inspector-tabs" role="group" aria-label="评审面板内容" data-keep-composer><button className={tab === 'comments' ? 'active' : ''} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>讨论 {review.comments.length}</button><button className={tab === 'detail' ? 'active' : ''} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>详情</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>草稿 {drafts.length}</button>}<button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>变化</button><button className="button icon-button" aria-label="收起侧栏" onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
-        <div className="inspector-body" hidden={!!composer && docked}>
+        <div className="inspector-body" hidden={windowDocked}>
           {tab === 'changes' && !baseline && <div className="empty-state">
             {hasTaskBaseline || previousRound >= 1 ? <><p role={comparisonError ? 'alert' : 'status'}>{comparisonError || '正在读取修改前流程…'}</p><button className="button" onClick={() => void loadComparison()}>重新读取</button></>
               : <><h3>未提供修改前基线</h3><p>请让发起评审的代理补入原版流程图及源码基线，再核对本次修改。</p></>}
@@ -912,24 +941,34 @@ export default function App() {
           {tab === 'drafts' && <section className="draft-list"><p className="muted">未保存的内容自动保留。旧版本草稿可导出核对。</p>{!drafts.length && <div className="empty-state"><p>没有未保存的意见。</p></div>}{drafts.map(draft => {
             const valid = validDrafts.some(item => item.key === draft.key)
             return <article className="draft-entry" key={draft.key}><strong>{draft.replyTo ? '讨论回复 · ' : ''}{draft.labels.join(' · ')}</strong><small>{draft.revision}{!valid && ' · 旧版本或原目标不可用'}</small><p>{draft.body}</p>
-              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setDocked(true); setPanelOpen(true) }}>继续编辑</button>}
+              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setWindowTab('comments'); setDocked(true); setPanelOpen(true) }}>继续编辑</button>}
                 <details className="draft-options"><summary className="button subtle">更多操作</summary><div><button className="button" onClick={() => download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`)}>导出这份草稿</button><button className="button subtle" onClick={() => { download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`); remember({ ...draft, body: '' }) }}>导出并移除草稿</button></div></details>
               </div>
             </article>
           })}{drafts.length > 1 && <button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>导出全部草稿</button>}</section>}
         </div>
         <CommentComposer draft={composer} docked={docked} position={position} onInteract={stopFlow}
+          inspection={windowTargets ? {
+            key: JSON.stringify([displayReview.revision, displayReview.snapshot.fingerprint, viewBaseline, activeRound, windowTargets]),
+            title: windowTargets.map(target => targetLabel(displayReview, target)).join('、'),
+            context: `${viewBaseline ? '基线 B · ' : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? ' · 只读' : ''}`,
+            tab: windowTab, onTabChange: setWindowTab,
+            detail: <TargetDetails review={displayReview} targets={windowTargets} />,
+            code: <>{viewBaseline && <p className="muted">当前查看基线 B，以下为原版代码依据。</p>}{codeError ? <p role="alert">{codeError}</p> : <NodeCodeDiff before={codeBefore} after={displayReview} targets={windowTargets} beforeLabel={comparingBaseline ? '基线 B' : roundLabel(activeRound - 1)} afterLabel={viewBaseline ? '基线 B' : session.session ? roundLabel(activeRound) : '当前评审'} />}</>,
+          } : undefined}
           discussion={discussionTargets ? {
             key: discussionTargets.map(keyOf).join('|'),
             title: discussionTargets.map(target => targetLabel(displayReview, target)).join('、'),
             context: `${viewBaseline ? '基线 B · ' : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? ' · 只读' : ''}`,
-            content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} /></>,
+            content: <>{historical && <p className="muted">历史流程只读，讨论显示当前处理状态。</p>}{!discussionComments.length && <p className="muted">这个步骤还没有批注。</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!composer && !historical && <button className="button node-window-new-comment" disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>添加新批注</button>}</>,
             replyLabel: composer?.replyTo ? `回复意见 #${review.comments.findIndex(comment => comment.id === composer.replyTo) + 1}` : undefined,
             canReply: !!replyComment && !historical && !sessionBlocked,
             onReply: () => { if (replyComment) openDiscussionComposer(replyComment.targets, undefined, replyComment.id) },
             onCollapse: () => closeComposer(false),
           } : undefined}
-          onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer} onClose={() => discussionTargets ? closeDiscussion() : closeComposer()} onToggle={() => { setDocked(current => !current); if (!docked) { setFocusMode(false); setPanelOpen(true); if (composer?.basis === 'baseline') { setViewBaseline(true); setComparisonSource('baseline') } else void showTargets(composer?.targets ?? []) } }} />
+          onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer}
+          onClose={() => { if (docked) setPanelOpen(false); if (discussionTargets) closeDiscussion(); else closeComposer() }}
+          onToggle={() => { setDocked(current => !current); setPanelOpen(!docked); if (!docked) setFocusMode(false) }} />
       </aside>
     </div>
   </div>

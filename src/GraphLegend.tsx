@@ -51,7 +51,7 @@ export default function GraphLegend({ nodeAppearance, onNodeAppearanceChange }: 
         </svg>
         <p>连线沿通道转折，外围虚线表示返回前序步骤，较细连线通向失败出口。留白交叉表示跨过、不连接。分支和汇合只发生在节点端口；箭头表示流向。</p>
         <p><span className="flow-key incoming">前序 →</span> 流入选中节点；<span className="flow-key outgoing">→ 后续</span> 从选中节点流出。关联连线使用强调色，流动光效沿箭头前进，其他条件保持可读。</p>
-        <h3>操作</h3><p>拖动画布，滚轮缩放。点击选择步骤或连线，右键批注；按住 Shift / ⌘ 可多选，框选只选择节点。</p>
+        <h3>操作</h3><p>滚轮或触控板双指滑动可平移画布；按住 Ctrl / ⌘ 滚动，或双指捏合可缩放。也可拖动画布。点击选择步骤或连线，右键批注；按住 Shift / ⌘ 可多选，框选只选择节点。</p>
         <h3>跨轮变化</h3>
         <div className="legend-revisions">
           <span className="badge revision-badge revision-added">新增</span>

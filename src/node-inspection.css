@@ -1,0 +1,35 @@
+@media (min-width: 901px) {
+  .app-shell .workspace, .app-shell .workspace.panel-closed, .app-shell .workspace.panel-open { --navigation-width: var(--sidebar-size, 192px); }
+  .app-shell .workspace.panel-open { --details-width: var(--inspector-size, 420px); }
+  .app-shell .workspace.nav-collapsed, .app-shell.is-focused .workspace { --navigation-width: 0px; }
+  .app-shell.is-focused .workspace { --details-width: 0px; }
+  .sidebar-resize { position: absolute; z-index: 74; top: 0; bottom: 0; width: 12px; cursor: col-resize; touch-action: none; user-select: none; }
+  .sidebar-resize::after { position: absolute; content: ''; top: 0; bottom: 0; left: 5px; width: 2px; background: var(--color-clear); transition: background 120ms ease-out; }
+  .sidebar-resize:hover::after, .sidebar-resize:focus-visible::after, .sidebar-resize.is-dragging::after { background: var(--color-accent); }
+  .sidebar-resize:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+  .resize-left { left: calc(var(--navigation-width) - 6px); }
+  .resize-right { right: calc(var(--details-width) - 6px); }
+  .app-shell .inspector.node-window-docked > .inspector-tabs { display: none; }
+  .app-shell .inspector.node-window-docked > .comment-composer.is-docked { margin: 0; border: 0; border-radius: 0; max-height: 100%; height: 100%; }
+}
+.node-details-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 28px; height: 28px; padding: var(--space-xs); border: 0; border-radius: var(--control-radius); background: var(--color-clear); color: var(--color-muted); }
+.node-details-button:hover { color: var(--color-accent); background: var(--color-accent-paper); }
+.node-details-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.node-topline .node-comment-button { margin-left: auto; }
+.node-topline { flex-wrap: wrap; gap: var(--space-xs); }
+.node-kind { flex-shrink: 0; white-space: nowrap; }
+.node-window-new-comment { margin-top: var(--space-lg); }
+.canvas-tools.is-compact { flex: 0 0 auto; }
+.canvas-tools.is-compact > summary { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.canvas-tools.is-compact .canvas-tool-content { position: absolute; z-index: 75; top: calc(100% + var(--space-xs)); right: var(--space-sm); width: min(360px, calc(100dvw - 16px)); max-height: calc(var(--app-height, 100dvh) - 128px); overflow-y: auto; overscroll-behavior: contain; flex-direction: column; align-items: stretch; gap: var(--space-md); padding: var(--space-md); border: var(--rule-width) solid var(--color-rule); border-radius: var(--panel-radius); background: var(--color-surface-solid); box-shadow: var(--shadow-popover); }
+.app-shell .canvas-tools.is-compact .toolbar-actions { flex: 0 0 auto; width: auto; min-width: 0; max-width: 100%; margin: 0; justify-content: flex-start; flex-wrap: wrap; overflow: visible; }
+.app-shell .canvas-tools.is-compact .focus-toggle { width: auto; }
+@media (pointer: coarse), (max-width: 900px) {
+  .node-details-button { min-width: 44px; width: 44px; height: 44px; }
+  .node-comment-button.is-empty span { display: none; }
+}
+@media (max-width: 900px) {
+  .sidebar-resize { display: none; }
+  .app-shell .panel-open .inspector.node-window-docked { height: 0; border: 0; box-shadow: none; }
+  .app-shell .inspector.node-window-docked > .inspector-tabs { display: none; }
+}

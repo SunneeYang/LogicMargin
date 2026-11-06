@@ -20,7 +20,8 @@ export function logicIdentity(review: ReviewDocument): string {
 
 export function getRevisionChanges(before: ReviewDocument, after: ReviewDocument): RevisionChanges {
   const elements = (review: ReviewDocument) => [
-    ...review.nodes.map(node => ({ target: { kind: 'node', id: node.id } as Target, logic: nodeLogic(node), evidence: node.evidence })),
+    ...review.nodes.map(node => ({ target: { kind: 'node', id: node.id } as Target, logic: nodeLogic(node),
+      evidence: node.evidence.map(({ path, symbol, startLine, endLine, digest }) => [path, symbol, startLine, endLine, digest]) })),
     ...review.edges.map(edge => ({ target: { kind: 'edge', id: edge.id } as Target, logic: edgeLogic(edge), evidence: [] })),
   ]
   const previous = new Map(elements(before).map(item => [key(item.target), item]))

@@ -6,7 +6,7 @@ import { gzip, gunzip } from 'node:zlib'
 import { promisify } from 'node:util'
 import { addReply, parseReview, parseReviewBaseline, rebaseReview, targetExists } from '../src/model.ts'
 import { logicIdentity } from '../src/revisions.ts'
-import { validatePublication } from './publication.ts'
+import { validateEvidenceCode, validatePublication } from './publication.ts'
 import { currentSession } from './session-view.ts'
 import { createApprovalRecord, createFeedbackPackage, parseRecordHistory, pendingFeedback } from '../src/workspace.ts'
 import { parseSessionOptions } from '../src/session-lifecycle.ts'
@@ -48,7 +48,11 @@ function date(value: unknown): string {
   return value
 }
 function equal(left: unknown, right: unknown): boolean { return JSON.stringify(left) === JSON.stringify(right) }
-function checkedReview(value: unknown): ReviewDocument { return parseReview(value) }
+function checkedReview(value: unknown): ReviewDocument {
+  const review = parseReview(value)
+  validateEvidenceCode(review)
+  return review
+}
 function checkCommentRounds(review: ReviewDocument, round: number) {
   if (review.comments.some(comment => (comment.originRound ?? 1) > round || (comment.reviewedRound ?? 1) > round || comment.replies?.some(reply => (reply.round ?? 1) > round))) throw new SessionError('批注所属轮次超出流程版本')
 }
@@ -59,6 +63,7 @@ function parseSession(value: unknown): ReviewSession {
   const options = parseSessionOptions(source)
   if (options.baselineReview && !review.baseline) throw new SessionError('基线改造评审缺少固定基线 B')
   const history = parseRecordHistory(source.history)
+  for (const record of history) validateEvidenceCode(record.review)
   if (!Array.isArray(source.snapshots) || !source.snapshots.length) throw new SessionError('会话快照无效')
   const snapshots = source.snapshots.map(value => {
     const snapshot = object(value)
@@ -208,6 +213,7 @@ export class SessionStore {
     integer(input.expectedVersion, '版本')
     return this.update(session, state => {
       const baseline = parseReviewBaseline(input.baseline, state.review.id)
+      validateEvidenceCode(baseline)
       if (state.review.baseline) {
         if (equal(state.review.baseline, baseline)) return state
         throw new SessionError('固定基线已存在，不能替换', 409)

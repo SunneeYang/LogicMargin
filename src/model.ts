@@ -1,6 +1,9 @@
 import type { CommentReply, CommentStatus, ReviewBaseline, ReviewChanges, ReviewComment, ReviewDocument, ReviewEdge, ReviewNode, Target } from './types.ts'
 import { newId } from './id.ts'
 
+export const MAX_EVIDENCE_CODE_CHARS = 100_000
+export const MAX_EVIDENCE_CODE_LINES = 2_000
+
 function object(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label}必须是对象`)
   return value as Record<string, unknown>
@@ -98,7 +101,12 @@ export function parseReview(value: unknown, options: { allowBaselineReferences?:
         const startLine = number(evidence.startLine, '源码起始行', true)
         const endLine = number(evidence.endLine, '源码结束行', true)
         if (endLine < startLine) throw new Error('源码结束行不能早于起始行')
-        return { path: text(evidence.path, '源码路径', 2000, true), symbol: text(evidence.symbol, '源码符号', 500, true), startLine, endLine, digest: text(evidence.digest, '源码摘要', 200, true) }
+        const digest = text(evidence.digest, '源码摘要', 200, true)
+        const code = evidence.code === undefined ? undefined : text(evidence.code, '源码片段', MAX_EVIDENCE_CODE_CHARS)
+        if (code !== undefined && (!/^[a-f0-9]{64}$/.test(digest) || code.includes('\r\n') || code.includes('\0') ||
+          endLine - startLine + 1 > MAX_EVIDENCE_CODE_LINES || code.split('\n').length !== endLine - startLine + 1)) throw new Error('源码片段必须与依据行数一致，使用 LF 换行和 SHA-256 摘要，最多 2000 行')
+        return { path: text(evidence.path, '源码路径', 2000, true), symbol: text(evidence.symbol, '源码符号', 500, true), startLine, endLine, digest,
+          ...(code === undefined ? {} : { code }) }
       }),
     }
   }), '节点')
@@ -135,6 +143,8 @@ export function parseReview(value: unknown, options: { allowBaselineReferences?:
       excluded: list(coverage.excluded, '未覆盖范围').map(value => text(value, '未覆盖说明')), note: text(coverage.note, '覆盖范围说明', 10000) },
     scenes, nodes, edges, comments,
   }
+  const sourcePaths = new Set(result.snapshot.files?.map(file => file.path))
+  if (result.nodes.some(node => node.evidence.some(item => item.code !== undefined && !sourcePaths.has(item.path)))) throw new Error('保存源码片段必须包含对应的来源文件清单')
   if (review.baseline !== undefined) result.baseline = parseReviewBaseline(review.baseline, result.id)
   result.comments = comments.map(comment => {
     const document = comment.basis === 'baseline' ? result.baseline : result

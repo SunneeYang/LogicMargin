@@ -59,6 +59,27 @@ test('validates and round trips an exported review without retaining unknown fie
   assert.equal('unknown' in parseReview({ ...review, unknown: 'ignored' }), false)
 })
 
+test('optional saved source snippets round trip and reject malformed or unbound content', () => {
+  const review = fixture()
+  const evidence = review.nodes[0].evidence[0]
+  evidence.startLine = 3
+  evidence.endLine = 4
+  evidence.digest = 'a'.repeat(64)
+  evidence.code = 'check()\nrun()'
+  review.snapshot.files = [{ path: evidence.path, sha256: 'b'.repeat(64) }]
+  assert.deepEqual(parseReview(JSON.parse(serializeReview(review))), review)
+  for (const code of ['one line', 'check()\r\nrun()', 'x'.repeat(100_001), 'check()\n\0']) {
+    assert.throws(() => parseReview({ ...review, nodes: [{ ...review.nodes[0], evidence: [{ ...evidence, code }] }, review.nodes[1]] }), /源码片段/)
+  }
+  for (const patch of [{ digest: 'legacy-digest' }, { endLine: 2003, code: Array(2001).fill('x').join('\n') }]) {
+    assert.throws(() => parseReview({ ...review, nodes: [{ ...review.nodes[0], evidence: [{ ...evidence, ...patch }] }, review.nodes[1]] }), /源码片段/)
+  }
+  delete review.snapshot.files
+  assert.throws(() => parseReview(review), /来源文件清单/)
+  delete evidence.code
+  assert.deepEqual(parseReview(review), review)
+})
+
 test('rejects broken schemas, IDs, graph references, coordinates, evidence and comments', () => {
   const invalid = [
     (r: ReviewDocument) => ({ ...r, schemaVersion: 2 }),
