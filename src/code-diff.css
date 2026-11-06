@@ -37,7 +37,7 @@
 .code-editor-host { min-width: 0; border: 1px solid var(--color-rule); background: var(--color-surface-solid); }
 .code-editor .cm-editor { background: var(--color-surface-solid); color: var(--color-body); font-size: var(--text-xs); }
 .code-editor .cm-editor.cm-focused { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-.code-editor .cm-scroller { font-family: var(--font-mono); line-height: 20px; overscroll-behavior: contain; scrollbar-color: var(--color-control-border) var(--color-surface-solid); }
+.code-editor .cm-scroller { font-family: var(--font-mono); line-height: 20px; overscroll-behavior-x: contain; scrollbar-color: var(--color-control-border) var(--color-surface-solid); }
 .code-editor.is-unified .cm-scroller, .code-editor .cm-mergeView { max-height: min(420px, 45dvh); overflow: auto; overscroll-behavior: contain; }
 .code-editor .cm-content { padding-block: var(--space-xs); caret-color: var(--color-accent); }
 .code-editor .cm-gutters { border: 0; background: var(--color-surface-muted); color: var(--color-muted); font-variant-numeric: tabular-nums; }

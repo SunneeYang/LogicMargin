@@ -11,7 +11,7 @@ export function useSidebarWidths(leftOpen: boolean, rightOpen: boolean) {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
       return {
         left: Number.isFinite(saved?.left) ? clamp(saved.left, 180, 360) : defaults.left,
-        right: Number.isFinite(saved?.right) ? clamp(saved.right, 320, 960) : defaults.right,
+        right: Number.isFinite(saved?.right) ? Math.max(saved.right, 320) : defaults.right,
       }
     } catch { return defaults }
   })
@@ -25,12 +25,13 @@ export function useSidebarWidths(leftOpen: boolean, rightOpen: boolean) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(preferred)) }
     catch { /* Width preferences must not interrupt a review. */ }
   }, [preferred])
-  const left = clamp(preferred.left, 180, Math.min(360, viewportWidth - (rightOpen ? 320 : 0) - 360))
-  const rightMax = Math.max(320, Math.min(960, viewportWidth - (leftOpen ? left : 0) - 360))
+  const leftMax = Math.max(180, Math.min(360, viewportWidth - (rightOpen ? 320 : 0) - 360))
+  const left = clamp(preferred.left, 180, leftMax)
+  const rightMax = Math.max(320, viewportWidth - (leftOpen ? left : 0))
   const right = clamp(preferred.right, 320, rightMax)
-  const leftMax = Math.max(180, Math.min(360, viewportWidth - (rightOpen ? right : 0) - 360))
+  const rightLayout = Math.min(right, Math.max(320, Math.min(960, rightMax - 360)))
   return {
-    left, right, leftMax, rightMax, canvasWidth: viewportWidth - (leftOpen ? left : 0) - (rightOpen ? right : 0),
+    left, right, rightLayout, leftMax, rightMax, canvasWidth: viewportWidth - (leftOpen ? left : 0) - (rightOpen ? rightLayout : 0),
     change: (side: keyof Widths, width: number) => setPreferred(current => ({ ...current, [side]: width })),
   }
 }

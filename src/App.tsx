@@ -118,6 +118,8 @@ export default function App() {
   const replayFlow = useCallback(() => setFlowPulse(++pulseSequence.current), [])
   const [docked, setDocked] = useState(false)
   const windowTargets = discussionTargets ?? composer?.targets ?? null
+  const windowTargetsRef = useRef(windowTargets)
+  windowTargetsRef.current = windowTargets
   const windowDocked = docked && !!windowTargets
   const sidebarWidths = useSidebarWidths(navOpen && !focusMode, panelOpen && !focusMode)
   const compactCanvasTools = compactToolbar || sidebarWidths.canvasWidth < 780
@@ -166,7 +168,13 @@ export default function App() {
   const commentOrder = useMemo(() => review.comments.map(comment => comment.id), [review.comments])
   const reviewIdentity = useMemo(() => SESSION_ID ? '' : JSON.stringify(parseReview(review)), [review])
   const localApproved = useMemo(() => history.some(record => record.kind === 'logic-margin-approval' && JSON.stringify(record.review) === reviewIdentity), [history, reviewIdentity])
-  const graphSelection = useCallback((targets: Target[]) => setSelection(targets), [])
+  const graphSelection = useCallback((targets: Target[]) => {
+    setSelection(targets)
+    const windowTargets = windowTargetsRef.current
+    if (!windowTargets || targets.length !== 1 || targets[0].kind !== 'node' || windowTargets.length === 1 && keyOf(windowTargets[0]) === keyOf(targets[0])) return
+    discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setComposer(null); setDiscussionTargets(targets); setThreadId(null); setContinuous(false); setPoint(undefined)
+  }, [])
   const receiveSession = useCallback((next: CurrentSession) => {
     if (receivedRound.current && receivedRound.current !== next.round) {
       setViewRound(null); setViewBaseline(false); setSelection([]); setComposer(null); setDiscussionTargets(null); setSubmitting(false); setContinuous(false)
@@ -845,8 +853,8 @@ export default function App() {
       {draftSaveError && <div className="notice error" role="alert"><p>{draftSaveError}</p><button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>导出草稿</button></div>}
       {historySaveError && <div className="notice error" role="alert"><p>{historySaveError}</p><button className="button" onClick={() => download(JSON.stringify(history, null, 2), 'logic-margin-record-history.json')}>导出评审记录</button></div>}
     </div>
-    <div className={`workspace ${panelOpen ? 'panel-open' : 'panel-closed'} ${navOpen ? 'nav-open' : 'nav-collapsed'}`}
-      style={{ '--sidebar-size': `${sidebarWidths.left}px`, '--inspector-size': `${sidebarWidths.right}px` } as React.CSSProperties}>
+    <div className={`workspace ${panelOpen ? 'panel-open' : 'panel-closed'} ${navOpen ? 'nav-open' : 'nav-collapsed'}${panelOpen && sidebarWidths.right > sidebarWidths.rightLayout ? ' inspector-overlay' : ''}`}
+      style={{ '--sidebar-size': `${sidebarWidths.left}px`, '--inspector-size': `${sidebarWidths.right}px`, '--inspector-layout-size': `${sidebarWidths.rightLayout}px` } as React.CSSProperties}>
       {navOpen && !compactToolbar && !focusMode && <SidebarResize side="left" width={sidebarWidths.left} max={sidebarWidths.leftMax} onChange={width => sidebarWidths.change('left', width)} />}
       {panelOpen && !compactToolbar && !focusMode && <SidebarResize side="right" width={sidebarWidths.right} max={sidebarWidths.rightMax} onChange={width => sidebarWidths.change('right', width)} />}
       <button className="nav-shade" aria-label="关闭场景导航" onClick={() => setNavOpen(false)} />

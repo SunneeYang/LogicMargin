@@ -83,15 +83,17 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
   })
 }
 
-test('explicit selection replays a bounded flow without changing the open discussion or its draft', async ({ page }) => {
+test('explicit selection follows the node and replays a bounded flow while retaining the original reply draft', async ({ page }) => {
   await openReview(page)
   await page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true }).click()
   await page.getByLabel('补充说明', { exact: true }).fill('仍在回复原节点。')
   const node = page.locator('.react-flow__node[data-id="upgrade-start"]')
   await node.locator('.node-title').click()
   await expect(node).toHaveClass(/selected/)
-  await expect(page.locator('.discussion-target')).toContainText('通灵功能是否开放？')
-  await expect(page.getByLabel('补充说明', { exact: true })).toHaveValue('仍在回复原节点。')
+  await expect(page.locator('.discussion-target')).toContainText('发起总等级升级')
+  await expect(page.getByLabel('补充说明', { exact: true })).toHaveCount(0)
+  await expect(node).toBeFocused()
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!)[0].body)).toBe('仍在回复原节点。')
   const light = page.locator('.edge-flow-light').first()
   await expect(light).toHaveCSS('animation-iteration-count', '2')
   await expect.poll(() => light.evaluate(element => element.getAnimations()[0]?.playState)).toBe('finished')

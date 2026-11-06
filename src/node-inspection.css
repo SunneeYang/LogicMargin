@@ -1,6 +1,8 @@
 @media (min-width: 901px) {
   .app-shell .workspace, .app-shell .workspace.panel-closed, .app-shell .workspace.panel-open { --navigation-width: var(--sidebar-size, 192px); }
-  .app-shell .workspace.panel-open { --details-width: var(--inspector-size, 420px); }
+  .app-shell .workspace.panel-open { --details-width: var(--inspector-layout-size, 420px); }
+  .app-shell:not(.is-focused) .panel-open .inspector { width: var(--inspector-size, 420px); justify-self: end; position: relative; }
+  .app-shell .inspector-overlay .review-main { isolation: isolate; }
   .app-shell .workspace.nav-collapsed, .app-shell.is-focused .workspace { --navigation-width: 0px; }
   .app-shell.is-focused .workspace { --details-width: 0px; }
   .sidebar-resize { position: absolute; z-index: 74; top: 0; bottom: 0; width: 12px; cursor: col-resize; touch-action: none; user-select: none; }
@@ -8,7 +10,8 @@
   .sidebar-resize:hover::after, .sidebar-resize:focus-visible::after, .sidebar-resize.is-dragging::after { background: var(--color-accent); }
   .sidebar-resize:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
   .resize-left { left: calc(var(--navigation-width) - 6px); }
-  .resize-right { right: calc(var(--details-width) - 6px); }
+  .resize-right { left: max(var(--navigation-width), calc(100% - var(--inspector-size) - 6px)); right: calc(var(--inspector-size) - 6px); width: auto; }
+  .resize-right::after { left: auto; right: 5px; }
   .app-shell .inspector.node-window-docked > .inspector-tabs { display: none; }
   .app-shell .inspector.node-window-docked > .comment-composer.is-docked { margin: 0; border: 0; border-radius: 0; max-height: 100%; height: 100%; }
 }

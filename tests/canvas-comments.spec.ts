@@ -52,7 +52,7 @@ test('save on the diagram, read the marker in a discussion dialog, and restore a
   expect(errors).toEqual([])
 })
 
-test('one editor keeps its DOM, caret, body, and frozen targets across docking and draft recovery', async ({ page }) => {
+test('one editor keeps its DOM across docking and retains the original draft when following another node', async ({ page }) => {
   await page.goto('/')
   await openFirstComposer(page)
   const editor = composer(page)
@@ -70,12 +70,12 @@ test('one editor keeps its DOM, caret, body, and frozen targets across docking a
   expect(await input.evaluate((element: HTMLTextAreaElement) => [element.selectionStart, element.selectionEnd])).toEqual([2, 6])
   await page.locator(secondNode).locator('.node-title').click()
   await expect(page.locator(secondNode)).toHaveClass(/selected/)
-  await expect(editor.locator('.discussion-target')).toHaveText('发起总等级升级')
-  await expect(input).toHaveValue(body)
+  await expect(editor.locator('.discussion-target')).toHaveText('通灵功能是否开放？')
+  await expect(input).toHaveCount(0)
   expect((await savedDrafts(page))[0].targets).toEqual([{ kind: 'node', id: 'upgrade-start' }])
   await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
   await expect(editor).toHaveClass(/is-inline/)
-  await expect(input).toHaveAttribute('data-editor-identity', 'original')
+  await expect(input).toHaveCount(0)
   await page.keyboard.press('Escape')
   await expect(editor).not.toBeVisible()
   await openFirstComposer(page)

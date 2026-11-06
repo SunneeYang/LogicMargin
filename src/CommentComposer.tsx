@@ -66,7 +66,7 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
         input.current?.focus({ preventScroll: true })
         if (discussion) input.current?.scrollIntoView({ block: 'nearest' })
       } else container.current?.scrollIntoView({ block: 'nearest' })
-    } else if (discussion || inspection) container.current?.focus({ preventScroll: true })
+    } else if ((discussion || inspection) && !document.activeElement?.matches('.react-flow__node, .react-flow__edge')) container.current?.focus({ preventScroll: true })
   }, [draft?.key, discussion?.key, inspection?.key])
   useLayoutEffect(() => {
     container.current?.querySelectorAll('.inspection-content').forEach(element => { element.scrollTop = 0 })

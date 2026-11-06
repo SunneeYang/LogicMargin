@@ -50,7 +50,7 @@ test('the panel opens with Enter and Space and remembers the last content tab', 
   await expect(panelButton).toHaveAttribute('aria-expanded', 'true')
 })
 
-test('switching node tabs preserves the docked editor and its frozen target before returning to the review panel', async ({ page }) => {
+test('switching nodes updates every docked tab while retaining the original draft for recovery', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.goto('/')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
@@ -72,10 +72,9 @@ test('switching node tabs preserves the docked editor and its frozen target befo
   for (const tab of ['详情', '代码 diff', '讨论'] as const) {
     await editor.getByRole('tab', { name: tab, exact: true }).click()
     await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toBeVisible()
-    await expect(input).toHaveAttribute('data-editor-identity', 'original')
-    await expect(input).toHaveValue(body)
-    await expect(editor.locator('.discussion-target')).toHaveText(first.title)
-    if (tab === '详情') await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toContainText(first.detail)
+    await expect(input).toHaveCount(0)
+    await expect(editor.locator('.discussion-target')).toHaveText(second.title)
+    if (tab === '详情') await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toContainText(second.detail)
   }
   await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
   await openInspector(page, 'detail')
