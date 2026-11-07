@@ -9,11 +9,11 @@
 <h1 align="center">LogicMargin</h1>
 
 <p align="center">
-  <strong>A local business logic review tool for people and coding agents.</strong>
+  <strong>Build with AI. Understand what it builds.</strong>
 </p>
 
 <p align="center">
-  Review business rules on a flowchart. Keep feedback and changes in context across rounds.
+  A local logic review tool: follow the flow, inspect the code, leave feedback, and verify each revision.
 </p>
 
 <p align="center">
@@ -23,56 +23,77 @@
 </p>
 
 <p align="center">
+  <a href="#why-logicmargin">Why LogicMargin?</a> ·
   <a href="#about">About</a> ·
   <a href="#preview">Preview</a> ·
   <a href="#quickstart">Quickstart</a> ·
   <a href="#documentation">Documentation</a>
 </p>
 
-## About
-
-LogicMargin is a local review tool for designers, product managers, and developers who need to check execution flows, conditions, failure paths, and state changes. It brings flowcharts, source references, and discussions together so everyone can review the same business logic.
-
-A coding agent reads the actual code or documents and prepares a flowchart. You select objects on the diagram and leave comments. After you submit a review round, the agent updates the implementation and diagram, replies to the original feedback, and hands the result back for human verification. The agent handles source reading, code changes, and diagram generation; LogicMargin provides the review surface and records.
-
 ## Why LogicMargin?
 
-- **Code diffs make business behavior hard to follow.** Put success conditions, failure exits, and state changes on a diagram to answer questions such as “When is the fee deducted?” and “What state remains after a failure?”
-- **Feedback in chat loses its context.** Attach comments to nodes, edges, or groups of objects, keeping the original feedback, replies, and source version together.
-- **An agent says “fixed,” but the change is hard to verify.** Publish the updated diagram and final replies together, compare before and after, and revisit the original location when a node has been removed. A person confirms whether the issue is resolved.
+AI is helping more people write more code, but understanding and reviewing that code has not become equally fast.
 
-**Who it is for:** designers and product managers checking rules and edge cases, developers tracing branches and state changes against source code, and teams using coding agents to turn feedback into changes that can be reviewed again.
+- **For developers, faster output means more code to review.** An agent can change many files and generate substantial code in one pass. Developers still need to understand call relationships, conditions, failure handling, and state changes. A line-by-line diff makes it difficult to reconstruct the full business flow and spot omissions or side effects.
+- **For people without a programming background, AI makes building possible while the code can remain a black box.** Product managers, designers, and domain experts can describe a requirement and get a working feature, yet struggle to tell how it executes, what happens on failure, or whether it matches their intent. A working screen and the AI's explanation offer limited evidence of correctness.
+
+“Can a failed operation still charge a fee?” “Could a repeated claim grant the reward twice?” “Does cancellation restore the previous state?” Answering these questions requires understanding the system's actual behavior and checking it again after a change.
+
+## About
+
+LogicMargin brings flowcharts, related code, and review discussions into one local interface for people and coding agents. People without a programming background can start with flows and business rules; developers can open the corresponding source and diffs. Both can review the behavior of the same implementation.
+
+An agent reads the actual code or documents and prepares a flowchart. You annotate specific nodes, edges, or groups of objects. After you submit a round, the agent changes the implementation, updates the diagram, and replies to the original feedback. You compare the revision with the fixed baseline and decide whether the issue is resolved. Feedback, replies, and versions stay together across rounds.
+
+Agent-prepared diagrams still need to be checked against the source. LogicMargin provides tools for reading, discussing, and verifying the work; people make the final judgment.
 
 ## Preview
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/review-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/review-light.png" />
-  <img src="docs/images/review-light.png" alt="LogicMargin: switch scenarios on the left, inspect order submission and failure paths in the center, and review the original comment and agent reply in the same thread on the right." width="1440" />
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/review-dark-en.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/review-light-en.png" />
+  <img src="docs/images/review-light-en.png" alt="English LogicMargin interface: baseline comparison, modified steps, and node discussion." width="1440" />
 </picture>
 
 <p align="center">
-  Diagram annotations · Threaded replies · Human verification<br />
-  <a href="docs/images/review-light.png">Light theme</a> ·
-  <a href="docs/images/review-dark.png">Dark theme</a> ·
-  <a href="docs/examples/order-review.logic-margin.json">Download the order demo</a>
+  Fixed baseline · Changes on the diagram · Node discussions<br />
+  <a href="docs/images/review-light-en.png">Light theme</a> ·
+  <a href="docs/images/review-dark-en.png">Dark theme</a> ·
+  <a href="docs/examples/order-review.en.logic-margin.json">Download the English demo</a>
 </p>
 
-These screenshots show the current Chinese UI with fictional order data. They contain no real review sessions and do not demonstrate source verification.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/code-diff-dark-en.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/code-diff-light-en.png" />
+  <img src="docs/images/code-diff-light-en.png" alt="The node's Code diff tab in a widened sidebar, comparing saved baseline and revised source." width="1440" />
+</picture>
+
+<p align="center">
+  Discussion, Details, and Code diff · Resizable sidebar · Side-by-side source comparison<br />
+  <a href="docs/images/code-diff-light-en.png">Light code view</a> ·
+  <a href="docs/images/code-diff-dark-en.png">Dark code view</a>
+</p>
+
+Captured from the 0.8.5 source build using fictional order data and sample code. The downloadable demo includes a fixed baseline and saved code snippets; it contains no real review sessions and does not demonstrate production source verification.
 
 ## Features
 
 | Capability | What you can do |
 | --- | --- |
 | **Review directly on the diagram** | Comment on nodes, edges, multiple objects, a whole scenario, or the entire review, with the relevant flow in view. |
-| **Keep source context** | Inspect rules, inputs, outputs, source references, and snapshot metadata to understand what the review covers. |
-| **See changes across rounds** | Compare R1 onward against a fixed baseline B or the previous round, inspect field changes, and return to the original location of a removed target. |
+| **Read beside a node** | Switch between Discussion, Details, and Code diff in one window to inspect discussion history, rules, inputs, outputs, and source evidence. Keep it beside the node or dock it in the right sidebar. |
+| **Inspect related code changes** | Use unified or side-by-side diffs of saved node source snippets, with line numbers, syntax highlighting, change navigation, and unchanged-region folding. |
+| **See changes across rounds** | Compare the first review revision R1 and later rounds against the fixed original baseline B, see additions, removals, and modifications on the diagram, or inspect field changes against the previous round. Return to the original location of a removed target. |
 | **Plan changes on the original system** | Annotate baseline B with redesign requirements, then review the agent's implementation in R1 alongside the original diagram and comments. |
 | **Work with a coding agent** | Submit a round explicitly, let the agent wait, revise, reply, and publish a new diagram, then verify or approve the result yourself. |
 | **Separate review purposes** | Associate multiple independent reviews with one agent conversation while keeping their comments, drafts, and rounds separate. |
 | **Control your data** | Import and export JSON, download full backups, archive and restore reviews, or explicitly delete them. Optional automatic archival follows approval. |
 
-The interface follows your system's light or dark theme and works on desktop and mobile. The diagram gets most of the workspace; details and discussions open when needed.
+Choose from three themes—paper, soft relief, and glass—with light, dark, or system appearance. The interface works on desktop and mobile. On desktop, drag either sidebar's boundary to resize it; the right sidebar can expand over the canvas for longer discussions and side-by-side code.
+
+The interface supports **English and Simplified Chinese**. It initially follows the browser’s supported language; choose **Appearance → Interface language** to save a different preference. Flows, source code, and comments stay in their original language, and switching languages keeps your current selection and drafts.
+
+Code diffs compare related source snippets saved in the review when their correspondence can be established. If a historical snippet is missing or the pairing is ambiguous, the interface shows the available source and an explanation. It does not infer old code from the current workspace or provide a repository-wide diff.
 
 ## Quickstart
 
@@ -117,11 +138,13 @@ npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. Browse the built-in examples, or choose “File → Import review” (currently “文件 → 导入评审”) and select the [order demo JSON](docs/examples/order-review.logic-margin.json) to try diagram annotations, replies, and human verification.
+Open **http://127.0.0.1:5173**. Browse the built-in examples, or choose “File → Import review” and select the [English order demo JSON](docs/examples/order-review.en.logic-margin.json) to try baseline comparison, node discussions, and code diffs. A [Chinese demo](docs/examples/order-review.logic-margin.json) is also available.
 
 The demo is for learning the interface. A real review should be generated from actual code or documents and include source evidence.
 
 ## Review workflow
+
+There are two starting points: **review existing changes** by preparing the original baseline B and the changed revision R1, or **plan a system redesign** by annotating B before the agent implements and publishes R1. Later rounds retain the same baseline for comparison.
 
 | Step | Action |
 | --- | --- |
@@ -153,7 +176,7 @@ npm run review -- restore <sessionId>
 npm run review -- cleanup <sessionId> --mode delete
 ```
 
-“File → Manage review tasks” (currently “文件 → 管理评审任务”) also provides creation, backup, archive, restore, and deletion actions. By default, only approved reviews can be cleaned up. See the [agent workflow](docs/agent-workflow.md#查询归档与删除) for explicit cleanup of unfinished reviews, command options, and concurrency checks.
+“File → Review tasks” also provides creation, backup, archive, restore, and deletion actions. By default, only approved reviews can be cleaned up. See the [agent workflow](docs/agent-workflow.md#查询归档与删除) for explicit cleanup of unfinished reviews, command options, and concurrency checks.
 
 MCP `wait_review` does not claim feedback or archive reviews. After reading feedback, the agent calls `acknowledge_review`. With `cleanup_on_approval`, it calls `cleanup_review` only after receiving final approval; new feedback prevents cleanup using an old version. Rounds, comments, and history have no fixed business count limits; individual content and single-request resource checks still apply.
 

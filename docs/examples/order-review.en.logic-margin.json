@@ -483,7 +483,7 @@
         "title": "Check payment status",
         "kind": "decision",
         "summary": "Choose cancellation or refund based on the current state.",
-        "detail": "Release reservations for unpaid orders; start a refund for paid orders.",
+        "detail": "Cancel unpaid orders; start a refund for paid orders.",
         "input": "Order, payment status",
         "output": "Cancellation or refund path",
         "position": {

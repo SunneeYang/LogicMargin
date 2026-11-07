@@ -56,6 +56,7 @@ function Comparison({ pair, split, beforeLabel, afterLabel, hasBaseline }: { pai
 }
 
 function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; initialOpen: boolean; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(initialOpen)
   const [layout, setLayout] = useState<boolean | null>(initialOpen ? split : null)
   const body = useRef<HTMLDivElement>(null)
@@ -78,7 +79,7 @@ function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; i
     <summary><FileCode2 size={16} aria-hidden="true" /><span><strong>{evidence.symbol || evidence.path}</strong><small title={evidence.path}>{evidence.path}</small></span><ChevronDown size={14} aria-hidden="true" /></summary>
     {open && <div ref={body} className="code-evidence-body" data-code-layout={layout === null ? 'pending' : layout ? 'split' : 'unified'} aria-busy={layout === null}>
       {multipleNodes && <p className="code-related-nodes">{titles.join(' · ')}</p>}
-      {layout === null ? <p className="code-diff-note code-evidence-placeholder">正在加载代码对照…</p> : <Comparison pair={pair} split={layout} {...props} />}
+      {layout === null ? <p className="code-diff-note code-evidence-placeholder">{t('正在加载代码对照…')}</p> : <Comparison pair={pair} split={layout} {...props} />}
     </div>}
   </details>
 }

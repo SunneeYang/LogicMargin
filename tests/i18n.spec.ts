@@ -88,6 +88,26 @@ test('language changes preserve virtual diff identity, reading position, and man
   await expect(unfolded).toBeVisible()
 })
 
+test('deferred code comparison placeholders follow the interface language', async ({ page, request }) => {
+  const response = await request.post('/api/review-sessions', { data: { review: largeCodeReview() } })
+  expect(response.ok()).toBeTruthy()
+  const session = await response.json()
+  await page.goto(`/?session=${session.id}`)
+  await page.locator('.react-flow__node[data-id="multiple"] .node-comment-button').evaluate(element => (element as HTMLElement).click())
+  const panel = page.locator('[data-composer][data-state="open"]')
+  await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(panel.locator('.cm-editor')).toHaveCount(1)
+  await panel.locator('.code-evidence-section').evaluateAll(elements => {
+    for (const element of elements) (element as HTMLDetailsElement).open = true
+  })
+  const pending = panel.locator('[data-code-layout="pending"] .code-evidence-placeholder').first()
+  await expect(pending).toHaveText('正在加载代码对照…')
+  await language(page, 'en')
+  await expect(pending).toHaveText('Loading code comparison…')
+  await language(page, 'zh-CN')
+  await expect(pending).toHaveText('正在加载代码对照…')
+})
+
 test.describe('English browser preference', () => {
   test.use({ locale: 'en-US' })
 

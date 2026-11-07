@@ -2,94 +2,600 @@
   "schemaVersion": 1,
   "id": "demo-order-checkout",
   "title": "订单提交 · 库存与支付",
-  "description": "演示如何在流程图上核对成功条件、失败出口与状态变更。仅为交互演示，不代表真实业务代码或来源核验结果。",
-  "revision": "demo-v2",
+  "description": "演示从固定基线核对库存扣减时机，在节点旁讨论，并展开对应代码 diff。流程与代码均为虚构，不代表真实业务来源核验结果。",
+  "revision": "demo-r1",
   "snapshot": {
     "repository": "订单演示工程（虚构）",
-    "commit": "demo-only",
-    "fingerprint": "demo-order-checkout-v2",
-    "capturedAt": "2026-11-03T00:00:00.000Z",
-    "dirty": false
+    "commit": "demo-after",
+    "fingerprint": "3be5b2e290f69d684101bd8baf23e828f9db52347b042d0da9c549bb4d51a3a8",
+    "capturedAt": "2026-11-06T08:00:00.000Z",
+    "dirty": false,
+    "files": [
+      {
+        "path": "demo/checkout.ts",
+        "sha256": "4c8855f196dc991551695682aab49b68fe065cc67b80f9b03dab32df93b66f97"
+      }
+    ]
   },
   "coverage": {
-    "included": ["订单校验与库存预留", "支付确认与失败释放", "评审意见与人工复核"],
-    "excluded": ["真实仓库来源核验", "支付网关与数据库运行验证"],
-    "note": "此文件用于 README 截图和本地交互体验。真实评审应由 Agent 从实际代码生成，并补齐源码引用与摘要。"
+    "included": [
+      "订单校验与库存预留",
+      "支付确认与失败释放",
+      "固定基线与修改后对照",
+      "节点批注与示例代码 diff"
+    ],
+    "excluded": [
+      "真实仓库来源核验",
+      "支付网关与数据库运行验证",
+      "网关抛出异常、进程中断与补偿任务的完整实现"
+    ],
+    "note": "流程与代码均为虚构演示。代码中的 pay 将支付失败或超时归一为 ok: false；省略并发、持久化及补偿机制，不能作为生产实现。"
   },
   "scenes": [
-    { "id": "checkout", "title": "订单提交", "description": "先校验和预留，支付成功后再确认订单。" },
-    { "id": "refund", "title": "取消与退款", "description": "区分未支付取消与已支付退款。" },
-    { "id": "retry", "title": "幂等与重试", "description": "重复请求返回已有结果。" }
+    {
+      "id": "checkout",
+      "title": "订单提交",
+      "description": "先校验和预留，支付成功后再确认订单。"
+    },
+    {
+      "id": "refund",
+      "title": "取消与退款",
+      "description": "区分未支付取消与已支付退款。"
+    },
+    {
+      "id": "retry",
+      "title": "幂等与重试",
+      "description": "重复请求返回已有结果。"
+    }
   ],
   "nodes": [
     {
-      "id": "submit", "sceneId": "checkout", "title": "提交订单", "kind": "action",
-      "summary": "携带商品、数量与幂等键。", "detail": "读取请求，进入商品和库存检查。",
-      "input": "商品、数量、幂等键", "output": "待校验的订单", "position": { "x": 0, "y": 0 }, "evidence": []
+      "id": "submit",
+      "sceneId": "checkout",
+      "title": "提交订单",
+      "kind": "action",
+      "summary": "携带商品、数量与幂等键。",
+      "detail": "读取请求，进入商品和库存检查。",
+      "input": "商品、数量、幂等键",
+      "output": "待校验的订单",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": []
     },
     {
-      "id": "check-stock", "sceneId": "checkout", "title": "商品与库存是否可用？", "kind": "decision",
-      "summary": "校验通过后预留库存。", "detail": "检查商品状态和可用库存；失败时不发起支付。",
-      "input": "商品状态、可用库存", "output": "可用 → 预留；不足 → 返回失败", "position": { "x": 0, "y": 190 }, "evidence": []
+      "id": "check-stock",
+      "sceneId": "checkout",
+      "title": "商品与库存是否可用？",
+      "kind": "decision",
+      "summary": "校验通过后预留库存。",
+      "detail": "检查商品状态和可用库存；失败时不发起支付。",
+      "input": "商品状态、可用库存",
+      "output": "可用 → 预留；不足 → 返回失败",
+      "position": {
+        "x": 0,
+        "y": 190
+      },
+      "evidence": []
     },
     {
-      "id": "payment", "sceneId": "checkout", "title": "预留库存并发起支付", "kind": "action",
-      "summary": "订单保持待支付，库存尚未最终扣减。", "detail": "预留资源后发起支付；支付结果决定确认或释放。",
-      "input": "可用库存、支付请求", "output": "支付结果", "position": { "x": 0, "y": 380 }, "evidence": []
+      "id": "payment",
+      "sceneId": "checkout",
+      "title": "预留库存并发起支付",
+      "kind": "action",
+      "summary": "订单保持待支付，库存尚未最终扣减。",
+      "detail": "预留资源后发起支付；支付结果决定确认或释放。",
+      "input": "可用库存、支付请求",
+      "output": "支付结果",
+      "position": {
+        "x": 0,
+        "y": 380
+      },
+      "evidence": [
+        {
+          "path": "demo/checkout.ts",
+          "symbol": "checkout",
+          "startLine": 1,
+          "endLine": 16,
+          "digest": "4c8855f196dc991551695682aab49b68fe065cc67b80f9b03dab32df93b66f97",
+          "code": "// 虚构订单示例，仅用于演示代码对照。\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  const hold = await stock.reserve(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await stock.release(hold);\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await stock.commit(hold);\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+        }
+      ]
     },
     {
-      "id": "confirm", "sceneId": "checkout", "title": "确认订单并提交库存变更", "kind": "result",
-      "summary": "仅在支付成功后提交最终变更。", "detail": "支付成功后将预留转为实际扣减，并将订单标记为已确认。失败分支不能进入本步骤。",
-      "input": "支付成功结果、预留库存", "output": "已确认订单、已扣减库存", "position": { "x": 0, "y": 570 }, "evidence": []
+      "id": "confirm",
+      "sceneId": "checkout",
+      "title": "确认订单并提交库存变更",
+      "kind": "result",
+      "summary": "仅在支付成功后提交最终变更。",
+      "detail": "支付成功后将预留转为实际扣减，并将订单标记为已确认。失败分支不能进入本步骤。",
+      "input": "支付成功结果、预留库存",
+      "output": "已确认订单、已扣减库存",
+      "position": {
+        "x": 0,
+        "y": 570
+      },
+      "evidence": [
+        {
+          "path": "demo/checkout.ts",
+          "symbol": "checkout",
+          "startLine": 1,
+          "endLine": 16,
+          "digest": "4c8855f196dc991551695682aab49b68fe065cc67b80f9b03dab32df93b66f97",
+          "code": "// 虚构订单示例，仅用于演示代码对照。\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  const hold = await stock.reserve(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await stock.release(hold);\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await stock.commit(hold);\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+        }
+      ]
     },
     {
-      "id": "reject", "sceneId": "checkout", "title": "返回校验失败", "kind": "failure",
-      "summary": "不发起支付，不改变库存。", "detail": "向用户返回商品不可用或库存不足的明确原因。",
-      "input": "校验失败原因", "output": "失败结果", "position": { "x": 430, "y": 190 }, "evidence": []
+      "id": "reject",
+      "sceneId": "checkout",
+      "title": "返回校验失败",
+      "kind": "failure",
+      "summary": "不发起支付，不改变库存。",
+      "detail": "向用户返回商品不可用或库存不足的明确原因。",
+      "input": "校验失败原因",
+      "output": "失败结果",
+      "position": {
+        "x": 430,
+        "y": 190
+      },
+      "evidence": []
     },
     {
-      "id": "release", "sceneId": "checkout", "title": "释放预留，保留失败原因", "kind": "failure",
-      "summary": "支付失败或超时，库存恢复可用。", "detail": "释放当前订单的预留，不提交最终扣减；保留支付失败原因供重试或查询。",
-      "input": "支付失败或超时结果", "output": "已释放预留、失败结果", "position": { "x": 430, "y": 570 }, "evidence": []
+      "id": "release",
+      "sceneId": "checkout",
+      "title": "释放预留，保留失败原因",
+      "kind": "failure",
+      "summary": "支付失败或超时，库存恢复可用。",
+      "detail": "释放当前订单的预留，不提交最终扣减；保留支付失败原因供重试或查询。",
+      "input": "支付失败或超时结果",
+      "output": "已释放预留、失败结果",
+      "position": {
+        "x": 430,
+        "y": 570
+      },
+      "evidence": [
+        {
+          "path": "demo/checkout.ts",
+          "symbol": "checkout",
+          "startLine": 1,
+          "endLine": 16,
+          "digest": "4c8855f196dc991551695682aab49b68fe065cc67b80f9b03dab32df93b66f97",
+          "code": "// 虚构订单示例，仅用于演示代码对照。\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  const hold = await stock.reserve(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await stock.release(hold);\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await stock.commit(hold);\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+        }
+      ]
     },
     {
-      "id": "cancel", "sceneId": "refund", "title": "读取订单支付状态", "kind": "decision",
-      "summary": "按当前状态选择取消或退款。", "detail": "未支付订单释放预留；已支付订单进入退款流程。",
-      "input": "订单、支付状态", "output": "取消或退款分支", "position": { "x": 0, "y": 0 }, "evidence": []
+      "id": "cancel",
+      "sceneId": "refund",
+      "title": "读取订单支付状态",
+      "kind": "decision",
+      "summary": "按当前状态选择取消或退款。",
+      "detail": "未支付订单释放预留；已支付订单进入退款流程。",
+      "input": "订单、支付状态",
+      "output": "取消或退款分支",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": []
     },
     {
-      "id": "refund-complete", "sceneId": "refund", "title": "完成取消或退款", "kind": "result",
-      "summary": "成功后更新订单与库存状态。", "detail": "退款失败时保留原订单状态，供后续查询和处理。",
-      "input": "取消或退款结果", "output": "最新订单状态", "position": { "x": 0, "y": 190 }, "evidence": []
+      "id": "refund-complete",
+      "sceneId": "refund",
+      "title": "完成取消或退款",
+      "kind": "result",
+      "summary": "成功后更新订单与库存状态。",
+      "detail": "退款失败时保留原订单状态，供后续查询和处理。",
+      "input": "取消或退款结果",
+      "output": "最新订单状态",
+      "position": {
+        "x": 0,
+        "y": 190
+      },
+      "evidence": []
     },
     {
-      "id": "check-key", "sceneId": "retry", "title": "检查幂等键", "kind": "decision",
-      "summary": "同一请求只执行一次。", "detail": "已有结果直接返回；没有结果才创建新处理记录。",
-      "input": "幂等键、已有记录", "output": "已有结果或新的处理资格", "position": { "x": 0, "y": 0 }, "evidence": []
+      "id": "check-key",
+      "sceneId": "retry",
+      "title": "检查幂等键",
+      "kind": "decision",
+      "summary": "同一请求只执行一次。",
+      "detail": "已有结果直接返回；没有结果才创建新处理记录。",
+      "input": "幂等键、已有记录",
+      "output": "已有结果或新的处理资格",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": []
     },
     {
-      "id": "reuse-result", "sceneId": "retry", "title": "返回已有处理结果", "kind": "result",
-      "summary": "不重复支付，不重复扣减。", "detail": "重试仅查询同一请求的处理记录，不重复执行业务变更。",
-      "input": "已存在的处理记录", "output": "原处理结果", "position": { "x": 0, "y": 190 }, "evidence": []
+      "id": "reuse-result",
+      "sceneId": "retry",
+      "title": "返回已有处理结果",
+      "kind": "result",
+      "summary": "不重复支付，不重复扣减。",
+      "detail": "重试仅查询同一请求的处理记录，不重复执行业务变更。",
+      "input": "已存在的处理记录",
+      "output": "原处理结果",
+      "position": {
+        "x": 0,
+        "y": 190
+      },
+      "evidence": []
     }
   ],
   "edges": [
-    { "id": "submit-check", "sceneId": "checkout", "source": "submit", "target": "check-stock", "label": "检查请求", "detail": "开始校验" },
-    { "id": "check-payment", "sceneId": "checkout", "source": "check-stock", "target": "payment", "label": "校验通过", "detail": "预留后发起支付" },
-    { "id": "check-reject", "sceneId": "checkout", "source": "check-stock", "target": "reject", "label": "商品不可用 / 库存不足", "detail": "不执行任何扣减" },
-    { "id": "payment-confirm", "sceneId": "checkout", "source": "payment", "target": "confirm", "label": "支付成功", "detail": "成功后才提交库存变更" },
-    { "id": "payment-release", "sceneId": "checkout", "source": "payment", "target": "release", "label": "支付失败 / 超时", "detail": "失败时释放预留" },
-    { "id": "cancel-result", "sceneId": "refund", "source": "cancel", "target": "refund-complete", "label": "按支付状态处理", "detail": "取消或退款成功后提交状态" },
-    { "id": "key-result", "sceneId": "retry", "source": "check-key", "target": "reuse-result", "label": "已有处理记录", "detail": "返回原有结果" }
+    {
+      "id": "submit-check",
+      "sceneId": "checkout",
+      "source": "submit",
+      "target": "check-stock",
+      "label": "检查请求",
+      "detail": "开始校验"
+    },
+    {
+      "id": "check-payment",
+      "sceneId": "checkout",
+      "source": "check-stock",
+      "target": "payment",
+      "label": "校验通过",
+      "detail": "预留后发起支付"
+    },
+    {
+      "id": "check-reject",
+      "sceneId": "checkout",
+      "source": "check-stock",
+      "target": "reject",
+      "label": "商品不可用 / 库存不足",
+      "detail": "不执行任何扣减"
+    },
+    {
+      "id": "payment-confirm",
+      "sceneId": "checkout",
+      "source": "payment",
+      "target": "confirm",
+      "label": "支付成功",
+      "detail": "成功后才提交库存变更"
+    },
+    {
+      "id": "payment-release",
+      "sceneId": "checkout",
+      "source": "payment",
+      "target": "release",
+      "label": "支付失败 / 超时",
+      "detail": "失败时释放预留"
+    },
+    {
+      "id": "cancel-result",
+      "sceneId": "refund",
+      "source": "cancel",
+      "target": "refund-complete",
+      "label": "按支付状态处理",
+      "detail": "取消或退款成功后提交状态"
+    },
+    {
+      "id": "key-result",
+      "sceneId": "retry",
+      "source": "check-key",
+      "target": "reuse-result",
+      "label": "已有处理记录",
+      "detail": "返回原有结果"
+    }
   ],
   "comments": [
     {
-      "id": "review-stock-timing", "body": "库存最终扣减应只发生在支付成功之后。请保留失败或超时时释放预留的出口，避免用户支付失败却被占用库存。",
-      "targets": [{ "kind": "node", "id": "confirm" }, { "kind": "edge", "id": "payment-release" }],
-      "status": "needs-review", "createdAt": "2026-11-03T00:10:00.000Z", "revision": "demo-v1",
+      "id": "review-stock-timing",
+      "body": "支付失败后，库存仍然被扣减。请改为先预留、成功后再扣减，失败或超时则释放预留。",
+      "targets": [
+        {
+          "kind": "node",
+          "id": "payment"
+        }
+      ],
+      "status": "needs-review",
+      "createdAt": "2026-11-03T00:10:00.000Z",
+      "revision": "demo-baseline",
       "replies": [
-        { "id": "reply-stock-timing", "author": "agent", "body": "演示新版已将最终库存变更放在支付成功分支，并单独保留失败释放出口。请核对当前流程。", "createdAt": "2026-11-03T00:15:00.000Z", "revision": "demo-v2" }
+        {
+          "id": "reply-stock-timing",
+          "author": "agent",
+          "body": "已在演示新版中改为“预留 → 支付 → 确认或释放”。可切换基线 B 核对原流程，也可在代码 diff 中检查对应改动。",
+          "createdAt": "2026-11-03T00:15:00.000Z",
+          "revision": "demo-r1"
+        }
       ]
     }
-  ]
+  ],
+  "baseline": {
+    "schemaVersion": 1,
+    "id": "demo-order-checkout",
+    "title": "订单提交 · 库存与支付",
+    "description": "虚构订单原版：先扣减库存，支付失败后缺少恢复步骤。供基线对照演示。",
+    "revision": "demo-baseline",
+    "snapshot": {
+      "repository": "订单演示工程（虚构）",
+      "commit": "demo-before",
+      "fingerprint": "d292fd30e8b9758ee350e3413fad19a2bad22c87ed367bf39aa4545904d3bb46",
+      "capturedAt": "2026-11-06T08:00:00.000Z",
+      "dirty": false,
+      "files": [
+        {
+          "path": "demo/checkout.ts",
+          "sha256": "cb9ac92db2946ed4fc49b2f17925e712c4eb41debc9c7928e7c2f492bedfbc8d"
+        }
+      ]
+    },
+    "coverage": {
+      "included": [
+        "订单校验与库存扣减",
+        "支付确认与失败记录",
+        "固定基线与修改后对照",
+        "节点批注与示例代码 diff"
+      ],
+      "excluded": [
+        "真实仓库来源核验",
+        "支付网关与数据库运行验证",
+        "网关抛出异常、进程中断与补偿任务的完整实现"
+      ],
+      "note": "流程与代码均为虚构演示。代码中的 pay 将支付失败或超时归一为 ok: false；省略并发、持久化及补偿机制，不能作为生产实现。"
+    },
+    "scenes": [
+      {
+        "id": "checkout",
+        "title": "订单提交",
+        "description": "校验后扣减库存并发起支付，支付成功后确认订单。"
+      },
+      {
+        "id": "refund",
+        "title": "取消与退款",
+        "description": "区分未支付取消与已支付退款。"
+      },
+      {
+        "id": "retry",
+        "title": "幂等与重试",
+        "description": "重复请求返回已有结果。"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "submit",
+        "sceneId": "checkout",
+        "title": "提交订单",
+        "kind": "action",
+        "summary": "携带商品、数量与幂等键。",
+        "detail": "读取请求，进入商品和库存检查。",
+        "input": "商品、数量、幂等键",
+        "output": "待校验的订单",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "evidence": []
+      },
+      {
+        "id": "check-stock",
+        "sceneId": "checkout",
+        "title": "商品与库存是否可用？",
+        "kind": "decision",
+        "summary": "校验通过后直接扣减库存。",
+        "detail": "检查商品状态和可用库存；失败时不发起支付。",
+        "input": "商品状态、可用库存",
+        "output": "可用 → 扣减；不足 → 返回失败",
+        "position": {
+          "x": 0,
+          "y": 190
+        },
+        "evidence": []
+      },
+      {
+        "id": "payment",
+        "sceneId": "checkout",
+        "title": "扣减库存并发起支付",
+        "kind": "action",
+        "summary": "支付前直接扣减库存。",
+        "detail": "通过库存检查后直接扣减，再向支付网关请求支付。",
+        "input": "可用库存、支付请求",
+        "output": "已扣减库存、支付结果",
+        "position": {
+          "x": 0,
+          "y": 380
+        },
+        "evidence": [
+          {
+            "path": "demo/checkout.ts",
+            "symbol": "checkout",
+            "startLine": 1,
+            "endLine": 14,
+            "digest": "cb9ac92db2946ed4fc49b2f17925e712c4eb41debc9c7928e7c2f492bedfbc8d",
+            "code": "// 虚构订单示例，仅用于演示代码对照。\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  await stock.deduct(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+          }
+        ]
+      },
+      {
+        "id": "confirm",
+        "sceneId": "checkout",
+        "title": "确认订单",
+        "kind": "result",
+        "summary": "支付成功后标记订单已确认。",
+        "detail": "库存已经扣减，支付成功后确认订单。",
+        "input": "支付成功结果",
+        "output": "已确认订单",
+        "position": {
+          "x": 0,
+          "y": 570
+        },
+        "evidence": [
+          {
+            "path": "demo/checkout.ts",
+            "symbol": "checkout",
+            "startLine": 1,
+            "endLine": 14,
+            "digest": "cb9ac92db2946ed4fc49b2f17925e712c4eb41debc9c7928e7c2f492bedfbc8d",
+            "code": "// 虚构订单示例，仅用于演示代码对照。\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  await stock.deduct(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+          }
+        ]
+      },
+      {
+        "id": "reject",
+        "sceneId": "checkout",
+        "title": "返回校验失败",
+        "kind": "failure",
+        "summary": "不发起支付，不改变库存。",
+        "detail": "向用户返回商品不可用或库存不足的明确原因。",
+        "input": "校验失败原因",
+        "output": "失败结果",
+        "position": {
+          "x": 430,
+          "y": 190
+        },
+        "evidence": []
+      },
+      {
+        "id": "release",
+        "sceneId": "checkout",
+        "title": "记录支付失败",
+        "kind": "failure",
+        "summary": "保留失败原因，未恢复已扣库存。",
+        "detail": "支付失败或超时后记录失败原因；此版本缺少库存恢复步骤。",
+        "input": "支付失败或超时结果",
+        "output": "失败结果、仍被扣减的库存",
+        "position": {
+          "x": 430,
+          "y": 570
+        },
+        "evidence": [
+          {
+            "path": "demo/checkout.ts",
+            "symbol": "checkout",
+            "startLine": 1,
+            "endLine": 14,
+            "digest": "cb9ac92db2946ed4fc49b2f17925e712c4eb41debc9c7928e7c2f492bedfbc8d",
+            "code": "// 虚构订单示例，仅用于演示代码对照。\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  await stock.deduct(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+          }
+        ]
+      },
+      {
+        "id": "cancel",
+        "sceneId": "refund",
+        "title": "读取订单支付状态",
+        "kind": "decision",
+        "summary": "按当前状态选择取消或退款。",
+        "detail": "未支付订单走取消流程；已支付订单进入退款流程。",
+        "input": "订单、支付状态",
+        "output": "取消或退款分支",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "evidence": []
+      },
+      {
+        "id": "refund-complete",
+        "sceneId": "refund",
+        "title": "完成取消或退款",
+        "kind": "result",
+        "summary": "成功后更新订单与库存状态。",
+        "detail": "退款失败时保留原订单状态，供后续查询和处理。",
+        "input": "取消或退款结果",
+        "output": "最新订单状态",
+        "position": {
+          "x": 0,
+          "y": 190
+        },
+        "evidence": []
+      },
+      {
+        "id": "check-key",
+        "sceneId": "retry",
+        "title": "检查幂等键",
+        "kind": "decision",
+        "summary": "同一请求只执行一次。",
+        "detail": "已有结果直接返回；没有结果才创建新处理记录。",
+        "input": "幂等键、已有记录",
+        "output": "已有结果或新的处理资格",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "evidence": []
+      },
+      {
+        "id": "reuse-result",
+        "sceneId": "retry",
+        "title": "返回已有处理结果",
+        "kind": "result",
+        "summary": "不重复支付，不重复扣减。",
+        "detail": "重试仅查询同一请求的处理记录，不重复执行业务变更。",
+        "input": "已存在的处理记录",
+        "output": "原处理结果",
+        "position": {
+          "x": 0,
+          "y": 190
+        },
+        "evidence": []
+      }
+    ],
+    "edges": [
+      {
+        "id": "submit-check",
+        "sceneId": "checkout",
+        "source": "submit",
+        "target": "check-stock",
+        "label": "检查请求",
+        "detail": "开始校验"
+      },
+      {
+        "id": "check-payment",
+        "sceneId": "checkout",
+        "source": "check-stock",
+        "target": "payment",
+        "label": "校验通过",
+        "detail": "扣减库存后发起支付"
+      },
+      {
+        "id": "check-reject",
+        "sceneId": "checkout",
+        "source": "check-stock",
+        "target": "reject",
+        "label": "商品不可用 / 库存不足",
+        "detail": "不执行任何扣减"
+      },
+      {
+        "id": "payment-confirm",
+        "sceneId": "checkout",
+        "source": "payment",
+        "target": "confirm",
+        "label": "支付成功",
+        "detail": "支付成功后确认订单"
+      },
+      {
+        "id": "payment-release",
+        "sceneId": "checkout",
+        "source": "payment",
+        "target": "release",
+        "label": "支付失败 / 超时",
+        "detail": "记录失败，未恢复库存"
+      },
+      {
+        "id": "cancel-result",
+        "sceneId": "refund",
+        "source": "cancel",
+        "target": "refund-complete",
+        "label": "按支付状态处理",
+        "detail": "取消或退款成功后提交状态"
+      },
+      {
+        "id": "key-result",
+        "sceneId": "retry",
+        "source": "check-key",
+        "target": "reuse-result",
+        "label": "已有处理记录",
+        "detail": "返回原有结果"
+      }
+    ],
+    "comments": []
+  }
 }
