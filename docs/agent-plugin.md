@@ -24,7 +24,7 @@ codex plugin marketplace upgrade logic-margin-local --json
 codex plugin add logic-margin@logic-margin-local --json
 ```
 
-先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上已构建的版本；若要求固定版本，首次注册时将 `--ref main` 改为具体 tag，例如 `--ref v0.8.1`，之后更新仍保持该 tag。
+先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上已构建的版本；若要求固定版本，首次注册时将 `--ref main` 改为具体 tag，例如 `--ref v0.8.2`，之后更新仍保持该 tag。
 
 Codex 会移除旧版本缓存。更新完成后开始新会话或重新加载技能，按新版 `installedPath` 定位 CLI；当前会话保存的旧 `LM_CLI` 路径可能已失效。更新不自动中断正在进行的评审或停止后台服务；新版入口报告服务版本不匹配时，再用新版 CLI 的 `server stop` 关闭经身份核验的旧实例，随后重试以复用原数据和端口。
 
@@ -32,14 +32,14 @@ Codex 会移除旧版本缓存。更新完成后开始新会话或重新加载�
 
 ## ZIP 安装（无需 Git）
 
-从 [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest) 下载 `logic-margin-agent-0.8.1.zip` 和同名 `.zip.sha256`。它包含网页、服务端与 CLI，不包含 Node 运行时、npm 依赖或源码工程。
+从 [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest) 下载 `logic-margin-agent-0.8.2.zip` 和同名 `.zip.sha256`。它包含网页、服务端与 CLI，不包含 Node 运行时、npm 依赖或源码工程。
 
-在下载目录校验文件：macOS 使用 `shasum -a 256 -c logic-margin-agent-0.8.1.zip.sha256`，Linux 使用 `sha256sum -c logic-margin-agent-0.8.1.zip.sha256`；Windows PowerShell 用 `Get-FileHash .\logic-margin-agent-0.8.1.zip -Algorithm SHA256`，与 `.sha256` 内的摘要比较。
+在下载目录校验文件：macOS 使用 `shasum -a 256 -c logic-margin-agent-0.8.2.zip.sha256`，Linux 使用 `sha256sum -c logic-margin-agent-0.8.2.zip.sha256`；Windows PowerShell 用 `Get-FileHash .\logic-margin-agent-0.8.2.zip -Algorithm SHA256`，与 `.sha256` 内的摘要比较。
 
 解压并将目录放在持久位置，然后执行：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.8.1
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.8.2
 codex plugin add logic-margin@logic-margin-local
 ```
 
@@ -126,14 +126,14 @@ npm run package:agent
 npm run test:agent
 ```
 
-构建更新插件内的独立 CLI，并生成 `artifacts/logic-margin-agent-0.8.1.zip`。前端、HTTP MCP、会话 API 与启动管理一起打包；包中不包含本机实际会话、浏览器草稿或魔灵秘境专用评审包。默认包构建仅需工程 npm 依赖及系统 `zip`。
+构建更新插件内的独立 CLI，并生成 `artifacts/logic-margin-agent-0.8.2.zip`。前端、HTTP MCP、会话 API 与启动管理一起打包；包中不包含本机实际会话、浏览器草稿或魔灵秘境专用评审包。默认包构建仅需工程 npm 依赖及系统 `zip`。
 
 ## 维护者发布
 
 先同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、插件 `plugin.json`，再准备发布包：
 
 ```sh
-npm run release:agent -- v0.8.1
+npm run release:agent -- v0.8.2
 npm run test:release
 ```
 
