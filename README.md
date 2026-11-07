@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.6-2563eb?style=flat-square" alt="Version 0.8.6" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.7-2563eb?style=flat-square" alt="Version 0.8.7" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Requires Node.js 22.18 or later" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -82,7 +82,7 @@ Captured from the 0.8.5 source build using fictional order data and sample code.
 | --- | --- |
 | **Review directly on the diagram** | Comment on nodes, edges, multiple objects, a whole scenario, or the entire review, with the relevant flow in view. |
 | **Read beside a node** | Switch between Discussion, Details, and Code diff in one window to inspect discussion history, rules, inputs, outputs, and source evidence. Keep it beside the node or dock it in the right sidebar. |
-| **Inspect related code changes** | Use unified or side-by-side diffs of saved node source snippets, with line numbers, syntax highlighting, change navigation, and unchanged-region folding. |
+| **Inspect related code changes** | Use unified or side-by-side diffs of saved node source snippets, with line numbers, syntax highlighting, change navigation, and unchanged-region folding. A single vertical scrollbar combines removal and addition markers with the reading position; click or drag it to navigate the current snippet. Buttons at the beginning and end of each visible block repeatedly reveal up to 20 more lines; you can also reveal one entire unchanged region or show the full snippet. |
 | **See changes across rounds** | Compare the first review revision R1 and later rounds against the fixed original baseline B, see additions, removals, and modifications on the diagram, or inspect field changes against the previous round. Return to the original location of a removed target. |
 | **Plan changes on the original system** | Annotate baseline B with redesign requirements, then review the agent's implementation in R1 alongside the original diagram and comments. |
 | **Work with a coding agent** | Submit a round explicitly, let the agent wait, revise, reply, and publish a new diagram, then verify or approve the result yourself. |
@@ -229,3 +229,5 @@ Built with React 19, TypeScript, React Flow, Vite, and a local Node.js HTTP serv
 Special thanks to **[Crit](https://github.com/tomasz-tomczyk/crit)** for inspiring the workflow of browser annotations, explicit submissions, and agents waiting for review. LogicMargin draws on these interaction patterns and independently implements diagram annotations, cross-round verification, and review task management around business flows and logical relationships. Primary sources and design decisions are recorded in the [Crit reference notes](docs/crit-reference.md).
 
 Thanks to **[React Flow / xyflow](https://github.com/xyflow/xyflow)** for the diagram canvas foundation.
+
+Thanks to **[CodeMirror](https://codemirror.net/)** and **[@codemirror/merge](https://github.com/codemirror/merge)** for the code editor and diff foundation, including syntax highlighting, unified and side-by-side comparison, and change navigation. LogicMargin adds node source pairing, incremental context expansion, change overview navigation, and virtualized unified diffs for long snippets. License notices are included in [THIRD_PARTY_NOTICES.md](plugins/logic-margin/THIRD_PARTY_NOTICES.md).

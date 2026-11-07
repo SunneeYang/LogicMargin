@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.6-2563eb?style=flat-square" alt="版本 0.8.6" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.7-2563eb?style=flat-square" alt="版本 0.8.7" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="需要 Node.js 22.18 或更高版本" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -82,7 +82,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 | --- | --- |
 | **直接在图上评审** | 对节点、连线、多个对象、整个场景或整张图留下意见，讨论始终带着流程上下文。 |
 | **在节点旁展开阅读** | 在同一窗口切换“讨论／详情／代码 diff”，查看讨论历史、规则、输入输出和源码依据；可在节点旁浮窗与右侧栏之间切换。 |
-| **核对相关代码改动** | 对已保存的节点源码片段使用统一或并排 diff，查看行号与语法高亮、跳转差异、折叠未变内容。 |
+| **核对相关代码改动** | 对已保存的节点源码片段使用统一或并排 diff，查看行号与语法高亮、跳转差异、折叠未变内容。右侧单一竖向滚动条内标记删除、新增和阅读范围，可点击或拖动定位当前片段。可在可见代码块首尾连续点击，每次向前或向后展开最多 20 行，也可展开某段未变代码或整个片段。 |
 | **看见每轮变化** | 从第一次评审版本 R1 开始对照固定的原版基线 B，在图上查看增删改，也可相对上一轮核对字段差异；节点移除后，原意见仍可回到历史位置查看。 |
 | **先讨论原系统改造** | 直接在基线 B 上批注改造要求，Agent 修改实现后发布 R1，保留原图与意见供复核。 |
 | **与 Agent 完成闭环** | 明确提交本轮意见，Agent 等待、修改、回应并发布新图，再由人确认解决或通过。 |
@@ -226,3 +226,5 @@ npm run test:e2e    # 桌面、移动端与系统明暗主题的交互测试
 特别感谢 **[Crit](https://github.com/tomasz-tomczyk/crit)** 为浏览器批注、明确提交与 Agent 等待评审的工作流提供启发。LogicMargin 借鉴这些交互机制，围绕业务流程节点与逻辑关系，自行实现图上批注、跨轮复核与评审任务管理。相关主源与设计取舍记录在 [Crit 参考说明](docs/crit-reference.md)。
 
 感谢 **[React Flow / xyflow](https://github.com/xyflow/xyflow)** 提供流程图画布基础。
+
+感谢 **[CodeMirror](https://codemirror.net/)** 与 **[@codemirror/merge](https://github.com/codemirror/merge)** 提供代码编辑器和 diff 基础，包括语法高亮、统一／并排对照与差异导航。LogicMargin 在此基础上实现节点源码配对、局部上下文展开、差异总览导航与长片段的统一 diff 虚拟化。相关许可已收录于 [THIRD_PARTY_NOTICES.md](plugins/logic-margin/THIRD_PARTY_NOTICES.md)。
