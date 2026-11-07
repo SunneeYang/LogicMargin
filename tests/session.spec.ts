@@ -113,7 +113,7 @@ test('shared session preserves local mode and completes feedback, revision, reco
   await expect(card.locator('.status-label')).toContainText('待复核')
   const otherContext = await browser.newContext()
   const other = await otherContext.newPage()
-  await other.goto(`http://127.0.0.1:4173/?session=${session.id}`)
+  await other.goto(new URL(`/?session=${session.id}`, page.url()).href)
   await expect(other.getByRole('button', { name: '当前 R2', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await otherContext.close()
   await page.reload()

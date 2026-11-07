@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, FileCode2 } from 'lucide-react'
 import type { Evidence, ReviewDocument, Target } from './types.ts'
 import { collectCodeReferences, pairCodeReferences } from './code-diff.ts'
@@ -51,14 +51,31 @@ function Comparison({ pair, split, beforeLabel, afterLabel, hasBaseline }: { pai
   </>
 }
 
-function CodeSection({ pair, initialOpen, ...props }: { pair: CodePair; initialOpen: boolean; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean }) {
+function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; initialOpen: boolean; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean }) {
   const [open, setOpen] = useState(initialOpen)
+  const [layout, setLayout] = useState<boolean | null>(initialOpen ? split : null)
+  const body = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open || !body.current) return
+    // Offscreen files keep their current view until scrolling brings them into use.
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) setLayout(split)
+    }, { rootMargin: '160px 0px' })
+    observer.observe(body.current)
+    return () => observer.disconnect()
+  }, [open, split])
   const evidence = pair.after?.evidence ?? pair.before!.evidence
   const titles = [...new Set([...(pair.before?.nodeTitles ?? []), ...(pair.after?.nodeTitles ?? [])])]
   const multipleNodes = new Set([...(pair.before?.nodeIds ?? []), ...(pair.after?.nodeIds ?? [])]).size > 1
-  return <details className="code-evidence-section" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
+  return <details className="code-evidence-section" open={open} onToggle={event => {
+    setOpen(event.currentTarget.open)
+    if (!event.currentTarget.open) setLayout(null)
+  }}>
     <summary><FileCode2 size={16} aria-hidden="true" /><span><strong>{evidence.symbol || evidence.path}</strong><small title={evidence.path}>{evidence.path}</small></span><ChevronDown size={14} aria-hidden="true" /></summary>
-    {open && <div className="code-evidence-body">{multipleNodes && <p className="code-related-nodes">{titles.join(' · ')}</p>}<Comparison pair={pair} {...props} /></div>}
+    {open && <div ref={body} className="code-evidence-body" data-code-layout={layout === null ? 'pending' : layout ? 'split' : 'unified'} aria-busy={layout === null}>
+      {multipleNodes && <p className="code-related-nodes">{titles.join(' · ')}</p>}
+      {layout === null ? <p className="code-diff-note code-evidence-placeholder">正在加载代码对照…</p> : <Comparison pair={pair} split={layout} {...props} />}
+    </div>}
   </details>
 }
 

@@ -185,6 +185,12 @@ test('professional diff highlights words, navigates changes, shares scrolling an
   await expect.poll(() => merge.evaluate(element => element.scrollTop)).toBeLessThan(500)
   const stored = await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:review:${id}`)!), 'node-inspection-fixture')
   expect(stored.nodes[0].evidence[0].code).toBe(after)
+  await merge.locator('.cm-merge-a .cm-line').filter({ hasText: /^const item10 =/ }).click()
+  await page.keyboard.press('F7')
+  await expect.poll(() => page.evaluate(() => {
+    const node = getSelection()?.focusNode
+    return (node instanceof Element ? node : node?.parentElement)?.closest('.cm-line')?.textContent
+  })).toBe('const item70 = 70;')
 })
 
 test('unified diff retains original line numbers for deleted blank lines', async ({ page }) => {

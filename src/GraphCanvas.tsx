@@ -57,7 +57,6 @@ type FlowNode = Node<{
   change?: ChangeKind
   layout: LayoutNode
   onComment: (target: Target, point: Point) => void
-  onPortsReady: (id: string, handles: string[]) => void
 }, 'review'>
 
 const kindLabels = { action: '操作', decision: '判断', result: '结果', failure: '失败出口' }
@@ -73,7 +72,7 @@ const EMPTY_COMMENTS: ReviewComment[] = []
 
 const portSides = { top: Position.Top, right: Position.Right, bottom: Position.Bottom, left: Position.Left }
 
-const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: NodeProps<FlowNode>) {
+const ReviewNodeView = memo(function ReviewNodeView({ id, data }: NodeProps<FlowNode>) {
   const updateNodeInternals = useUpdateNodeInternals()
   const frame = useRef(0)
   // CSS lift changes port coordinates without triggering a node resize.
@@ -88,13 +87,6 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
   }
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
   const KindIcon = kindIcons[data.item.kind]
-  useEffect(followLift, [id, data.layout.ports, selected, updateNodeInternals])
-  useEffect(() => {
-    updateNodeInternals(id)
-    // The hook measures in the next frame. Publish new connections after that measurement.
-    const readyFrame = requestAnimationFrame(() => data.onPortsReady(id, data.layout.ports.map(port => port.id)))
-    return () => cancelAnimationFrame(readyFrame)
-  }, [id, data.layout.ports, data.onPortsReady, updateNodeInternals])
   useEffect(() => {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)')
     const update = () => updateNodeInternals(id)
@@ -103,7 +95,7 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
   }, [id, updateNodeInternals])
   return <div className={`review-node kind-${data.item.kind} ${data.count ? 'has-comment' : ''} ${data.change ? `revision-${data.change}` : ''}`}
     onPointerEnter={followLift} onPointerLeave={followLift} onPointerDown={followLift} onPointerUp={followLift}
-    onTransitionRun={event => { if (event.propertyName === 'transform' && event.target === event.currentTarget) followLift() }}>
+    onTransitionRun={event => { if (event.nativeEvent.propertyName === 'transform' && event.target === event.currentTarget) followLift() }}>
     {data.layout.ports.map(port => <Handle key={port.id} id={port.id} type={port.type} position={portSides[port.side]}
       style={port.side === 'top' || port.side === 'bottom' ? { left: port.offset } : { top: port.offset }} />)}
     <div className="node-topline">
@@ -124,6 +116,17 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
 
 const nodeTypes = { review: ReviewNodeView }
 const edgeTypes = { review: GraphEdge }
+function NodeMeasurements({ nodes, onReady }: { nodes: FlowNode[]; onReady: (nodes: FlowNode[]) => void }) {
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => {
+    if (!nodes.length) return
+    // Measure committed handles together; per-node calls trigger a full layout for each node.
+    updateNodeInternals(nodes.map(node => node.id))
+    const frame = requestAnimationFrame(() => onReady(nodes))
+    return () => cancelAnimationFrame(frame)
+  }, [nodes, onReady, updateNodeInternals])
+  return null
+}
 const graphAriaLabels = {
   'controls.zoomIn.ariaLabel': '放大流程',
   'controls.zoomOut.ariaLabel': '缩小流程',
@@ -419,11 +422,17 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     else openComposer([target], point)
   }, [readOnly, openNodeComment, openComposer])
 
-  const onPortsReady = useCallback((id: string, handles: string[]) => {
+  const onPortsReady = useCallback((nodes: FlowNode[]) => {
     setReadyHandles(previous => {
-      const prior = previous.get(id)
-      if (handles.every(handle => prior?.has(handle))) return previous
-      return new Map(previous).set(id, new Set([...(prior ?? []), ...handles]))
+      let next = previous
+      for (const node of nodes) {
+        const prior = previous.get(node.id)
+        const handles = node.data.layout.ports.map(port => port.id)
+        if (handles.every(handle => prior?.has(handle))) continue
+        if (next === previous) next = new Map(previous)
+        next.set(node.id, new Set([...(prior ?? []), ...handles]))
+      }
+      return next
     })
   }, [])
 
@@ -447,7 +456,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
             item,
             count: commentIndex.counts.get(key) ?? 0,
             change,
-            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onPortsReady,
+            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment,
           },
         }
       })
@@ -468,7 +477,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection, onPortsReady])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
@@ -612,6 +621,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       panOnScroll zoomOnScroll={false} zoomActivationKeyCode={['Control', 'Meta']}
       defaultViewport={{ x: 36, y: 32, zoom: 0.85 }} minZoom={0.05} maxZoom={1.6}
       ariaLabelConfig={readingNodeIds ? { ...graphAriaLabels, 'controls.fitView.ariaLabel': '显示关联流程总览' } : graphAriaLabels}>
+      <NodeMeasurements nodes={nodes} onReady={onPortsReady} />
       <Background gap={24} size={1} />
       <Controls showInteractive={false} showFitView={false}>
         <ControlButton className="react-flow__controls-fitview" aria-label={readingNodeIds ? '显示关联流程总览' : '显示完整流程'} title={readingNodeIds ? '显示关联流程总览' : '显示完整流程'} onClick={() => void fitCompleteGraph()}><Scan size={14} /></ControlButton>
