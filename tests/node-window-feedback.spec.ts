@@ -38,7 +38,7 @@ for (const mode of ['light', 'dark']) test(`glass ${mode} reading window shields
   await page.goto('/')
   await page.getByLabel('外观设置', { exact: true }).click()
   await page.getByLabel('界面主题', { exact: true }).selectOption('glass')
-  await page.getByLabel('明暗模式', { exact: true }).selectOption(mode)
+  await page.locator(`#appearance-mode button[value="${mode}"]`).click()
   await page.keyboard.press('Escape')
   await page.locator('.react-flow__node[data-id="upgrade-start"] .node-title').click()
   await page.locator('.react-flow__node[data-id="upgrade-start"] .node-comment-button').click()

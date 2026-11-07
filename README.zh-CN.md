@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.0-2563eb?style=flat-square" alt="版本 0.8.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.5-2563eb?style=flat-square" alt="版本 0.8.5" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="需要 Node.js 22.18 或更高版本" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>

@@ -3,7 +3,7 @@ import {
   ReactFlow, Background, Controls, ControlButton, Handle, Position, SelectionMode,
   MarkerType, useNodesState, useEdgesState, useUpdateNodeInternals,
 } from '@xyflow/react'
-import type { EdgeChange, Node, NodeChange, NodeProps, OnSelectionChangeParams, ReactFlowInstance, Viewport } from '@xyflow/react'
+import type { AriaLabelConfig, EdgeChange, Node, NodeChange, NodeProps, OnSelectionChangeParams, ReactFlowInstance, Viewport } from '@xyflow/react'
 import { Diamond, Flag, Focus, Info, LogOut, MessageSquare, Scan, Square, X } from 'lucide-react'
 import type { ReviewChanges, ReviewComment, ReviewDocument, ReviewEdge, ReviewNode, Target } from './types.ts'
 import { indexGraph, indexGraphComments, targetKey as keyOf } from './graph-index.ts'
@@ -14,6 +14,7 @@ import GraphEdge, { relationColors } from './GraphEdge.tsx'
 import type { FlowEdge, FlowRelation } from './GraphEdge.tsx'
 import GraphLegend from './GraphLegend.tsx'
 import type { NodeAppearance } from './GraphLegend.tsx'
+import { useI18n } from './i18n.ts'
 
 type Point = { x: number; y: number }
 type TargetRect = { left: number; right: number; top: number; bottom: number }
@@ -57,7 +58,6 @@ type FlowNode = Node<{
   change?: ChangeKind
   layout: LayoutNode
   onComment: (target: Target, point: Point) => void
-  onPortsReady: (id: string, handles: string[]) => void
 }, 'review'>
 
 const kindLabels = { action: '操作', decision: '判断', result: '结果', failure: '失败出口' }
@@ -73,7 +73,8 @@ const EMPTY_COMMENTS: ReviewComment[] = []
 
 const portSides = { top: Position.Top, right: Position.Right, bottom: Position.Bottom, left: Position.Left }
 
-const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: NodeProps<FlowNode>) {
+const ReviewNodeView = memo(function ReviewNodeView({ id, data }: NodeProps<FlowNode>) {
+  const { t } = useI18n()
   const updateNodeInternals = useUpdateNodeInternals()
   const frame = useRef(0)
   // CSS lift changes port coordinates without triggering a node resize.
@@ -88,13 +89,6 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
   }
   useEffect(() => () => cancelAnimationFrame(frame.current), [])
   const KindIcon = kindIcons[data.item.kind]
-  useEffect(followLift, [id, data.layout.ports, selected, updateNodeInternals])
-  useEffect(() => {
-    updateNodeInternals(id)
-    // The hook measures in the next frame. Publish new connections after that measurement.
-    const readyFrame = requestAnimationFrame(() => data.onPortsReady(id, data.layout.ports.map(port => port.id)))
-    return () => cancelAnimationFrame(readyFrame)
-  }, [id, data.layout.ports, data.onPortsReady, updateNodeInternals])
   useEffect(() => {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)')
     const update = () => updateNodeInternals(id)
@@ -103,19 +97,19 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
   }, [id, updateNodeInternals])
   return <div className={`review-node kind-${data.item.kind} ${data.count ? 'has-comment' : ''} ${data.change ? `revision-${data.change}` : ''}`}
     onPointerEnter={followLift} onPointerLeave={followLift} onPointerDown={followLift} onPointerUp={followLift}
-    onTransitionRun={event => { if (event.propertyName === 'transform' && event.target === event.currentTarget) followLift() }}>
+    onTransitionRun={event => { if (event.nativeEvent.propertyName === 'transform' && event.target === event.currentTarget) followLift() }}>
     {data.layout.ports.map(port => <Handle key={port.id} id={port.id} type={port.type} position={portSides[port.side]}
       style={port.side === 'top' || port.side === 'bottom' ? { left: port.offset } : { top: port.offset }} />)}
     <div className="node-topline">
-      <span className="node-kind"><KindIcon aria-hidden="true" />{kindLabels[data.item.kind]}</span>
-      {data.change && <span className={`badge revision-badge revision-${data.change}`}>{changeLabels[data.change]}</span>}
+      <span className="node-kind"><KindIcon aria-hidden="true" />{t(kindLabels[data.item.kind])}</span>
+      {data.change && <span className={`badge revision-badge revision-${data.change}`}>{t(changeLabels[data.change])}</span>}
       <button className={`node-comment-button nodrag nopan ${data.count ? '' : 'is-empty'}`}
-        aria-label={`讨论：${data.item.title}${data.count ? `（${data.count} 条）` : ''}`} title="打开讨论、详情与代码对照" data-keep-composer
+        aria-label={data.count ? t('讨论：{title}（{count} 条）', { title: data.item.title, count: data.count }) : t('讨论：{title}', { title: data.item.title })} title={t('打开讨论、详情与代码对照')} data-keep-composer
         onClick={event => {
           event.stopPropagation()
           const rect = event.currentTarget.getBoundingClientRect()
           data.onComment({ kind: 'node', id: data.item.id }, { x: rect.right, y: rect.bottom })
-        }}><MessageSquare size={14} /><span>{data.count || '讨论'}</span></button>
+        }}><MessageSquare size={14} /><span>{data.count || t('讨论')}</span></button>
     </div>
     <strong className="node-title">{data.item.title}</strong>
     <p className="node-summary">{data.item.summary}</p>
@@ -124,13 +118,18 @@ const ReviewNodeView = memo(function ReviewNodeView({ id, data, selected }: Node
 
 const nodeTypes = { review: ReviewNodeView }
 const edgeTypes = { review: GraphEdge }
-const graphAriaLabels = {
-  'controls.zoomIn.ariaLabel': '放大流程',
-  'controls.zoomOut.ariaLabel': '缩小流程',
-  'controls.fitView.ariaLabel': '显示完整流程',
-  'node.a11yDescription.default': '按回车或空格选择步骤。按住 Shift 可多选。',
-  'edge.a11yDescription.default': '按回车或空格选择连线。按住 Shift 可多选。',
+function NodeMeasurements({ nodes, onReady }: { nodes: FlowNode[]; onReady: (nodes: FlowNode[]) => void }) {
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => {
+    if (!nodes.length) return
+    // Measure committed handles together; per-node calls trigger a full layout for each node.
+    updateNodeInternals(nodes.map(node => node.id))
+    const frame = requestAnimationFrame(() => onReady(nodes))
+    return () => cancelAnimationFrame(frame)
+  }, [nodes, onReady, updateNodeInternals])
+  return null
 }
+const directionLabels: Record<string, string> = { left: '左', right: '右', up: '上', down: '下' }
 
 const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas({
   review, sceneId, selection, setSelection, changes, mode,
@@ -139,6 +138,20 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   viewportKey, changeSide = 'after', commentOrder,
   flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey,
 }, ref) {
+  const { t, locale } = useI18n()
+  const graphAriaLabels = useMemo<AriaLabelConfig>(() => ({
+    'controls.ariaLabel': t('流程图控制'),
+    'controls.zoomIn.ariaLabel': t('放大流程'),
+    'controls.zoomOut.ariaLabel': t('缩小流程'),
+    'controls.fitView.ariaLabel': t('显示完整流程'),
+    'controls.interactive.ariaLabel': t('切换交互模式'),
+    'node.a11yDescription.default': t('按回车或空格选择步骤。按住 Shift 可多选。'),
+    'node.a11yDescription.keyboardDisabled': t('按回车或空格选择步骤。按住 Shift 可多选。'),
+    'node.a11yDescription.ariaLiveMessage': ({ direction, x, y }) => t('已将所选节点向{direction}移动。新位置：x {x}，y {y}', { direction: t(directionLabels[direction] ?? direction), x, y }),
+    'edge.a11yDescription.default': t('按回车或空格选择连线。按住 Shift 可多选。'),
+    'minimap.ariaLabel': t('流程缩略图'),
+    'handle.ariaLabel': t('连接端口'),
+  }), [t, locale])
   const [nodes, setNodes, applyNodeChanges] = useNodesState<FlowNode>([])
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<FlowEdge>([])
   const [readyHandles, setReadyHandles] = useState(new Map<string, ReadonlySet<string>>())
@@ -419,11 +432,17 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     else openComposer([target], point)
   }, [readOnly, openNodeComment, openComposer])
 
-  const onPortsReady = useCallback((id: string, handles: string[]) => {
+  const onPortsReady = useCallback((nodes: FlowNode[]) => {
     setReadyHandles(previous => {
-      const prior = previous.get(id)
-      if (handles.every(handle => prior?.has(handle))) return previous
-      return new Map(previous).set(id, new Set([...(prior ?? []), ...handles]))
+      let next = previous
+      for (const node of nodes) {
+        const prior = previous.get(node.id)
+        const handles = node.data.layout.ports.map(port => port.id)
+        if (handles.every(handle => prior?.has(handle))) continue
+        if (next === previous) next = new Map(previous)
+        next.set(node.id, new Set([...(prior ?? []), ...handles]))
+      }
+      return next
     })
   }, [])
 
@@ -441,13 +460,14 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         placed.ports.forEach(port => ports.set(port.id, port))
         return {
           ...prior.get(item.id),
-          id: item.id, type: 'review', position: layout.nodes.get(item.id)!.position, ariaLabel: `${item.title}${change ? `，${changeLabels[change]}` : ''}`,
+          id: item.id, type: 'review', position: layout.nodes.get(item.id)!.position, ariaLabel: change ? t('{title}，{change}', { title: item.title, change: t(changeLabels[change]) }) : item.title,
+          domAttributes: { 'aria-roledescription': t('节点') },
           selected: selected.has(key),
           data: {
             item,
             count: commentIndex.counts.get(key) ?? 0,
             change,
-            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment, onPortsReady,
+            layout: { ...placed, ports: [...ports.values()] }, onComment: openNodeComment,
           },
         }
       })
@@ -459,16 +479,20 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       return {
         id: item.id, source: item.source, target: item.target,
         sourceHandle: route.sourceHandle, targetHandle: route.targetHandle,
-        data: { route, status: [change ? changeLabels[change] : '', commentIndex.counts.has(key) ? '有批注' : ''].filter(Boolean).join(' · ') },
+        data: { route, status: change ? changeLabels[change] : undefined, hasComment: commentIndex.counts.has(key) },
         label: item.label,
-        type: 'review', ariaLabel: `${graphIndex.nodesById.get(item.source)?.title ?? `已移除节点 · ${item.source}`}：${item.label}${change ? `，${changeLabels[change]}` : ''}`,
+        type: 'review', ariaLabel: t(change ? '{title}：{label}，{change}' : '{title}：{label}', {
+          title: graphIndex.nodesById.get(item.source)?.title ?? t('已移除节点 · {id}', { id: item.source }),
+          label: item.label, change: change ? t(changeLabels[change]) : '',
+        }),
+        domAttributes: { 'aria-roledescription': t('连线') },
         selected: selected.has(key),
         className: [change ? `revision-${change}` : '', route.kind ? `route-${route.kind}` : ''].filter(Boolean).join(' ') || undefined,
         style: change ? { stroke: changeColors[change] } : undefined,
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection, onPortsReady])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection, t, locale])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
@@ -595,7 +619,20 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     },
   }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, getTargetRect, saveViewport, focusRelated])
 
-  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label="业务流程画布" data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} data-reading-focus={readingNodeIds ? 'related' : undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
+  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label={t('业务流程画布')} data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} data-reading-focus={readingNodeIds ? 'related' : undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
+    onTouchStartCapture={event => {
+      if (!(event.target as Element).closest('.react-flow__edge, .node-comment-button')) return
+      const pane = canvasRef.current?.querySelector('.react-flow__pane')
+      if (!pane) return
+      // React Flow's nopan blocks touch too; start these gestures on the pane and keep native move/end.
+      const start = new TouchEvent('touchstart', {
+        bubbles: true, cancelable: true,
+        ctrlKey: event.ctrlKey, shiftKey: event.shiftKey, altKey: event.altKey, metaKey: event.metaKey,
+        touches: Array.from(event.nativeEvent.touches), targetTouches: Array.from(event.nativeEvent.targetTouches), changedTouches: Array.from(event.nativeEvent.changedTouches),
+      })
+      event.stopPropagation()
+      pane.dispatchEvent(start)
+    }}
     onKeyDownCapture={event => { if ((event.key === 'Enter' || event.key === ' ') && (event.target as Element).matches('.react-flow__node, .react-flow__edge')) onSelectIntent?.() }}>
     <ReactFlow<FlowNode, FlowEdge> nodes={nodes} edges={visibleEdges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} colorMode="system"
       onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={() => { saveViewport(); onViewportChange?.() }}
@@ -611,22 +648,23 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       panOnDrag={mode === 'pan' ? [0, 1, 2] : [1, 2]} multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
       panOnScroll zoomOnScroll={false} zoomActivationKeyCode={['Control', 'Meta']}
       defaultViewport={{ x: 36, y: 32, zoom: 0.85 }} minZoom={0.05} maxZoom={1.6}
-      ariaLabelConfig={readingNodeIds ? { ...graphAriaLabels, 'controls.fitView.ariaLabel': '显示关联流程总览' } : graphAriaLabels}>
+      ariaLabelConfig={readingNodeIds ? { ...graphAriaLabels, 'controls.fitView.ariaLabel': t('显示关联流程总览') } : graphAriaLabels}>
+      <NodeMeasurements nodes={nodes} onReady={onPortsReady} />
       <Background gap={24} size={1} />
       <Controls showInteractive={false} showFitView={false}>
-        <ControlButton className="react-flow__controls-fitview" aria-label={readingNodeIds ? '显示关联流程总览' : '显示完整流程'} title={readingNodeIds ? '显示关联流程总览' : '显示完整流程'} onClick={() => void fitCompleteGraph()}><Scan size={14} /></ControlButton>
-        <ControlButton className="reading-view-control" aria-label="恢复阅读视图" title="恢复阅读视图" onClick={() => void focusReading()}>阅读</ControlButton>
+        <ControlButton className="react-flow__controls-fitview" aria-label={t(readingNodeIds ? '显示关联流程总览' : '显示完整流程')} title={t(readingNodeIds ? '显示关联流程总览' : '显示完整流程')} onClick={() => void fitCompleteGraph()}><Scan size={14} /></ControlButton>
+        <ControlButton className="reading-view-control" aria-label={t('恢复阅读视图')} title={t('恢复阅读视图')} onClick={() => void focusReading()}>{t('阅读')}</ControlButton>
       </Controls>
     </ReactFlow>
     <GraphLegend nodeAppearance={nodeAppearance} onNodeAppearanceChange={onNodeAppearanceChange} />
     {readingNodeIds && <div className="canvas-focus-controls" data-keep-composer>
-      <div className="canvas-focus-heading"><button className="button" onClick={showCompleteGraph}>返回完整图</button><span>关联流程 · {displayedNodes.length}/{sceneNodes.length} 个步骤</span></div>
-      {!displayedNodes.length && <p className="canvas-focus-empty">当前版本中没有这个范围的步骤。</p>}
-      {!!boundaryEdges.length && <details className="canvas-boundary-connections"><summary className="button">跨范围连接（{boundaryEdges.length}）</summary><div className="canvas-boundary-list">
+      <div className="canvas-focus-heading"><button className="button" onClick={showCompleteGraph}>{t('返回完整图')}</button><span>{t('关联流程 · {count}/{total} 个步骤', { count: displayedNodes.length, total: sceneNodes.length })}</span></div>
+      {!displayedNodes.length && <p className="canvas-focus-empty">{t('当前版本中没有这个范围的步骤。')}</p>}
+      {!!boundaryEdges.length && <details className="canvas-boundary-connections"><summary className="button">{t('跨范围连接（{count}）', { count: boundaryEdges.length })}</summary><div className="canvas-boundary-list">
         {boundaryEdges.map(edge => <article key={edge.id} data-edge-id={edge.id}>
-          <strong>{edge.label || '继续'}</strong><p>{graphIndex.nodesById.get(edge.source)?.title} → {graphIndex.nodesById.get(edge.target)?.title}</p>
+          <strong>{edge.label || t('继续')}</strong><p>{graphIndex.nodesById.get(edge.source)?.title} → {graphIndex.nodesById.get(edge.target)?.title}</p>
           {edge.detail && <p>{edge.detail}</p>}
-          <div className="tool-group"><button className="button" aria-label={`展开并定位连接：${edge.label || edge.id}`} onClick={() => {
+          <div className="tool-group"><button className="button" aria-label={t('展开并定位连接：{label}', { label: edge.label || edge.id })} onClick={() => {
             layoutReady.current = false
             canvasRef.current?.removeAttribute('data-viewport-ready')
             pendingElementFocus.current = `.react-flow__edge[data-id="${CSS.escape(edge.id)}"]`
@@ -641,11 +679,11 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
             setReadingNodeIds(ids)
             setSelection([{ kind: 'edge', id: edge.id }])
             onSelectIntent?.()
-          }}>展开并定位</button>
-          {(!readOnly || commentIndex.counts.has(`edge:${edge.id}`)) && <button className="button" aria-label={`批注连接：${edge.label || edge.id}`} onClick={event => {
+          }}>{t('展开并定位')}</button>
+          {(!readOnly || commentIndex.counts.has(`edge:${edge.id}`)) && <button className="button" aria-label={t('批注连接：{label}', { label: edge.label || edge.id })} onClick={event => {
             const rect = event.currentTarget.getBoundingClientRect()
             openNodeComment({ kind: 'edge', id: edge.id }, { x: rect.right, y: rect.bottom })
-          }}>批注</button>}</div>
+          }}>{t('批注')}</button>}</div>
         </article>)}
       </div></details>}
     </div>}
@@ -653,21 +691,21 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
         onOpenInspection(selection, { x: rect.left, y: rect.bottom }, 'detail')
-      }}><Info size={14} />查看详情</button>}
-      {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />聚焦关联流程</button>}
+      }}><Info size={14} />{t('查看详情')}</button>}
+      {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />{t('聚焦关联流程')}</button>}
       {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
         openComposer(selection, { x: rect.left, y: rect.bottom })
-      }}><MessageSquare size={14} />批注所选（{selection.length}）</button>}
-      <button className="button icon-button clear-selection" aria-label="清除选择" title="清除选择" onClick={() => setSelection([])}><X size={14} /></button>
+      }}><MessageSquare size={14} />{t('批注所选（{count}）', { count: selection.length })}</button>}
+      <button className="button icon-button clear-selection" aria-label={t('清除选择')} title={t('清除选择')} onClick={() => setSelection([])}><X size={14} /></button>
     </div>}
-    {!!multiObjectComments.length && <nav className="canvas-comment-index" aria-label="多目标批注">
+    {!!multiObjectComments.length && <nav className="canvas-comment-index" aria-label={t('多目标批注')}>
       {multiObjectComments.map(comment => <button key={comment.id} className={`button status-${comment.status}`}
-        aria-label={`批注 ${commentNumbers.get(comment.id)}，涉及 ${comment.targets.length} 项`}
+        aria-label={t('批注 {number}，涉及 {count} 项', { number: commentNumbers.get(comment.id)!, count: comment.targets.length })}
         onClick={event => {
           const rect = event.currentTarget.getBoundingClientRect()
           onOpenThread(comment.id, { x: rect.right, y: rect.bottom })
-        }}><MessageSquare size={13} />#{commentNumbers.get(comment.id)} · {comment.targets.length} 项</button>)}
+        }}><MessageSquare size={13} />{t('#{number} · {count} 项', { number: commentNumbers.get(comment.id)!, count: comment.targets.length })}</button>)}
     </nav>}
   </div>
 }))

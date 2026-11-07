@@ -201,17 +201,17 @@ export function targetSceneId(review: ReviewDocument, target: Target): string | 
   }
 }
 
-export function targetLabel(review: ReviewDocument, target: Target): string {
+export function targetLabel(review: ReviewDocument, target: Target, format = (source: string, values: Record<string, string> = {}) => source.replace(/\{(\w+)\}/g, (token, key: string) => values[key] ?? token)): string {
   switch (target.kind) {
-    case 'node': return review.nodes.find(item => item.id === target.id)?.title ?? `已移除节点 · ${target.id}`
+    case 'node': return review.nodes.find(item => item.id === target.id)?.title ?? format('已移除节点 · {id}', { id: target.id })
     case 'edge': {
       const edge = review.edges.find(item => item.id === target.id)
-      if (!edge) return `已移除连线 · ${target.id}`
-      return `连线 · ${edge.label || `${review.nodes.find(node => node.id === edge.source)?.title ?? edge.source} → ${review.nodes.find(node => node.id === edge.target)?.title ?? edge.target}`}`
+      if (!edge) return format('已移除连线 · {id}', { id: target.id })
+      return format('连线 · {label}', { label: edge.label || `${review.nodes.find(node => node.id === edge.source)?.title ?? edge.source} → ${review.nodes.find(node => node.id === edge.target)?.title ?? edge.target}` })
     }
     case 'scene': return review.scenes.some(item => item.id === target.id)
-      ? `场景 · ${review.scenes.find(item => item.id === target.id)!.title}` : `已移除场景 · ${target.id}`
-    case 'review': return review.id === target.id ? '整个评审' : `已移除评审 · ${target.id}`
+      ? format('场景 · {title}', { title: review.scenes.find(item => item.id === target.id)!.title }) : format('已移除场景 · {id}', { id: target.id })
+    case 'review': return review.id === target.id ? format('整个评审') : format('已移除评审 · {id}', { id: target.id })
   }
 }
 

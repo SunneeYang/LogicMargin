@@ -21,6 +21,14 @@ test('bundled source-backed sample is a valid importable review', () => {
   assert.ok(sampleReview.nodes.every(node => node.evidence.length > 0))
 })
 
+test('target labels localize only interface text and preserve authored names', () => {
+  const review = fixture()
+  const format = (source: string, values: Record<string, string> = {}) => source === '连线 · {label}' ? `Connection · ${values.label}` : 'Translated label'
+  assert.equal(targetLabel(review, { kind: 'edge', id: 'pass' }, format), 'Connection · 通过')
+  assert.equal(targetLabel(review, { kind: 'node', id: 'check' }, format), 'check')
+  assert.equal(targetLabel(review, { kind: 'review', id: review.id }, format), 'Translated label')
+})
+
 test('fixed baselines survive file exchange and imports without accepting nesting or replacement', () => {
   const baseline = fixture()
   baseline.revision = 'original-code'

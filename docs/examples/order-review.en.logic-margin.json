@@ -1,0 +1,601 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-order-checkout-en",
+  "title": "Order checkout · Stock and payment",
+  "description": "Fictional order flow and sample code for exploring baseline comparison, node discussions, and code diffs. This is not a verified review of production code.",
+  "revision": "demo-r1",
+  "snapshot": {
+    "repository": "Fictional order demo",
+    "commit": "demo-after",
+    "fingerprint": "7edc95ecbc74be1ec825abfa22114b4f924600bde93bd03c1b4eeba3e61e8ded",
+    "capturedAt": "2026-11-06T08:00:00.000Z",
+    "dirty": false,
+    "files": [
+      {
+        "path": "demo/checkout.ts",
+        "sha256": "dfa7d1bbad58e8506c2ea7f08706188df9a26656b974867afd9e311c78cf3cbe"
+      }
+    ]
+  },
+  "coverage": {
+    "included": [
+      "Order validation and stock handling",
+      "Payment confirmation and failure handling",
+      "Fixed baseline comparison",
+      "Node discussions and sample code diffs"
+    ],
+    "excluded": [
+      "Production repository verification",
+      "Payment gateway and database runtime checks",
+      "Full exception, process interruption, and compensation handling"
+    ],
+    "note": "Fictional flow and code. The pay helper returns ok: false for failed or timed-out payments. Concurrency, persistence, and compensation are omitted; this is not production code."
+  },
+  "scenes": [
+    {
+      "id": "checkout",
+      "title": "Order checkout",
+      "description": "Validate and reserve stock, then confirm the order after payment succeeds."
+    },
+    {
+      "id": "refund",
+      "title": "Cancellation & refunds",
+      "description": "Handle unpaid cancellations and paid refunds separately."
+    },
+    {
+      "id": "retry",
+      "title": "Idempotency & retries",
+      "description": "Return the existing result for repeated requests."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "submit",
+      "sceneId": "checkout",
+      "title": "Submit order",
+      "kind": "action",
+      "summary": "Include items, quantities, and an idempotency key.",
+      "detail": "Read the request and begin product and stock validation.",
+      "input": "Items, quantities, idempotency key",
+      "output": "Order ready for validation",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": []
+    },
+    {
+      "id": "check-stock",
+      "sceneId": "checkout",
+      "title": "Product and stock available?",
+      "kind": "decision",
+      "summary": "Reserve stock after validation passes.",
+      "detail": "Check product status and available stock. Do not request payment if validation fails.",
+      "input": "Product status, available stock",
+      "output": "Available → reserve; unavailable → reject",
+      "position": {
+        "x": 0,
+        "y": 190
+      },
+      "evidence": []
+    },
+    {
+      "id": "payment",
+      "sceneId": "checkout",
+      "title": "Reserve stock and pay",
+      "kind": "action",
+      "summary": "Keep the order pending; stock is not yet deducted.",
+      "detail": "Reserve stock, then request payment. Confirm or release the reservation based on the result.",
+      "input": "Available stock, payment request",
+      "output": "Payment result",
+      "position": {
+        "x": 0,
+        "y": 380
+      },
+      "evidence": [
+        {
+          "path": "demo/checkout.ts",
+          "symbol": "checkout",
+          "startLine": 1,
+          "endLine": 16,
+          "digest": "dfa7d1bbad58e8506c2ea7f08706188df9a26656b974867afd9e311c78cf3cbe",
+          "code": "// Fictional example for code comparison.\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  const hold = await stock.reserve(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await stock.release(hold);\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await stock.commit(hold);\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+        }
+      ]
+    },
+    {
+      "id": "confirm",
+      "sceneId": "checkout",
+      "title": "Confirm order and stock",
+      "kind": "result",
+      "summary": "Deduct stock only after payment succeeds.",
+      "detail": "Commit the reserved stock and confirm the order after successful payment. Failed payments must not reach this step.",
+      "input": "Successful payment, reserved stock",
+      "output": "Confirmed order, deducted stock",
+      "position": {
+        "x": 0,
+        "y": 570
+      },
+      "evidence": [
+        {
+          "path": "demo/checkout.ts",
+          "symbol": "checkout",
+          "startLine": 1,
+          "endLine": 16,
+          "digest": "dfa7d1bbad58e8506c2ea7f08706188df9a26656b974867afd9e311c78cf3cbe",
+          "code": "// Fictional example for code comparison.\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  const hold = await stock.reserve(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await stock.release(hold);\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await stock.commit(hold);\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "sceneId": "checkout",
+      "title": "Return validation failure",
+      "kind": "failure",
+      "summary": "No payment or stock changes.",
+      "detail": "Return a clear reason for an unavailable product or insufficient stock.",
+      "input": "Validation failure reason",
+      "output": "Failure result",
+      "position": {
+        "x": 430,
+        "y": 190
+      },
+      "evidence": []
+    },
+    {
+      "id": "release",
+      "sceneId": "checkout",
+      "title": "Release stock reservation",
+      "kind": "failure",
+      "summary": "Restore availability after a failed or timed-out payment.",
+      "detail": "Release this order’s reservation without committing a deduction. Keep the failure reason for retries or queries.",
+      "input": "Failed or timed-out payment",
+      "output": "Released reservation, failure result",
+      "position": {
+        "x": 430,
+        "y": 570
+      },
+      "evidence": [
+        {
+          "path": "demo/checkout.ts",
+          "symbol": "checkout",
+          "startLine": 1,
+          "endLine": 16,
+          "digest": "dfa7d1bbad58e8506c2ea7f08706188df9a26656b974867afd9e311c78cf3cbe",
+          "code": "// Fictional example for code comparison.\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  const hold = await stock.reserve(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await stock.release(hold);\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await stock.commit(hold);\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+        }
+      ]
+    },
+    {
+      "id": "cancel",
+      "sceneId": "refund",
+      "title": "Check payment status",
+      "kind": "decision",
+      "summary": "Choose cancellation or refund based on the current state.",
+      "detail": "Release reservations for unpaid orders; start a refund for paid orders.",
+      "input": "Order, payment status",
+      "output": "Cancellation or refund path",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": []
+    },
+    {
+      "id": "refund-complete",
+      "sceneId": "refund",
+      "title": "Complete cancellation or refund",
+      "kind": "result",
+      "summary": "Update order and stock after success.",
+      "detail": "Keep the original order state if a refund fails so it can be queried and handled later.",
+      "input": "Cancellation or refund result",
+      "output": "Updated order state",
+      "position": {
+        "x": 0,
+        "y": 190
+      },
+      "evidence": []
+    },
+    {
+      "id": "check-key",
+      "sceneId": "retry",
+      "title": "Check idempotency key",
+      "kind": "decision",
+      "summary": "Process the same request only once.",
+      "detail": "Return an existing result; create a processing record only if none exists.",
+      "input": "Idempotency key, existing record",
+      "output": "Existing result or permission to process",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": []
+    },
+    {
+      "id": "reuse-result",
+      "sceneId": "retry",
+      "title": "Return existing result",
+      "kind": "result",
+      "summary": "Do not repeat payment or stock deduction.",
+      "detail": "A retry queries the same processing record without repeating business changes.",
+      "input": "Existing processing record",
+      "output": "Original result",
+      "position": {
+        "x": 0,
+        "y": 190
+      },
+      "evidence": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "submit-check",
+      "sceneId": "checkout",
+      "source": "submit",
+      "target": "check-stock",
+      "label": "Validate request",
+      "detail": "Start validation"
+    },
+    {
+      "id": "check-payment",
+      "sceneId": "checkout",
+      "source": "check-stock",
+      "target": "payment",
+      "label": "Validation passed",
+      "detail": "Reserve stock before requesting payment"
+    },
+    {
+      "id": "check-reject",
+      "sceneId": "checkout",
+      "source": "check-stock",
+      "target": "reject",
+      "label": "Unavailable / low stock",
+      "detail": "Do not deduct stock"
+    },
+    {
+      "id": "payment-confirm",
+      "sceneId": "checkout",
+      "source": "payment",
+      "target": "confirm",
+      "label": "Payment succeeded",
+      "detail": "Commit stock changes only after payment succeeds"
+    },
+    {
+      "id": "payment-release",
+      "sceneId": "checkout",
+      "source": "payment",
+      "target": "release",
+      "label": "Payment failed / timeout",
+      "detail": "Release the reservation on failure"
+    },
+    {
+      "id": "cancel-result",
+      "sceneId": "refund",
+      "source": "cancel",
+      "target": "refund-complete",
+      "label": "Handle payment state",
+      "detail": "Commit changes after cancellation or refund succeeds"
+    },
+    {
+      "id": "key-result",
+      "sceneId": "retry",
+      "source": "check-key",
+      "target": "reuse-result",
+      "label": "Record exists",
+      "detail": "Return the original result"
+    }
+  ],
+  "comments": [
+    {
+      "id": "review-stock-timing",
+      "body": "Stock remains deducted after payment fails. Please reserve it first, commit only after payment succeeds, and release the reservation on failure or timeout.",
+      "targets": [
+        {
+          "kind": "node",
+          "id": "payment"
+        }
+      ],
+      "status": "needs-review",
+      "createdAt": "2026-11-03T00:10:00.000Z",
+      "revision": "demo-baseline",
+      "replies": [
+        {
+          "id": "reply-stock-timing",
+          "author": "agent",
+          "body": "The demo now follows reserve → pay → confirm or release. Compare with baseline B for the original flow, or open Code diff to inspect the corresponding changes.",
+          "createdAt": "2026-11-03T00:15:00.000Z",
+          "revision": "demo-r1"
+        }
+      ]
+    }
+  ],
+  "baseline": {
+    "schemaVersion": 1,
+    "id": "demo-order-checkout-en",
+    "title": "Order checkout · Stock and payment",
+    "description": "Fictional original: deduct stock first, with no recovery after payment failure. Used as a fixed comparison baseline.",
+    "revision": "demo-baseline",
+    "snapshot": {
+      "repository": "Fictional order demo",
+      "commit": "demo-before",
+      "fingerprint": "557014353292a8fb7877c6eee42adcf0bd47937a1b40c0cdec6bcb28f2d98463",
+      "capturedAt": "2026-11-06T08:00:00.000Z",
+      "dirty": false,
+      "files": [
+        {
+          "path": "demo/checkout.ts",
+          "sha256": "97d44c0815b3c88009a481a44f5767c16c2096293acd188409e45e591693b875"
+        }
+      ]
+    },
+    "coverage": {
+      "included": [
+        "Order validation and stock handling",
+        "Payment confirmation and failure handling",
+        "Fixed baseline comparison",
+        "Node discussions and sample code diffs"
+      ],
+      "excluded": [
+        "Production repository verification",
+        "Payment gateway and database runtime checks",
+        "Full exception, process interruption, and compensation handling"
+      ],
+      "note": "Fictional flow and code. The pay helper returns ok: false for failed or timed-out payments. Concurrency, persistence, and compensation are omitted; this is not production code."
+    },
+    "scenes": [
+      {
+        "id": "checkout",
+        "title": "Order checkout",
+        "description": "Validate and deduct stock, request payment, then confirm the order after payment succeeds."
+      },
+      {
+        "id": "refund",
+        "title": "Cancellation & refunds",
+        "description": "Handle unpaid cancellations and paid refunds separately."
+      },
+      {
+        "id": "retry",
+        "title": "Idempotency & retries",
+        "description": "Return the existing result for repeated requests."
+      }
+    ],
+    "nodes": [
+      {
+        "id": "submit",
+        "sceneId": "checkout",
+        "title": "Submit order",
+        "kind": "action",
+        "summary": "Include items, quantities, and an idempotency key.",
+        "detail": "Read the request and begin product and stock validation.",
+        "input": "Items, quantities, idempotency key",
+        "output": "Order ready for validation",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "evidence": []
+      },
+      {
+        "id": "check-stock",
+        "sceneId": "checkout",
+        "title": "Product and stock available?",
+        "kind": "decision",
+        "summary": "Deduct stock after validation passes.",
+        "detail": "Check product status and available stock. Do not request payment if validation fails.",
+        "input": "Product status, available stock",
+        "output": "Available → deduct; unavailable → reject",
+        "position": {
+          "x": 0,
+          "y": 190
+        },
+        "evidence": []
+      },
+      {
+        "id": "payment",
+        "sceneId": "checkout",
+        "title": "Deduct stock and pay",
+        "kind": "action",
+        "summary": "Deduct stock before requesting payment.",
+        "detail": "After validation, deduct stock immediately and request payment.",
+        "input": "Available stock, payment request",
+        "output": "Deducted stock, payment result",
+        "position": {
+          "x": 0,
+          "y": 380
+        },
+        "evidence": [
+          {
+            "path": "demo/checkout.ts",
+            "symbol": "checkout",
+            "startLine": 1,
+            "endLine": 14,
+            "digest": "97d44c0815b3c88009a481a44f5767c16c2096293acd188409e45e591693b875",
+            "code": "// Fictional example for code comparison.\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  await stock.deduct(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+          }
+        ]
+      },
+      {
+        "id": "confirm",
+        "sceneId": "checkout",
+        "title": "Confirm order",
+        "kind": "result",
+        "summary": "Confirm the order after payment succeeds.",
+        "detail": "Stock was already deducted. Confirm the order after successful payment.",
+        "input": "Successful payment",
+        "output": "Confirmed order",
+        "position": {
+          "x": 0,
+          "y": 570
+        },
+        "evidence": [
+          {
+            "path": "demo/checkout.ts",
+            "symbol": "checkout",
+            "startLine": 1,
+            "endLine": 14,
+            "digest": "97d44c0815b3c88009a481a44f5767c16c2096293acd188409e45e591693b875",
+            "code": "// Fictional example for code comparison.\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  await stock.deduct(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+          }
+        ]
+      },
+      {
+        "id": "reject",
+        "sceneId": "checkout",
+        "title": "Return validation failure",
+        "kind": "failure",
+        "summary": "No payment or stock changes.",
+        "detail": "Return a clear reason for an unavailable product or insufficient stock.",
+        "input": "Validation failure reason",
+        "output": "Failure result",
+        "position": {
+          "x": 430,
+          "y": 190
+        },
+        "evidence": []
+      },
+      {
+        "id": "release",
+        "sceneId": "checkout",
+        "title": "Record payment failure",
+        "kind": "failure",
+        "summary": "Keep the failure reason; stock is not restored.",
+        "detail": "Record a failed or timed-out payment. This version is missing the stock restoration step.",
+        "input": "Failed or timed-out payment",
+        "output": "Failure result, stock still deducted",
+        "position": {
+          "x": 430,
+          "y": 570
+        },
+        "evidence": [
+          {
+            "path": "demo/checkout.ts",
+            "symbol": "checkout",
+            "startLine": 1,
+            "endLine": 14,
+            "digest": "97d44c0815b3c88009a481a44f5767c16c2096293acd188409e45e591693b875",
+            "code": "// Fictional example for code comparison.\nasync function checkout(order: Order) {\n  const { sku, quantity } = order;\n  await stock.deduct(sku, quantity);\n\n  const payment = await pay(order);\n  if (!payment.ok) {\n    await orders.fail(order.id, payment.reason);\n    return { ok: false, reason: payment.reason };\n  }\n\n  await orders.confirm(order.id);\n  return { ok: true, orderId: order.id };\n}"
+          }
+        ]
+      },
+      {
+        "id": "cancel",
+        "sceneId": "refund",
+        "title": "Check payment status",
+        "kind": "decision",
+        "summary": "Choose cancellation or refund based on the current state.",
+        "detail": "Release reservations for unpaid orders; start a refund for paid orders.",
+        "input": "Order, payment status",
+        "output": "Cancellation or refund path",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "evidence": []
+      },
+      {
+        "id": "refund-complete",
+        "sceneId": "refund",
+        "title": "Complete cancellation or refund",
+        "kind": "result",
+        "summary": "Update order and stock after success.",
+        "detail": "Keep the original order state if a refund fails so it can be queried and handled later.",
+        "input": "Cancellation or refund result",
+        "output": "Updated order state",
+        "position": {
+          "x": 0,
+          "y": 190
+        },
+        "evidence": []
+      },
+      {
+        "id": "check-key",
+        "sceneId": "retry",
+        "title": "Check idempotency key",
+        "kind": "decision",
+        "summary": "Process the same request only once.",
+        "detail": "Return an existing result; create a processing record only if none exists.",
+        "input": "Idempotency key, existing record",
+        "output": "Existing result or permission to process",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "evidence": []
+      },
+      {
+        "id": "reuse-result",
+        "sceneId": "retry",
+        "title": "Return existing result",
+        "kind": "result",
+        "summary": "Do not repeat payment or stock deduction.",
+        "detail": "A retry queries the same processing record without repeating business changes.",
+        "input": "Existing processing record",
+        "output": "Original result",
+        "position": {
+          "x": 0,
+          "y": 190
+        },
+        "evidence": []
+      }
+    ],
+    "edges": [
+      {
+        "id": "submit-check",
+        "sceneId": "checkout",
+        "source": "submit",
+        "target": "check-stock",
+        "label": "Validate request",
+        "detail": "Start validation"
+      },
+      {
+        "id": "check-payment",
+        "sceneId": "checkout",
+        "source": "check-stock",
+        "target": "payment",
+        "label": "Validation passed",
+        "detail": "Deduct stock before requesting payment"
+      },
+      {
+        "id": "check-reject",
+        "sceneId": "checkout",
+        "source": "check-stock",
+        "target": "reject",
+        "label": "Unavailable / low stock",
+        "detail": "Do not deduct stock"
+      },
+      {
+        "id": "payment-confirm",
+        "sceneId": "checkout",
+        "source": "payment",
+        "target": "confirm",
+        "label": "Payment succeeded",
+        "detail": "Confirm the order after payment succeeds"
+      },
+      {
+        "id": "payment-release",
+        "sceneId": "checkout",
+        "source": "payment",
+        "target": "release",
+        "label": "Payment failed / timeout",
+        "detail": "Record failure without restoring stock"
+      },
+      {
+        "id": "cancel-result",
+        "sceneId": "refund",
+        "source": "cancel",
+        "target": "refund-complete",
+        "label": "Handle payment state",
+        "detail": "Commit changes after cancellation or refund succeeds"
+      },
+      {
+        "id": "key-result",
+        "sceneId": "retry",
+        "source": "check-key",
+        "target": "reuse-result",
+        "label": "Record exists",
+        "detail": "Return the original result"
+      }
+    ],
+    "comments": []
+  }
+}

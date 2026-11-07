@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.1-2563eb?style=flat-square" alt="Version 0.8.1" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.5-2563eb?style=flat-square" alt="Version 0.8.5" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Requires Node.js 22.18 or later" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>

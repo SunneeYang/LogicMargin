@@ -17,7 +17,7 @@ async function openReview(page: Page) {
 async function chooseTheme(page: Page, theme: string, mode: string) {
   await page.getByLabel('外观设置', { exact: true }).click()
   await page.getByLabel('界面主题', { exact: true }).selectOption(theme)
-  await page.getByLabel('明暗模式', { exact: true }).selectOption(mode)
+  await page.locator(`#appearance-mode button[value="${mode}"]`).click()
   await page.keyboard.press('Escape')
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
   if (mode !== 'system') await expect(page.locator('html')).toHaveAttribute('data-mode', mode)

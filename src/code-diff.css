@@ -17,6 +17,7 @@
 .code-evidence-section > summary small { display: block; margin-top: var(--space-xs); color: var(--color-muted); font-size: var(--text-xs); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .code-evidence-section > summary:hover strong { color: var(--color-accent); }
 .code-evidence-body { padding-bottom: var(--space-lg); }
+.code-evidence-placeholder { min-height: min(520px, 60dvh); }
 .code-related-nodes { margin-bottom: var(--space-md); }
 .code-source-location { display: flex; flex-wrap: wrap; gap: var(--space-xs); color: var(--color-muted); font-size: var(--text-xs); line-height: 1.65; }
 .code-source-location > span:first-child { flex-shrink: 0; font-weight: 600; }
@@ -49,6 +50,9 @@
 .code-editor .cm-merge-a .cm-changedText, .code-editor .cm-deletedChunk .cm-deletedText { background: color-mix(in srgb, var(--color-error) 24%, transparent); }
 .code-editor .cm-merge-b .cm-changedText { background: color-mix(in srgb, var(--color-success) 24%, transparent); }
 .code-editor .cm-deletedLine del { color: var(--color-body); }
+.code-editor .cm-unified-virtual .cm-deletedLine { background: var(--color-error-paper); }
+.code-editor .cm-unified-virtual .cm-deletedText { background: color-mix(in srgb, var(--color-error) 24%, transparent); }
+.code-editor .cm-unified-virtual .cm-collapsedLines { width: 100%; text-align: left; }
 .code-editor .cm-collapsedLines { color: var(--color-muted); background: var(--color-surface-muted); font-family: var(--font-body); }
 .code-editor .tok-keyword, .code-editor .tok-typeName, .code-editor .tok-bool { color: var(--color-accent); font-weight: 600; }
 .code-editor .tok-string { color: var(--color-success); }
