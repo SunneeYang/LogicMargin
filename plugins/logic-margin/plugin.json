@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "logic-margin",
-  "version": "0.8.2",
+  "version": "0.8.5",
   "description": "Review source-backed logic diagrams with human annotations, agent replies and resumable review rounds.",
   "extensions": {
     "com.openai": {

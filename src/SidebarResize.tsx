@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useI18n } from './i18n.ts'
 
 const STORAGE_KEY = 'logic-margin:sidebar-widths'
 const defaults = { left: 192, right: 420 }
@@ -42,16 +43,17 @@ export default function SidebarResize({ side, width, max, onChange }: {
   max: number
   onChange: (width: number) => void
 }) {
+  const { t } = useI18n()
   const drag = useRef<{ x: number; width: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const min = side === 'left' ? 180 : 320
   const direction = side === 'left' ? 1 : -1
   return <div className={`sidebar-resize resize-${side}${dragging ? ' is-dragging' : ''}`}
     role="separator" tabIndex={0} aria-orientation="vertical"
-    aria-label={side === 'left' ? '调整场景栏宽度' : '调整右侧栏宽度'}
+    aria-label={t(side === 'left' ? '调整场景栏宽度' : '调整右侧栏宽度')}
     aria-controls={side === 'left' ? 'scene-navigation' : 'node-inspector'}
-    aria-valuemin={min} aria-valuemax={max} aria-valuenow={Math.round(width)} aria-valuetext={`${Math.round(width)} 像素`}
-    title="拖动调整宽度 · 方向键微调 · 双击恢复默认" data-keep-composer
+    aria-valuemin={min} aria-valuemax={max} aria-valuenow={Math.round(width)} aria-valuetext={t('{width} 像素', { width: Math.round(width) })}
+    title={t('拖动调整宽度 · 方向键微调 · 双击恢复默认')} data-keep-composer
     onDoubleClick={() => onChange(clamp(defaults[side], min, max))}
     onPointerDown={event => {
       if (event.button !== 0) return

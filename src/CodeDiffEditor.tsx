@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Compartment, EditorState, StateEffect, StateField, Text } from '@codemirror/state'
+import type { Range } from '@codemirror/state'
 import { Decoration, EditorView, GutterMarker, WidgetType, gutter, keymap, lineNumbers } from '@codemirror/view'
 import { StreamLanguage, syntaxHighlighting } from '@codemirror/language'
 import { classHighlighter } from '@lezer/highlight'
@@ -12,6 +13,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { lua } from '@codemirror/legacy-modes/mode/lua'
 import type { Evidence } from './types.ts'
 import { buildUnifiedDiff } from './unified-code-diff.ts'
+import { useI18n } from './i18n.ts'
 
 const unfoldCode = StateEffect.define<number>()
 
@@ -22,8 +24,8 @@ class CollapsedCode extends WidgetType {
   toDOM(view: EditorView) {
     const button = document.createElement('button')
     button.type = 'button'; button.className = 'cm-collapsedLines'
-    button.textContent = `${this.lines} 行未修改`
-    button.setAttribute('aria-label', `展开 ${this.lines} 行未修改代码`)
+    button.textContent = view.state.phrase('$ unchanged lines', this.lines)
+    button.setAttribute('aria-label', `${view.state.phrase('unfold')} ${button.textContent}`)
     button.onclick = () => { view.dispatch({ effects: unfoldCode.of(this.from) }); view.focus() }
     return button
   }
@@ -37,6 +39,17 @@ function collapsedCode(diff: ReturnType<typeof buildUnifiedDiff>) {
     update: (decorations, transaction) => {
       for (const effect of transaction.effects) if (effect.is(unfoldCode)) {
         decorations = decorations.update({ filter: from => from !== effect.value })
+      }
+      if (transaction.reconfigured) {
+        // Refresh widget wording without restoring ranges the reader has unfolded.
+        const localized: Range<Decoration>[] = []
+        decorations.between(0, transaction.state.doc.length, (from, to, decoration) => {
+          const widget = decoration.spec.widget
+          if (widget instanceof CollapsedCode) localized.push(Decoration.replace({
+            block: true, widget: new CollapsedCode(widget.from, widget.lines),
+          }).range(from, to))
+        })
+        decorations = Decoration.set(localized)
       }
       return decorations
     },
@@ -96,8 +109,11 @@ function originalNumbers(before: Evidence) {
 export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel, split }: {
   before: Evidence; after: Evidence; beforeLabel: string; afterLabel: string; split: boolean
 }) {
+  const { t, locale } = useI18n()
   const container = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
+  const editors = useRef<EditorView | MergeView | null>(null)
+  const localization = useRef(new Compartment())
   const updateExpanded = useRef<(expanded: boolean) => void>(() => {})
   const navigate = useRef<(direction: number) => boolean>(() => false)
   const [expanded, setExpanded] = useState(false)
@@ -113,22 +129,21 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
       unifiedCache.current = { before: before.code!, after: after.code!, diff: buildUnifiedDiff(before.code!, after.code!) }
     }
     const unified = virtual ? unifiedCache.current!.diff : null
-    const extensions = (evidence: Evidence, label: string, number = (line: number) => String(line + evidence.startLine - 1)) => [
+    const extensions = (evidence: Evidence, number = (line: number) => String(line + evidence.startLine - 1)) => [
       EditorState.readOnly.of(true), EditorView.editable.of(false),
-      EditorView.contentAttributes.of({ tabindex: '0', 'aria-label': `${label}代码`, 'aria-readonly': 'true' }),
+      localization.current.of([]),
       lineNumbers({ formatNumber: number }),
       syntaxHighlighting(classHighlighter), language(evidence.path),
       keymap.of([{ key: 'F7', run: current => split || !unified ? goToNextChunk(current) : navigate.current(1) },
         { key: 'Shift-F7', run: current => split || !unified ? goToPreviousChunk(current) : navigate.current(-1) }]),
-      EditorState.phrases.of({ '$ unchanged lines': '$ 行未修改' }),
     ]
     const options = (full: boolean) => ({ highlightChanges: true, gutter: true, diffConfig: { scanLimit: 2000, timeout: 100 },
       collapseUnchanged: full ? undefined : { margin: 3, minSize: 8 } })
     let editor: EditorView | MergeView
     if (split) {
       const merge = new MergeView({ parent: container.current,
-        a: { doc: before.code!, extensions: extensions(before, beforeLabel) },
-        b: { doc: after.code!, extensions: extensions(after, afterLabel) }, ...options(expandedRef.current),
+        a: { doc: before.code!, extensions: extensions(before) },
+        b: { doc: after.code!, extensions: extensions(after) }, ...options(expandedRef.current),
       })
       editor = merge
       updateExpanded.current = full => merge.reconfigure({ collapseUnchanged: options(full).collapseUnchanged })
@@ -148,7 +163,7 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
         },
       })
       const current = new EditorView({ parent: container.current, doc: unified.doc,
-        extensions: [oldNumbers, ...extensions(after, afterLabel, line => {
+        extensions: [oldNumbers, ...extensions(after, line => {
           const number = unified.lines[line - 1]?.after
           return number === undefined ? '' : String(number + after.startLine - 1)
         }), EditorView.editorAttributes.of({ class: 'cm-unified-virtual cm-merge-b' }),
@@ -158,7 +173,7 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
       updateExpanded.current = full => current.dispatch({ effects: folding.reconfigure(full ? [] : collapsedCode(unified)) })
     } else {
       const state = (full: boolean) => EditorState.create({ doc: after.code!, extensions: [originalNumbers(before),
-        ...extensions(after, afterLabel), unifiedMergeView({ original: before.code!, mergeControls: false, ...options(full) })] })
+        ...extensions(after), unifiedMergeView({ original: before.code!, mergeControls: false, ...options(full) })] })
       const current = new EditorView({ parent: container.current, state: state(expandedRef.current) })
       editor = current
       updateExpanded.current = full => current.setState(state(full))
@@ -170,6 +185,7 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
       currentExpanded = full
       applyExpanded(full)
     }
+    editors.current = editor
     view.current = editor instanceof MergeView ? editor.b : editor
     navigate.current = direction => {
       const current = view.current!
@@ -188,18 +204,39 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
     const chunks = getChunks(view.current.state)?.chunks ?? []
     setSummary(!split && unified ? { count: unified.changes.length, precise: unified.precise }
       : { count: chunks.length, precise: chunks.every(chunk => chunk.precise) })
-    return () => { view.current = null; updateExpanded.current = () => {}; navigate.current = () => false; editor.destroy() }
-  }, [before, after, beforeLabel, afterLabel, split])
+    return () => { view.current = null; editors.current = null; updateExpanded.current = () => {}; navigate.current = () => false; editor.destroy() }
+  }, [before, after, split])
   useEffect(() => updateExpanded.current(expanded), [expanded])
+  useEffect(() => {
+    const editor = editors.current
+    if (!editor) return
+    // Reconfigure wording in place so language changes preserve reading position and expanded chunks.
+    const localize = (current: EditorView, label: string) => {
+      const scroll = current.scrollSnapshot()
+      current.dispatch({ effects: localization.current.reconfigure([
+        EditorView.contentAttributes.of({ tabindex: '0', 'aria-label': t('{label}代码', { label }), 'aria-readonly': 'true' }),
+        EditorState.phrases.of({
+          '$ unchanged lines': t('{count} 行未修改', { count: '$' }),
+          'Revert this chunk': t('还原此处修改'), Accept: t('接受'), Reject: t('拒绝'),
+          'Control character': t('控制字符'), close: t('关闭'),
+          'Folded lines': t('已折叠行'), 'Unfolded lines': t('已展开行'), to: t('至'),
+          'folded code': t('已折叠代码'), unfold: t('展开'), 'Fold line': t('折叠行'), 'Unfold line': t('展开行'),
+        }),
+      ]) })
+      current.dispatch({ effects: scroll })
+    }
+    if (editor instanceof MergeView) { localize(editor.a, beforeLabel); localize(editor.b, afterLabel) }
+    else localize(editor, afterLabel)
+  }, [t, locale, beforeLabel, afterLabel, before, after, split, expanded])
   return <div className={`code-editor ${split ? 'is-split' : 'is-unified'}`}>
     <div className="code-editor-tools">
-      <span role="status">{summary.count ? `${summary.count} 处差异` : '片段内容相同'}</span>
-      <div className="tool-group"><button className="button icon-button" disabled={!summary.count} aria-label="上一处差异" title="上一处差异 · Shift+F7" onClick={() => navigate.current(-1)}><ArrowUp size={14} /></button>
-        <button className="button icon-button" disabled={!summary.count} aria-label="下一处差异" title="下一处差异 · F7" onClick={() => navigate.current(1)}><ArrowDown size={14} /></button>
-        <button className="button" aria-pressed={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? '折叠未变' : '展开全文'}</button></div>
+      <span role="status">{summary.count ? t('{count} 处差异', { count: summary.count }) : t('片段内容相同')}</span>
+      <div className="tool-group"><button className="button icon-button" disabled={!summary.count} aria-label={t('上一处差异')} title={t('上一处差异 · Shift+F7')} onClick={() => navigate.current(-1)}><ArrowUp size={14} /></button>
+        <button className="button icon-button" disabled={!summary.count} aria-label={t('下一处差异')} title={t('下一处差异 · F7')} onClick={() => navigate.current(1)}><ArrowDown size={14} /></button>
+        <button className="button" aria-pressed={expanded} onClick={() => setExpanded(!expanded)}>{t(expanded ? '折叠未变' : '展开全文')}</button></div>
     </div>
-    {!summary.precise && <p className="code-diff-note">差异较大，部分区域仅标出整段变化。</p>}
-    <div className="code-editor-labels">{split ? <><span>{beforeLabel} · 原行</span><span>{afterLabel} · 新行</span></> : <span>原行 / 新行 · 删除 / 新增</span>}</div>
+    {!summary.precise && <p className="code-diff-note">{t('差异较大，部分区域仅标出整段变化。')}</p>}
+    <div className="code-editor-labels">{split ? <><span>{t('{label} · 原行', { label: beforeLabel })}</span><span>{t('{label} · 新行', { label: afterLabel })}</span></> : <span>{t('原行 / 新行 · 删除 / 新增')}</span>}</div>
     <div ref={container} className="code-editor-host" />
   </div>
 }
