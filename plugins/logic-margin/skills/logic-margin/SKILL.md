@@ -11,7 +11,7 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 ## 建立连接
 
-将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.1 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
+将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.2 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
 
 ```sh
 "$LM_CLI" server start

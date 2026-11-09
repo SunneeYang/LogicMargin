@@ -229,6 +229,7 @@ func TestNativeLayoutCancellationAndWorkers(t *testing.T) {
 		}
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), time.Microsecond)
+	<-ctx.Done() // The timer callback may run after a fast layout completes.
 	_, handled, err = computeNativeLayout(ctx, input)
 	cancel()
 	if !handled || !errors.Is(err, context.DeadlineExceeded) {

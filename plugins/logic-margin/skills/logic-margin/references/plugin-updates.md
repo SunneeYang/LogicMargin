@@ -1,6 +1,6 @@
 # 插件安装与更新
 
-适用于具备本地命令执行能力的 Codex。0.9.1 默认运行 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。Git marketplace 需要 Git，首次启动需要联网；macOS/Linux 下载启动器还需要 `curl`、`unzip` 与 `shasum` 或 `sha256sum`，Windows 使用 PowerShell。用户已要求更新时直接执行。其他 Agent 可使用平台 ZIP 内的 CLI 或受支持的 HTTP MCP 客户端，ZIP 本身不会把 MCP 注册到其他宿主。
+适用于具备本地命令执行能力的 Codex。0.9.2 默认运行 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。Git marketplace 需要 Git，首次启动需要联网；macOS/Linux 下载启动器还需要 `curl`、`unzip` 与 `shasum` 或 `sha256sum`，Windows 使用 PowerShell。用户已要求更新时直接执行。其他 Agent 可使用平台 ZIP 内的 CLI 或受支持的 HTTP MCP 客户端，ZIP 本身不会把 MCP 注册到其他宿主。
 
 ## 首次安装或从本地目录迁移
 
@@ -11,7 +11,7 @@ codex plugin add logic-margin@logic-margin-local --json
 
 同名本地 marketplace 会切换到 Git 来源，原源码或解压目录保留。此路径包含 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，按插件固定版本从官方 GitHub Release 下载本平台 ZIP 并校验 SHA-256，再运行原生程序；不在用户机器编译，不追随浮动 latest。
 
-无需 Git 时，从 [Release v0.9.1](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.1) 选择 `logic-margin-agent-0.9.1-TARGET.zip` 和 `.zip.sha256`。TARGET 为 `darwin-arm64`（macOS Apple Silicon）、`darwin-x64`（macOS Intel）、`linux-arm64`、`linux-x64` 或 `win32-x64`（Windows x64）。校验 SHA-256 后解压到持久位置，以 ZIP 顶层目录执行 `codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.1-TARGET`，再添加插件。ZIP 内直接使用 `scripts/logic-margin` / `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI` 调用实际入口。
+无需 Git 时，从 [Release v0.9.2](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.2) 选择 `logic-margin-agent-0.9.2-TARGET.zip` 和 `.zip.sha256`。TARGET 为 `darwin-arm64`（macOS Apple Silicon）、`darwin-x64`（macOS Intel）、`linux-arm64`、`linux-x64` 或 `win32-x64`（Windows x64）。校验 SHA-256 后解压到持久位置，以 ZIP 顶层目录执行 `codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.2-TARGET`，再添加插件。ZIP 内直接使用 `scripts/logic-margin` / `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI` 调用实际入口。
 
 ## 检查与更新
 
