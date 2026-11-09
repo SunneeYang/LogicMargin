@@ -1,4 +1,5 @@
 import { measureEdgeLabel } from './graph-label.ts'
+import { compareGraphIds } from './graph-order.ts'
 import type { LayoutEdge, LayoutNode, LayoutPoint, LayoutPort } from './graph-layout.ts'
 import type { ReviewEdge, ReviewNode } from './types.ts'
 
@@ -134,9 +135,9 @@ export function routeGraphEdges(
         if (oneReturns !== twoReturns) return Number(oneReturns) - Number(twoReturns)
         if (oneReturns) {
           const approach = (point: LayoutPoint) => Math.sign(point.y - node.position.y)
-          return approach(one) - approach(two) || two.y - one.y || b.id.localeCompare(a.id)
+          return approach(one) - approach(two) || two.y - one.y || compareGraphIds(b.id, a.id)
         }
-        return (side === 'left' || side === 'right' ? one.y - two.y : one.x - two.x) || a.id.localeCompare(b.id)
+        return (side === 'left' || side === 'right' ? one.y - two.y : one.x - two.x) || compareGraphIds(a.id, b.id)
       })
       const span = side === 'top' || side === 'bottom' ? node.width : node.height
       ports.forEach((port, index) => { port.offset = 16 + (span - 32) * (index + 1) / (ports.length + 1) })
@@ -174,7 +175,7 @@ export function routeGraphEdges(
   const ordered = [...edges].sort((a, b) => {
     const priority = (edge: ReviewEdge) => kinds.get(edge.id) === 'return' ? 2 : kinds.get(edge.id) === 'exception' ? 1 : 0
     return priority(a) - priority(b) || Math.abs(byId.get(a.source)!.position.y - byId.get(a.target)!.position.y)
-      - Math.abs(byId.get(b.source)!.position.y - byId.get(b.target)!.position.y) || a.id.localeCompare(b.id)
+      - Math.abs(byId.get(b.source)!.position.y - byId.get(b.target)!.position.y) || compareGraphIds(a.id, b.id)
   })
   for (const edge of ordered) {
     const source = placed.get(edge.source)!, target = placed.get(edge.target)!, ports = endpoints.get(edge.id)!

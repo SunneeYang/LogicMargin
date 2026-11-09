@@ -86,3 +86,18 @@
   .code-editor { --code-overview-size: 45px; }
   .code-diff-mode .button, .code-editor-tools .button, .code-context-fold button { min-height: 44px; }
 }
+.code-structure-mode { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-xs); }
+.code-structure-mode .button[aria-pressed="true"] { color: var(--color-accent); border-color: var(--color-accent); background: var(--color-accent-paper); }
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-changedLine,
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-deletedLine,
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-deletedChunk,
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-changedText,
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-deletedText { background: transparent; }
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-structural-removed { background: color-mix(in srgb, var(--color-error) 24%, transparent); }
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-structural-added { background: color-mix(in srgb, var(--color-success) 24%, transparent); }
+.code-editor[data-diff-mode="structural"] > .code-editor-host .cm-structural-move { text-decoration: underline; text-decoration-color: var(--color-accent); text-underline-offset: 3px; }
+.code-moves { margin-top: var(--space-sm); }
+.code-move { border-top: 1px solid var(--color-rule); padding-block: var(--space-sm); }
+.code-move-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-sm); color: var(--color-muted); font-size: var(--text-xs); }
+.code-move-heading code { color: var(--color-body); font-family: var(--font-mono); }
+.code-move-comparison { margin-block: var(--space-sm); }

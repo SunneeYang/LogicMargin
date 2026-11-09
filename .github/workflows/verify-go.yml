@@ -1,0 +1,56 @@
+name: Verify Go migration
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      - name: Install archive tools on Windows
+        if: runner.os == 'Windows'
+        run: choco install zip unzip -y --no-progress
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/build-graph-precompute.mjs --check
+      - run: node scripts/build-structure-parser.mjs --check
+      - run: npm run build:go
+      - run: go test -race ./... -count=1
+      - run: npm run test:go:agent
+      - run: npm run test:go:compat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: logic-margin-go-${{ runner.os }}
+          path: artifacts/go/
+
+  cross-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [darwin-arm64, darwin-x64, linux-arm64, linux-x64, win32-x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - run: npm run package:go -- --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: logic-margin-go-${{ matrix.target }}
+          path: artifacts/*.zip*

@@ -1,11 +1,33 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ComponentProps } from 'react'
 import { ChevronDown, FileCode2 } from 'lucide-react'
 import type { Evidence, ReviewDocument, Target } from './types.ts'
 import { collectCodeReferences, pairCodeReferences } from './code-diff.ts'
 import type { CodePair } from './code-diff.ts'
+import type { DiffContext } from './precompute.ts'
+import type CodeDiffEditor from './CodeDiffEditor.tsx'
 import { useI18n } from './i18n.ts'
 
-const CodeDiffEditor = lazy(() => import('./CodeDiffEditor.tsx'))
+let loadedEditor: typeof CodeDiffEditor | null = null
+
+function DeferredCodeDiffEditor(props: ComponentProps<typeof CodeDiffEditor>) {
+  const { t } = useI18n()
+  const [Editor, setEditor] = useState(() => loadedEditor)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (Editor) return
+    let active = true
+    // Keep the code chunk lazy without Suspense's fallback reveal delay on first open.
+    void import('./CodeDiffEditor.tsx').then(module => {
+      loadedEditor = module.default
+      if (active) setEditor(() => module.default)
+    }, () => { if (active) setFailed(true) })
+    return () => { active = false }
+  }, [])
+  return Editor ? <Editor {...props} /> : <p role={failed ? 'alert' : 'status'} className="code-diff-note">
+    {t(failed ? '代码视图暂时无法打开，请刷新页面后重试。' : '正在加载代码对照…')}
+  </p>
+}
 
 interface NodeCodeDiffProps {
   before?: ReviewDocument
@@ -13,6 +35,7 @@ interface NodeCodeDiffProps {
   targets: Target[]
   beforeLabel?: string
   afterLabel?: string
+  precomputeContext?: DiffContext
 }
 
 function SourceLocation({ evidence, label }: { evidence?: Evidence; label: string }) {
@@ -29,7 +52,7 @@ function SourceText({ evidence, label }: { evidence: Evidence; label: string }) 
   </section>
 }
 
-function Comparison({ pair, split, beforeLabel, afterLabel, hasBaseline }: { pair: CodePair; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean }) {
+function Comparison({ pair, split, beforeLabel, afterLabel, hasBaseline, precomputeContext }: { pair: CodePair; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean; precomputeContext?: DiffContext }) {
   const { t } = useI18n()
   const old = pair.before?.evidence
   const current = pair.after?.evidence
@@ -49,13 +72,11 @@ function Comparison({ pair, split, beforeLabel, afterLabel, hasBaseline }: { pai
   }
   return <>
     <div className="code-comparison-locations"><SourceLocation evidence={old} label={beforeLabel} /><span aria-hidden="true">→</span><SourceLocation evidence={current} label={afterLabel} /></div>
-    <Suspense fallback={<p role="status" className="code-diff-note">{t('正在加载代码对照…')}</p>}>
-      <CodeDiffEditor before={old} after={current} beforeLabel={beforeLabel} afterLabel={afterLabel} split={split} />
-    </Suspense>
+    <DeferredCodeDiffEditor before={old} after={current} beforeLabel={beforeLabel} afterLabel={afterLabel} split={split} precomputeContext={precomputeContext} />
   </>
 }
 
-function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; initialOpen: boolean; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean }) {
+function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; initialOpen: boolean; split: boolean; beforeLabel: string; afterLabel: string; hasBaseline: boolean; precomputeContext?: DiffContext }) {
   const { t } = useI18n()
   const [open, setOpen] = useState(initialOpen)
   const [layout, setLayout] = useState<boolean | null>(initialOpen ? split : null)
@@ -84,7 +105,7 @@ function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; i
   </details>
 }
 
-export default function NodeCodeDiff({ before, after, targets, beforeLabel, afterLabel }: NodeCodeDiffProps) {
+export default function NodeCodeDiff({ before, after, targets, beforeLabel, afterLabel, precomputeContext }: NodeCodeDiffProps) {
   const { t } = useI18n()
   beforeLabel ??= t('修改前')
   afterLabel ??= t('当前版本')
@@ -95,6 +116,6 @@ export default function NodeCodeDiff({ before, after, targets, beforeLabel, afte
   return <section className="node-code-diff" aria-label={t('相关代码 diff')}>
     <header className="code-diff-heading"><p title={`${before ? `${beforeLabel} · ${before.revision} · ${before.snapshot.commit}\n` : ''}${afterLabel} · ${after.revision} · ${after.snapshot.commit}`}>{before ? `${beforeLabel} → ${afterLabel}` : afterLabel}</p><div className="code-diff-mode" role="group" aria-label={t('代码对照布局')}><button className="button" aria-pressed={!split} onClick={() => setSplit(false)}>{t('统一')}</button><button className="button" aria-pressed={split} onClick={() => setSplit(true)}>{t('并排')}</button></div></header>
     <p className="code-diff-note">{t(targets.some(target => target.kind === 'edge') ? '仅比较连线两端节点的关联片段，范围见行号。' : '仅比较节点关联片段，范围见行号。')}</p>
-    {pairs.map((pair, index) => <CodeSection key={pair.key} pair={pair} initialOpen={index === 0} split={split} beforeLabel={beforeLabel} afterLabel={afterLabel} hasBaseline={!!before} />)}
+    {pairs.map((pair, index) => <CodeSection key={pair.key} pair={pair} initialOpen={index === 0} split={split} beforeLabel={beforeLabel} afterLabel={afterLabel} hasBaseline={!!before} precomputeContext={precomputeContext} />)}
   </section>
 }

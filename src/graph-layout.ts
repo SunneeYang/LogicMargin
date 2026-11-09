@@ -3,6 +3,7 @@ import type { EdgeLabel, GraphLabel, NodeLabel } from '@dagrejs/dagre'
 import type { ReviewEdge, ReviewNode } from './types.ts'
 import { authoredPositions, routeGraphEdges } from './graph-routing.ts'
 import { measureEdgeLabel } from './graph-label.ts'
+import { compareGraphIds } from './graph-order.ts'
 
 export interface LayoutPoint { x: number; y: number }
 export interface LayoutPort {
@@ -83,7 +84,7 @@ export function layoutGraph(
   // Dagre's ray intersections crowd high-fan ports near corners; retain their order while spacing them along the boundary.
   for (const node of placed.values()) {
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
-      const ports = node.ports.filter(port => port.side === side).sort((a, b) => a.offset - b.offset || a.id.localeCompare(b.id))
+      const ports = node.ports.filter(port => port.side === side).sort((a, b) => a.offset - b.offset || compareGraphIds(a.id, b.id))
       if (ports.length < 2) continue
       const horizontal = side === 'top' || side === 'bottom'
       const span = horizontal ? node.width : node.height

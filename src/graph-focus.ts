@@ -1,4 +1,5 @@
 import { layoutGraph } from './graph-layout.ts'
+import { compareGraphIds } from './graph-order.ts'
 import { authoredPositions, routeGraphEdges } from './graph-routing.ts'
 import type { LayoutEdge, LayoutNode } from './graph-layout.ts'
 import type { ReviewEdge, ReviewNode, Target } from './types.ts'
@@ -57,7 +58,7 @@ export function comparisonLayout(
   const jointSizes = new Map<string, { width: number; height: number }>()
   for (const node of [...nodes, ...referenceNodes]) {
     const prior = combinedNodes.get(node.id)
-    if (!prior || node.kind.localeCompare(prior.kind) < 0 || node.kind === prior.kind &&
+    if (!prior || compareGraphIds(node.kind, prior.kind) < 0 || node.kind === prior.kind &&
       (node.position.y < prior.position.y || node.position.y === prior.position.y && node.position.x < prior.position.x)) combinedNodes.set(node.id, node)
     const measured = sizes.get(node.id)
     const priorSize = jointSizes.get(node.id)
@@ -73,12 +74,12 @@ export function comparisonLayout(
     if (!prior || edge.label.length > prior.label.length || edge.label.length === prior.label.length && edge.label < prior.label) combinedEdges.set(key, edge)
   }
   const routeIds = new Map<string, string>()
-  const unionEdges = [...combinedEdges].sort(([a], [b]) => a.localeCompare(b)).map(([key, edge]) => {
+  const unionEdges = [...combinedEdges].sort(([a], [b]) => compareGraphIds(a, b)).map(([key, edge]) => {
     const id = `comparison:${encodeURIComponent(key)}`
     routeIds.set(key, id)
     return { ...edge, id }
   })
-  const unionNodes = [...combinedNodes.values()].sort((a, b) => a.id.localeCompare(b.id))
+  const unionNodes = [...combinedNodes.values()].sort((a, b) => compareGraphIds(a.id, b.id))
   // The comparison needs union slots, but only the visible side needs line routes.
   const authored = authoredPositions(unionNodes, unionEdges, jointSizes)
   const fallback = authored ? undefined : layoutGraph(unionNodes, unionEdges, jointSizes)

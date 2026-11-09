@@ -8,7 +8,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { after, before, test } from 'node:test'
-import { packageAgent } from './package-agent.mjs'
 import { createSessionApi } from '../server/api.ts'
 import { addComment } from '../src/model.ts'
 import { sampleReview } from '../src/sample.ts'
@@ -16,7 +15,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 const execute = promisify(execFile)
-const native = process.env.LOGIC_MARGIN_TEST_NATIVE === '1'
+const goBackend = process.env.LOGIC_MARGIN_TEST_GO === '1'
+const { packageAgent } = await import(goBackend ? './package-go-agent.mjs' : './package-agent.mjs')
+const native = goBackend || process.env.LOGIC_MARGIN_TEST_NATIVE === '1'
 let packageDirectory, packagedRoot, packagedCli, packagedCommand
 
 const sourceText = '总等级升级不要求先解锁或上阵技能。\n失败时保留原等级、资格与上阵状态。\n'
