@@ -115,12 +115,16 @@ export function routeGraphEdges(
   })
   for (const edge of edges) {
     const source = byId.get(edge.source)!, target = byId.get(edge.target)!
-    const returning = target.position.y <= source.position.y
+    const returning = target.position.y < source.position.y || edge.source === edge.target
     const sideExit = target.kind === 'failure' || target.kind === 'result' && target.position.x !== source.position.x && !edges.some(item => item.source === target.id)
+    const skipForward = !returning && source.position.x === target.position.x && nodes.some(node =>
+      node.position.x === source.position.x && node.position.y > source.position.y && node.position.y < target.position.y)
     const kind = sideExit ? 'exception' : returning ? 'return' : 'flow'
     kinds.set(edge.id, kind)
     let sourceSide: LayoutPort['side'], targetSide: LayoutPort['side']
-    if (kind === 'return' && source.position.x === target.position.x) sourceSide = targetSide = edge.source === edge.target ? 'right' : 'left'
+    // Bypasses leave the adjacent main stages' bottom/top ports free for a straight spine.
+    if (skipForward) sourceSide = targetSide = 'right'
+    else if (kind === 'return' && source.position.x === target.position.x) sourceSide = targetSide = edge.source === edge.target ? 'right' : 'left'
     else if (returning && source.position.x === target.position.x) sourceSide = targetSide = 'right'
     else if (source.position.x === target.position.x) { sourceSide = 'bottom'; targetSide = 'top' }
     else { sourceSide = source.position.x < target.position.x ? 'right' : 'left'; targetSide = sourceSide === 'right' ? 'left' : 'right' }
@@ -205,6 +209,10 @@ export function routeGraphEdges(
       candidates.push(compact([first, ...middle, last]))
     }
     if (start.x === end.x || start.y === end.y) add([start, end])
+    else {
+      add([start, { x: start.x, y: end.y }, end])
+      add([start, { x: end.x, y: start.y }, end])
+    }
     if (kind === 'return') for (const rail of rails) add([start, { x: rail, y: start.y }, { x: rail, y: end.y }, end])
     if (kind !== 'return') {
       for (const rail of rails) add([start, { x: rail, y: start.y }, { x: rail, y: end.y }, end])
@@ -238,7 +246,7 @@ export function routeGraphEdges(
               else if ((line.a.x === line.b.x) !== (prior.a.x === prior.b.x)) {
                 const vertical = line.a.x === line.b.x ? line : prior, horizontal = line.a.y === line.b.y ? line : prior
                 if (vertical.a.x >= Math.min(horizontal.a.x, horizontal.b.x) && vertical.a.x <= Math.max(horizontal.a.x, horizontal.b.x)
-                  && horizontal.a.y >= Math.min(vertical.a.y, vertical.b.y) && horizontal.a.y <= Math.max(vertical.a.y, vertical.b.y)) cost += 480
+                  && horizontal.a.y >= Math.min(vertical.a.y, vertical.b.y) && horizontal.a.y <= Math.max(vertical.a.y, vertical.b.y)) cost += 1000
               }
             }
             cost += occupiedLabels.filter(obstacle => crosses(line.a, line.b, obstacle, 4)).length * 3000

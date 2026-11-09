@@ -74,7 +74,10 @@ func computeNativeLayout(ctx context.Context, input LayoutInput) (LayoutResult, 
 		}
 		sizes = joint
 	}
-	placed, handled, err := nativeAuthoredPositions(ctx, nodes, edges, sizes)
+	placed, handled, err := nativeAlignedComparisonPositions(ctx, input, nodes, edges, sizes)
+	if err == nil && !handled {
+		placed, handled, err = nativeAuthoredPositions(ctx, nodes, edges, sizes)
+	}
 	if err != nil || !handled {
 		return LayoutResult{}, handled, err
 	}
@@ -314,6 +317,78 @@ func nativeAuthoredPositions(ctx context.Context, nodes []PlanNode, edges []Plan
 			return nil, true, fmt.Errorf("连线 %s 引用了不存在的节点", edge.ID)
 		}
 	}
+	return nativeGridPositions(ctx, nodes, edges, sizes)
+}
+
+func nativeAlignedComparisonPositions(ctx context.Context, input LayoutInput, nodes []PlanNode, edges []PlanEdge, sizes map[string]Size) ([]nativeNode, bool, error) {
+	if input.Reference == nil || len(input.Nodes) < 2 || len(input.Reference.Nodes) < 2 {
+		return nil, false, nil
+	}
+	current, reference := make(map[string]PlanNode), make(map[string]PlanNode)
+	for _, node := range input.Nodes {
+		current[node.ID] = node
+	}
+	for _, node := range input.Reference.Nodes {
+		reference[node.ID] = node
+	}
+	var shared PlanNode
+	found := false
+	for _, node := range nodes {
+		_, a := current[node.ID]
+		_, b := reference[node.ID]
+		if a && b {
+			shared, found = node, true
+			break
+		}
+	}
+	if !found {
+		return nil, false, nil
+	}
+	for _, graph := range []Graph{{Nodes: input.Nodes, Edges: input.Edges}, *input.Reference} {
+		if _, handled, err := nativeAuthoredPositions(ctx, graph.Nodes, graph.Edges, sizes); err != nil || !handled {
+			return nil, handled, err
+		}
+	}
+	// Match the canonical anchor in graph-focus.ts, including translation direction.
+	anchor, moving := reference, current
+	if current[shared.ID] == shared {
+		anchor, moving = current, reference
+	}
+	origin := moving[shared.ID].Position
+	dx, dy := shared.Position.X-origin.X, shared.Position.Y-origin.Y
+	if math.IsNaN(dx) || math.IsNaN(dy) || math.IsInf(dx, 0) || math.IsInf(dy, 0) {
+		return nil, false, nil
+	}
+	translated := make(map[string]Point, len(moving))
+	translatedNodes := make([]PlanNode, 0, len(moving))
+	for id, node := range moving {
+		if err := ctx.Err(); err != nil {
+			return nil, true, err
+		}
+		position := Point{node.Position.X + dx, node.Position.Y + dy}
+		fixed, exists := anchor[id]
+		if math.IsNaN(position.X) || math.IsNaN(position.Y) || math.IsInf(position.X, 0) || math.IsInf(position.Y, 0) || exists && position != fixed.Position {
+			return nil, false, nil
+		}
+		translated[id] = position
+		node.Position = position
+		translatedNodes = append(translatedNodes, node)
+	}
+	if _, handled, err := nativeAuthoredPositions(ctx, translatedNodes, nil, sizes); err != nil || !handled {
+		return nil, handled, err
+	}
+	aligned := append([]PlanNode(nil), nodes...)
+	for i, node := range aligned {
+		if fixed, exists := anchor[node.ID]; exists {
+			aligned[i].Position = fixed.Position
+		} else {
+			aligned[i].Position = translated[node.ID]
+		}
+	}
+	return nativeGridPositions(ctx, aligned, edges, sizes)
+}
+
+func nativeGridPositions(ctx context.Context, nodes []PlanNode, edges []PlanEdge, sizes map[string]Size) ([]nativeNode, bool, error) {
 	columns, rows := make(map[float64]float64), make(map[float64]float64)
 	dimensions := make([]Size, len(nodes))
 	for i, node := range nodes {
@@ -431,8 +506,17 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 			return nil, fmt.Errorf("连线 %s 引用了不存在的节点", edge.ID)
 		}
 		source, target := &placed[si], &placed[ti]
-		returning := target.Position.Y <= source.Position.Y
+		returning := target.Position.Y < source.Position.Y || si == ti
 		sideExit := target.kind == "failure" || target.kind == "result" && target.Position.X != source.Position.X && !outgoing[target.id]
+		skipForward := false
+		if !returning && source.Position.X == target.Position.X {
+			for _, node := range placed {
+				if node.Position.X == source.Position.X && node.Position.Y > source.Position.Y && node.Position.Y < target.Position.Y {
+					skipForward = true
+					break
+				}
+			}
+		}
 		kind := "flow"
 		if sideExit {
 			kind = "exception"
@@ -441,6 +525,8 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 		}
 		ss, ts := "right", "left"
 		switch {
+		case skipForward:
+			ss, ts = "right", "right"
 		case kind == "return" && source.Position.X == target.Position.X:
 			ss, ts = "left", "left"
 			if si == ti {
@@ -706,6 +792,13 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 			if err := add(start, end); err != nil {
 				return nil, err
 			}
+		} else {
+			if err := add(start, Point{start.X, end.Y}, end); err != nil {
+				return nil, err
+			}
+			if err := add(start, Point{end.X, start.Y}, end); err != nil {
+				return nil, err
+			}
 		}
 		for _, rail := range rails {
 			if err := add(start, Point{rail, start.Y}, Point{rail, end.Y}, end); err != nil {
@@ -815,7 +908,7 @@ func (s *nativeRouteSearch) consider(points []Point) error {
 						horizontal = line
 					}
 					if vertical.a.X >= math.Min(horizontal.a.X, horizontal.b.X) && vertical.a.X <= math.Max(horizontal.a.X, horizontal.b.X) && horizontal.a.Y >= math.Min(vertical.a.Y, vertical.b.Y) && horizontal.a.Y <= math.Max(vertical.a.Y, vertical.b.Y) {
-						cost += 480
+						cost += 1000
 					}
 				}
 			}

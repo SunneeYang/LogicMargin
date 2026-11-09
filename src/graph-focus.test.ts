@@ -9,6 +9,39 @@ const node = (id: string, summary = ''): ReviewNode => ({
 })
 const edge = (id: string, source: string, target: string): ReviewEdge => ({ id, sceneId: 'scene', source, target, label: id, detail: '' })
 
+test('comparison preserves authored topology when exclusive steps share slots and shared steps translate together', () => {
+  const positioned = (id: string, x: number, y: number) => ({ ...node(id), position: { x, y } })
+  for (const offset of [0, 420, 0.125]) {
+    const before = [positioned('old', 0, 0), positioned('work', 0, 210), { ...positioned('done', 0, 420), kind: 'result' as const }]
+    const after = [positioned('new', 600, offset), { ...positioned('work', 600, 210 + offset), kind: 'decision' as const }, positioned('done', 600, 420 + offset)]
+    const beforeEdges = [edge('start', 'old', 'work'), edge('finish', 'work', 'done')]
+    const afterEdges = [edge('start', 'new', 'work'), edge('finish', 'work', 'done')]
+    const original = structuredClone({ before, after })
+    const a = comparisonLayout(before, beforeEdges, after, afterEdges, new Map())
+    const b = comparisonLayout(after.toReversed(), afterEdges, before.toReversed(), beforeEdges, new Map())
+    for (const result of [a, b]) {
+      assert.equal(result.usesAuthoredPositions, true)
+      assert.equal(new Set([...result.nodes.values()].map(node => node.position.x)).size, 1)
+      assert.ok(graphBounds(result.nodes, result.edges).width < 600)
+    }
+    for (const id of ['work', 'done']) assert.deepEqual(a.nodes.get(id)!.position, b.nodes.get(id)!.position)
+    assert.deepEqual({ before, after }, original)
+  }
+})
+
+test('comparison conservatively rejects a translation that cannot exactly reproduce shared coordinates', () => {
+  const positioned = (id: string, x: number, y: number) => ({ ...node(id), position: { x, y } })
+  const before = [positioned('old', .1, -210), positioned('work', .1, 0), positioned('done', .1, 210)]
+  const after = [positioned('new', .1, -210), positioned('work', 1e7, 0), positioned('done', 1e7, 210)]
+  const aEdges = [edge('start', 'old', 'work'), edge('finish', 'work', 'done')]
+  const bEdges = [edge('start', 'new', 'work'), edge('finish', 'work', 'done')]
+  const a = comparisonLayout(before, aEdges, after, bEdges, new Map())
+  const b = comparisonLayout(after, bEdges, before, aEdges, new Map())
+  assert.equal(a.usesAuthoredPositions, false)
+  assert.equal(b.usesAuthoredPositions, false)
+  for (const id of ['work', 'done']) assert.deepEqual(a.nodes.get(id)!.position, b.nodes.get(id)!.position)
+})
+
 test('comparison keeps orthogonal routes when independently valid versions swap node lanes', () => {
   const positioned = (id: string, x: number, y: number) => ({ ...node(id), position: { x, y } })
   const before = [positioned('a', 0, 0), positioned('b', 0, 360), positioned('c', 600, 360)]
@@ -18,6 +51,7 @@ test('comparison keeps orthogonal routes when independently valid versions swap 
   assert.equal(layoutGraph(after, edges).usesAuthoredPositions, true)
   for (const [nodes, reference] of [[before, after], [after, before]]) {
     const result = comparisonLayout(nodes, edges, reference, edges, new Map())
+    assert.equal(result.usesAuthoredPositions, false)
     for (const [id, route] of result.edges) for (let index = 1; index < route.points.length; index++) {
       const a = route.points[index - 1], b = route.points[index]
       assert.ok(a.x === b.x || a.y === b.y, `${id}: diagonal comparison segment`)

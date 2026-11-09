@@ -18,6 +18,27 @@ export function layoutCases() {
   const afterLanes = [node('a', 0, 0), node('b', 600, 360), node('c', 0, 360)]
   const laneEdges = [edge('ab', 'a', 'b'), edge('ac', 'a', 'c')]
   cases.push({ name: 'comparison-swapped-lanes', input: input(beforeLanes, laneEdges, [], { nodes: afterLanes, edges: laneEdges }), authored: false })
+  cases.push({ name: 'authored-bypass-and-same-row-branch', input: input(
+    [node('a', 0, 0), node('b', 0, 300), node('c', 0, 600), node('branch', 600, 300)],
+    [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('skip', 'a', 'c'), edge('branch', 'b', 'branch'), edge('return', 'c', 'b'), edge('self', 'branch', 'branch')],
+  ), authored: true })
+  cases.push({ name: 'authored-simple-return-corner', input: input(
+    [node('station', 512, 0), node('branch', 0, 600), node('guard', 512, 600)],
+    [edge('a', 'guard', 'branch', '继续'), edge('b', 'branch', 'station', '继续')],
+  ), authored: true })
+  for (const offset of [0, 420, .125]) {
+    const before = [node('old', 0, 0), node('work', 0, 210), node('done', 0, 420, 'result')]
+    const after = [node('new', 600, offset), node('work', 600, 210 + offset, 'decision'), node('done', 600, 420 + offset)]
+    const oldEdges = [edge('start', 'old', 'work'), edge('finish', 'work', 'done')]
+    const newEdges = [edge('start', 'new', 'work'), edge('finish', 'work', 'done')]
+    cases.push({ name: `comparison-rigid-${offset}-B-R`, input: input(before, oldEdges, [], { nodes: after, edges: newEdges }), authored: true })
+    cases.push({ name: `comparison-rigid-${offset}-R-B`, input: input(after.toReversed(), newEdges, [], { nodes: before.toReversed(), edges: oldEdges }), authored: true })
+  }
+  const fractionalBefore = [node('old', .1, -210), node('work', .1, 0), node('done', .1, 210)]
+  const fractionalAfter = [node('new', .1, -210), node('work', 1e7, 0), node('done', 1e7, 210)]
+  const fractionalOldEdges = [edge('start', 'old', 'work'), edge('finish', 'work', 'done')]
+  const fractionalNewEdges = [edge('start', 'new', 'work'), edge('finish', 'work', 'done')]
+  cases.push({ name: 'comparison-inexact-translation', input: input(fractionalBefore, fractionalOldEdges, [], { nodes: fractionalAfter, edges: fractionalNewEdges }), authored: false })
   const authoredNodes = [node('a', 0, 0), node('b', 0, 300, 'decision'), node('c', 480, 600, 'result'), node('d', 960, 300, 'failure')]
   const authoredEdges = [edge('forward', 'a', 'b'), edge('complete', 'b', 'c'), edge('fail', 'b', 'd'), edge('return', 'b', 'a'), edge('self', 'a', 'a')]
   cases.push({ name: 'authored-return-exception-self', input: input(authoredNodes, authoredEdges), authored: true })

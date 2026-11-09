@@ -1,6 +1,6 @@
 import { layoutNodePositions } from './graph-layout.ts'
 import { compareGraphIds } from './graph-order.ts'
-import { routeGraphEdges } from './graph-routing.ts'
+import { authoredPositions, gridPositions, routeGraphEdges } from './graph-routing.ts'
 import type { LayoutEdge, LayoutNode } from './graph-layout.ts'
 import type { ReviewEdge, ReviewNode, Target } from './types.ts'
 
@@ -34,6 +34,35 @@ function estimatedHeight(node: ReviewNode) {
 }
 
 const edgeIdentity = (edge: ReviewEdge) => JSON.stringify([edge.id, edge.source, edge.target])
+
+function alignedComparisonPositions(
+  nodes: readonly ReviewNode[], edges: readonly ReviewEdge[],
+  referenceNodes: readonly ReviewNode[], referenceEdges: readonly ReviewEdge[],
+  unionNodes: readonly ReviewNode[], unionEdges: readonly ReviewEdge[],
+  sizes: ReadonlyMap<string, { width: number; height: number }>,
+) {
+  const current = new Map(nodes.map(node => [node.id, node]))
+  const reference = new Map(referenceNodes.map(node => [node.id, node]))
+  const shared = unionNodes.find(node => current.has(node.id) && reference.has(node.id))
+  if (!shared || !authoredPositions(nodes, edges, sizes) || !authoredPositions(referenceNodes, referenceEdges, sizes)) return
+  // A canonical anchor keeps floating-point translations identical when B/R swap.
+  const [anchor, moving] = current.get(shared.id) === shared ? [current, reference] : [reference, current]
+  const origin = moving.get(shared.id)!.position
+  const dx = shared.position.x - origin.x, dy = shared.position.y - origin.y
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
+  const translated = new Map<string, ReviewNode['position']>()
+  for (const [id, node] of moving) {
+    const position = { x: node.position.x + dx, y: node.position.y + dy }
+    const fixed = anchor.get(id)?.position
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)
+      || fixed && (fixed.x !== position.x || fixed.y !== position.y)) return
+    translated.set(id, position)
+  }
+  if (!authoredPositions([...moving.values()].map(node => ({ ...node, position: translated.get(node.id)! })),
+    moving === current ? edges : referenceEdges, sizes)) return
+  // Exclusive nodes may share a slot; each visible side was validated separately.
+  return gridPositions(unionNodes.map(node => ({ ...node, position: anchor.get(node.id)?.position ?? translated.get(node.id)! })), unionEdges, sizes)
+}
 
 export function graphBounds(nodes: ReadonlyMap<string, LayoutNode>, edges: ReadonlyMap<string, LayoutEdge>) {
   const points = [...nodes.values()].flatMap(node => [node.position,
@@ -81,7 +110,10 @@ export function comparisonLayout(
   })
   const unionNodes = [...combinedNodes.values()].sort((a, b) => compareGraphIds(a.id, b.id))
   // The comparison needs union slots, but only the visible side needs line routes.
-  const { nodes: union, usesAuthoredPositions: authored } = layoutNodePositions(unionNodes, unionEdges, jointSizes)
+  const aligned = alignedComparisonPositions(nodes, edges, referenceNodes, referenceEdges, unionNodes, unionEdges, jointSizes)
+  const { nodes: union, usesAuthoredPositions: authored } = aligned
+    ? { nodes: aligned, usesAuthoredPositions: true }
+    : layoutNodePositions(unionNodes, unionEdges, jointSizes)
   const placed = new Map<string, LayoutNode>()
   for (const node of nodes) {
     const joint = union.get(node.id)!

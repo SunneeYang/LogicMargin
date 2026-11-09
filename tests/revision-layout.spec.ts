@@ -59,6 +59,68 @@ async function canvasLayout(page: Page) {
   })
 }
 
+test('a saved branch return keeps only its two required corners after measurement and node lift', async ({ page, request }) => {
+  const review = structuredClone(sampleReview)
+  review.id = 'simple-return-corner'
+  review.comments = []
+  review.scenes = [review.scenes[0]]
+  const template = review.nodes[0]
+  review.nodes = ['station', 'branch', 'guard'].map((id, index) => ({ ...template, id, title: id, summary: '', evidence: [],
+    sceneId: review.scenes[0].id, position: { x: id === 'branch' ? 0 : 512, y: index ? 600 : 0 },
+  }))
+  review.edges = [['a', 'guard', 'branch'], ['b', 'branch', 'station']].map(([id, source, target]) => ({
+    id, source, target, sceneId: review.scenes[0].id, label: '继续', detail: '',
+  }))
+  const created = await request.post('/api/review-sessions', { data: { review } })
+  expect(created.ok()).toBeTruthy()
+  const session: ReviewSession = await created.json()
+  await page.goto(`/?session=${session.id}`)
+  const path = page.locator('.react-flow__edge[data-id="b"] .react-flow__edge-path')
+  await expect(path).toBeVisible()
+  const corners = async () => ((await path.getAttribute('d'))?.match(/Q/g) ?? []).length
+  await expect.poll(corners).toBe(2)
+  await page.locator('.react-flow__node[data-id="branch"]').hover()
+  await expect.poll(corners).toBe(2)
+  await page.locator('.react-flow__node[data-id="branch"]').click()
+  await expect.poll(corners).toBe(2)
+})
+
+test('comparison preserves a compact authored main line when replaced steps occupy the same slot', async ({ page, request }) => {
+  const review = structuredClone(sampleReview)
+  review.id = 'rigid-comparison-topology'
+  review.comments = []
+  review.scenes = [review.scenes[0]]
+  const makeNode = (id: string, x: number, y: number) => ({ ...review.nodes[0], id, title: id, summary: '', evidence: [],
+    sceneId: review.scenes[0].id, position: { x, y } })
+  const makeEdges = (start: string) => [['start', start, 'work'], ['finish', 'work', 'done'], ['skip', start, 'done']].map(([id, source, target]) => ({
+    id, source, target, sceneId: review.scenes[0].id, label: id, detail: '',
+  }))
+  review.nodes = [makeNode('new', 600, 420), makeNode('work', 600, 630), makeNode('done', 600, 840)]
+  review.edges = makeEdges('new')
+  review.baseline = structuredClone(review)
+  review.baseline.nodes = [makeNode('old', 0, 0), makeNode('work', 0, 210), makeNode('done', 0, 420)]
+  review.baseline.edges = makeEdges('old')
+  const created = await request.post('/api/review-sessions', { data: { review } })
+  expect(created.ok()).toBeTruthy()
+  const session: ReviewSession = await created.json()
+  await page.goto(`/?session=${session.id}`)
+  const nodes = page.locator('.react-flow__node')
+  const positions = () => nodes.evaluateAll(elements => Object.fromEntries(elements.map(element => {
+    const matrix = new DOMMatrixReadOnly((element as HTMLElement).style.transform)
+    return [element.getAttribute('data-id')!, { x: matrix.m41, y: matrix.m42 }]
+  })))
+  await expect(nodes).toHaveCount(3)
+  await expect.poll(async () => new Set(Object.values(await positions()).map(position => position.x)).size).toBe(1)
+  for (const id of ['start', 'finish']) {
+    await expect.poll(async () => (await page.locator(`.react-flow__edge[data-id="${id}"] .react-flow__edge-path`).getAttribute('d'))?.includes('Q')).toBe(false)
+  }
+  const current = await positions()
+  await page.getByRole('button', { name: '基线 B', exact: true }).click()
+  await expect(page.locator('.react-flow__node[data-id="old"]')).toBeVisible()
+  await expect.poll(async () => new Set(Object.values(await positions()).map(position => position.x)).size).toBe(1)
+  for (const id of ['work', 'done']) await expect.poll(async () => (await positions())[id]).toEqual(current[id])
+})
+
 test('swapped comparison lanes keep the rendered edge lines horizontal or vertical', async ({ page, request }) => {
   const review = structuredClone(sampleReview)
   review.id = 'swapped-lanes-orthogonal'
