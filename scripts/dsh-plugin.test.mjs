@@ -61,7 +61,7 @@ test('DSH skill keeps the review protocol and replaces only the host-specific bo
 test('packed tgz contains pinned launchers, DSH skill resources and no Codex installers or native payload', async t => {
   const directory = await temporary(t)
   const archive = await packageDsh(directory)
-  const entries = (await run('tar', ['-tzf', archive])).stdout.trim().split('\n')
+  const entries = (await run('tar', ['-tzf', archive])).stdout.trim().split(/\r?\n/)
   for (const path of ['package/index.js', 'package/native.js', 'package/cordis.patch.yml', 'package/icon.svg', 'package/locale/en.json', 'package/locale/zh.json', 'package/LICENSE',
     'package/resources/logic-margin/plugin.json', 'package/resources/logic-margin/skills/logic-margin/SKILL.md',
     'package/resources/logic-margin/skills/logic-margin/scripts/logic-margin.sh', 'package/resources/logic-margin/skills/logic-margin/scripts/logic-margin.ps1',

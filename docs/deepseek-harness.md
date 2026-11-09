@@ -2,7 +2,7 @@
 
 LogicMargin 的 DSH 插件启动或复用原生 Go 服务，接入 DSH 官方 MCP Client，并注册 `logic-margin` 技能。流程图、源码核验、固定 B/R、意见领取与多轮复核沿用同一后端。
 
-当前兼容基线为 **DSH `0.2.2-rc.1`、LogicMargin `0.9.6`**。当前 master 文档中的 `mcpManager` 不存在于该发布包；本适配使用双方共有的异步插件接口，不能据此承诺其他 DSH 版本兼容。
+当前兼容基线为 **DSH `0.2.2-rc.1`、LogicMargin `0.9.7`**。当前 master 文档中的 `mcpManager` 不存在于该发布包；本适配使用双方共有的异步插件接口，不能据此承诺其他 DSH 版本兼容。
 
 ## 生成与安装
 
@@ -12,14 +12,16 @@ LogicMargin 的 DSH 插件启动或复用原生 Go 服务，接入 DSH 官方 MC
 npm run package:dsh
 ```
 
-生成 `artifacts/dsh-plugin-logicmargin-0.9.6.tgz` 和同名 `.sha256`。它包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。不要直接安装 `plugins/deepseek-harness` 源码目录：随包资源由打包脚本生成。
+生成 `artifacts/dsh-plugin-logicmargin-0.9.7.tgz` 和同名 `.sha256`。它包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。不要直接安装 `plugins/deepseek-harness` 源码目录：随包资源由打包脚本生成。
 
 正式发行流水线将它与五个平台的原生 ZIP 一起构建，核对包内版本和许可，写入统一 `SHA256SUMS` 后上传到对应 GitHub Release。该流程不自动发布 npm 或提交市场收录；已发布的 `v0.9.6` Release 不会因修改流水线而自动增加附件。
+
+从 [v0.9.7 Release](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.7) 下载 `dsh-plugin-logicmargin-0.9.7.tgz` 与同名 `.sha256`，核验后按下文安装。GitHub Release 是本包的直接分发入口；npm 与社区 Discover 收录另行发布，不能把 Release 下载等同于已上架市场。
 
 安装到实际使用的 profile：
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.6.tgz
+dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.7.tgz
 ```
 
 重载该插件/profile，核对技能 `logic-margin` 和 `mcp__logic_margin__start_review`、`mcp__logic_margin__wait_review` 工具。让 Agent 在待评审工程中使用 `logic-margin` 技能，读取真实来源、整理评审并给出页面链接。安装成功、技能被发现、MCP 可调用需要分别确认。
@@ -58,7 +60,7 @@ npm run test:dsh
 /Users/hcm-b0677/.codex/bin/agent-tmp-run env \
   LOGIC_MARGIN_DSH_ROOT=/absolute/path/to/node_modules/@deepseek-ai/dsh \
   node scripts/dsh-integration.mjs \
-  artifacts/dsh-plugin-logicmargin-0.9.6.tgz \
+  artifacts/dsh-plugin-logicmargin-0.9.7.tgz \
   .scratch/dsh-web-integration.json
 ```
 
@@ -111,7 +113,7 @@ npm publish /absolute/path/dsh-plugin-logicmargin-X.Y.Z.tgz --dry-run --ignore-s
 
 本轮使用空的临时 npm 配置完成了真实 `npm publish --dry-run`，文件与 MIT 许可检查通过；它不证明某个账号已登录或具备最终发布权限。
 
-社区目录的待投内容如下，目标文件名为 `data/plugins/SunneeYang__LogicMargin--plugins-deepseek-harness.yml`。投稿前先让代码在 `main` 可见，并把 `X.Y.Z` 替换为实际已发布、具有该 tgz 附件的版本；当前官方 `v0.9.6` 没有此附件，不能把本地候选包当作已发布下载地址。
+社区目录的待投内容如下，目标文件名为 `data/plugins/SunneeYang__LogicMargin--plugins-deepseek-harness.yml`。投稿前先让代码在 `main` 可见，并把 `X.Y.Z` 替换为实际已发布、具有该 tgz 附件的版本；历史 `v0.9.6` 没有此附件，不能把本地候选包当作已发布下载地址。
 
 ```yaml
 url: https://github.com/SunneeYang/LogicMargin/tree/main/plugins/deepseek-harness

@@ -10,7 +10,8 @@ import { promisify } from 'node:util'
 
 const run = promisify(execFile)
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const archive = resolve(process.argv[2] ?? join(root, 'artifacts/dsh-plugin-logicmargin-0.9.6.tgz'))
+const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+const archive = resolve(process.argv[2] ?? join(root, `artifacts/dsh-plugin-logicmargin-${version}.tgz`))
 const output = resolve(process.argv[3] ?? join(root, '.scratch/dsh-integration.json'))
 const dshRoot = process.env.LOGIC_MARGIN_DSH_ROOT
 assert.ok(dshRoot && isAbsolute(dshRoot), 'Set LOGIC_MARGIN_DSH_ROOT to an installed @deepseek-ai/dsh package directory')
@@ -160,9 +161,9 @@ try {
   assert.equal(ctx.webServer.host, '127.0.0.1')
   mark('fullDefaultWebProfileWithoutModelPrompt')
   const running = await registry()
-  assert.equal(running.version, '0.9.6')
+  assert.equal(running.version, version)
   const initialPid = running.pid
-  const installedBinary = join(process.platform === 'win32' ? process.env.LOCALAPPDATA : process.env.XDG_CACHE_HOME, 'logic-margin/native/0.9.6',
+  const installedBinary = join(process.platform === 'win32' ? process.env.LOCALAPPDATA : process.env.XDG_CACHE_HOME, `logic-margin/native/${version}`,
     process.platform === 'win32' ? 'win32-x64' : `${process.platform}-${process.arch === 'x64' ? 'x64' : 'arm64'}`,
     process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin')
   report.nativeVersion = running.version
