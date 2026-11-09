@@ -8,3 +8,4 @@ func publishLock(from, to string) error {
 
 func lockRemovalBusy(error) bool { return false }
 func lockProbeBusy(error) bool   { return false }
+func lockPublishBusy(error) bool { return false }

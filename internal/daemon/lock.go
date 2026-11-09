@@ -150,7 +150,14 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 		if err := publishLock(prepared, path); err != nil {
 			if !errors.Is(err, os.ErrExist) {
 				if _, statErr := os.Stat(path); statErr != nil {
-					return nil, err
+					// The previous holder may remove the destination between rename and stat.
+					if !lockPublishBusy(err) || !time.Now().Before(deadline) {
+						return nil, err
+					}
+					if err := pause(ctx, 50*time.Millisecond); err != nil {
+						return nil, err
+					}
+					continue
 				}
 			}
 			stale, err := staleLock(path)

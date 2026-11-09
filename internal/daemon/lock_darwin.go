@@ -6,3 +6,4 @@ func publishLock(from, to string) error { return unix.RenamexNp(from, to, unix.R
 
 func lockRemovalBusy(error) bool { return false }
 func lockProbeBusy(error) bool   { return false }
+func lockPublishBusy(error) bool { return false }

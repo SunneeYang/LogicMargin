@@ -83,3 +83,29 @@ func TestAcquireLockRetriesWindowsSharingConflict(t *testing.T) {
 		t.Fatal("recovered lock was acquired twice")
 	}
 }
+
+func TestAcquireLockSurvivesWindowsDestinationChurn(t *testing.T) {
+	for range 10 {
+		path := filepath.Join(t.TempDir(), "service.lock")
+		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		started, done := make(chan struct{}), make(chan struct{})
+		go func() {
+			defer close(done)
+			close(started)
+			for ctx.Err() == nil {
+				_ = os.Mkdir(path, 0700)
+				_ = os.Remove(path) // Never remove a nonempty published claim.
+			}
+		}()
+		<-started
+		release, err := AcquireLock(ctx, path, 3*time.Second)
+		cancel()
+		<-done
+		if err != nil {
+			t.Fatal("destination disappearing during publication:", err)
+		}
+		if err := release(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

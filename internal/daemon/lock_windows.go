@@ -14,3 +14,5 @@ func lockRemovalBusy(err error) bool {
 }
 
 func lockProbeBusy(err error) bool { return errors.Is(err, windows.ERROR_SHARING_VIOLATION) }
+
+func lockPublishBusy(err error) bool { return lockRemovalBusy(err) }
