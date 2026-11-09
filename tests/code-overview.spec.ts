@@ -28,7 +28,8 @@ for (const sample of [
   await page.addStyleTag({ content: `.code-editor .cm-scroller, .code-editor .cm-mergeView { scrollbar-color: auto !important; scrollbar-width: auto !important; }
     .code-editor ::-webkit-scrollbar { width: ${nativeWidth}px; height: 14px; }
     .code-editor ::-webkit-scrollbar-thumb { background: rgb(255, 0, 255); }` })
-  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').evaluate(element => (element as HTMLElement).click())
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
   if (!sample.mobile) {
@@ -159,7 +160,8 @@ for (const sample of [
   const response = await request.post('/api/review-sessions', { data: { review } })
   expect(response.ok(), await response.text()).toBeTruthy()
   await page.goto(`/?session=${(await response.json()).id}`)
-  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').evaluate(element => (element as HTMLElement).click())
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
   const overview = panel.locator('.code-overview')
@@ -177,7 +179,8 @@ for (const sample of [
 test('large deletion has one removed band and stays virtualized', async ({ page, request }) => {
   const response = await request.post('/api/review-sessions', { data: { review: largeCodeReview() } })
   await page.goto(`/?session=${(await response.json()).id}`)
-  await page.locator('.react-flow__node[data-id="deleted"] .node-comment-button').evaluate(element => (element as HTMLElement).click())
+  await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
+  await page.locator('.react-flow__node[data-id="deleted"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
   const overview = panel.locator('.code-overview')

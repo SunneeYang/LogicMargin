@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
@@ -259,7 +259,7 @@ public class LauncherFixture {
   assert.equal(result.code, 37, result.stderr)
   assert.match(result.stdout, /^native output 中文😀\r?\n$/)
   assert.match(result.stderr, /^native error 中文😀\r?\n$/)
-  assert.equal(await readFile(cwdRecord, 'utf8'), cwd)
+  assert.equal(await realpath(await readFile(cwdRecord, 'utf8')), await realpath(cwd))
   assert.deepEqual((await readFile(received, 'utf8')).split('\0'), [...cliArgs, ''])
   const mismatch = await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command], {
     ...options, env: { ...options.env, FAKE_NATIVE_VERSION: '99.0.0' },
@@ -274,8 +274,7 @@ public class LauncherFixture {
   await copyFile(join(scripts, 'logic-margin.exe'), entry)
   await writeFile(join(staging, 'do-not-extract.txt'), 'must never be extracted')
   const archive = join(root, `${name}.zip`)
-  const zipped = await run(powershell, ['-NoProfile', '-NonInteractive', '-Command',
-    `Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::CreateFromDirectory(${psQuote(staging)}, ${psQuote(archive)})`])
+  const zipped = await run('zip', ['-qr', archive, '.'], { cwd: staging })
   assert.equal(zipped.code, 0, zipped.stderr)
   const checksum = `${archive}.sha256`
   const digest = createHash('sha256').update(await readFile(archive)).digest('hex')

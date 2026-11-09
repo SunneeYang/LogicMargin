@@ -30,6 +30,7 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install zip unzip -y --no-progress
       - run: npm ci
+      - run: node --test scripts/native-launcher.test.mjs
       - run: npm test
       - run: npm run build
       - run: npm run test:release
@@ -39,7 +40,6 @@ jobs:
       - run: go test ./... -count=1
       - run: go test -race ./... -count=1
       - run: npm run test:agent
-      - run: node --test scripts/native-launcher.test.mjs
       - run: npm run test:go:compat
       - name: Install browser for Go UI regression tests
         if: runner.os == 'Linux'
