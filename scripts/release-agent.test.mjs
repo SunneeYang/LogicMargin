@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { test } from 'node:test'
@@ -9,10 +9,13 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { releaseAgent, validateReleaseVersion, verifyReleaseArtifacts } from './release-agent.mjs'
 import { checkTarget, targets } from './build-go.mjs'
+import { packageDsh } from './package-dsh.mjs'
 
 const version = JSON.parse(await readFile(new URL('../plugins/logic-margin/plugin.json', import.meta.url), 'utf8')).version
 const tag = `v${version}`
 const releaseTargets = ['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64', 'win32-x64']
+const dshName = `dsh-plugin-logicmargin-${version}.tgz`
+const run = promisify(execFile)
 
 async function releaseFixture(t) {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-release-test-'))
@@ -24,6 +27,7 @@ async function releaseFixture(t) {
     await writeFile(join(directory, name), contents)
     await writeFile(join(directory, `${name}.sha256`), line)
   }
+  await packageDsh(directory)
   return { directory }
 }
 
@@ -47,27 +51,53 @@ test('release targets are exactly the five native platforms', () => {
   }
 })
 
-test('release creates SHA256SUMS only after all five ZIPs match their checksums', async t => {
+test('release creates SHA256SUMS only after five ZIPs and the DSH bundle are verified', async t => {
   const { directory } = await releaseFixture(t)
   const result = await verifyReleaseArtifacts(tag, directory)
   assert.equal(result.tag, tag)
   assert.equal(result.version, version)
-  assert.deepEqual(result.archives.map(path => basename(path)), releaseTargets.map(target => `logic-margin-agent-${version}-${target}.zip`))
+  assert.deepEqual(result.archives.map(path => basename(path)), [...releaseTargets.map(target => `logic-margin-agent-${version}-${target}.zip`), dshName].sort())
   assert.deepEqual(result.checksums, result.archives.map(path => `${path}.sha256`))
   assert.equal(result.checksumManifest, join(directory, 'SHA256SUMS'))
   assert.equal(await readFile(result.checksumManifest, 'utf8'), (await Promise.all(result.checksums.map(path => readFile(path, 'utf8')))).join(''))
 })
 
 test('release rejects missing, extra and stale-version artifacts', async t => {
-  for (const scenario of ['missing ZIP', 'missing checksum', 'extra target', 'stale version']) {
+  for (const scenario of ['missing ZIP', 'missing checksum', 'missing DSH', 'missing DSH checksum', 'extra target', 'stale version', 'stale DSH']) {
     await t.test(scenario, async t => {
       const { directory } = await releaseFixture(t)
       const name = `logic-margin-agent-${version}-linux-x64.zip`
       if (scenario === 'missing ZIP') await rm(join(directory, name))
       if (scenario === 'missing checksum') await rm(join(directory, `${name}.sha256`))
+      if (scenario === 'missing DSH') await rm(join(directory, dshName))
+      if (scenario === 'missing DSH checksum') await rm(join(directory, `${dshName}.sha256`))
       if (scenario === 'extra target') await writeFile(join(directory, `logic-margin-agent-${version}-win32-arm64.zip`), '')
       if (scenario === 'stale version') await writeFile(join(directory, 'logic-margin-agent-0.0.0-linux-x64.zip'), '')
+      if (scenario === 'stale DSH') await writeFile(join(directory, 'dsh-plugin-logicmargin-0.0.0.tgz'), '')
       await assert.rejects(verifyReleaseArtifacts(tag, directory), /必须恰好包含五个目标/)
+      assert.equal((await readdir(directory)).includes('SHA256SUMS'), false)
+    })
+  }
+})
+
+test('release rejects renamed stale DSH packages and invalid MIT metadata even with valid checksums', async t => {
+  for (const scenario of ['package version', 'launcher version', 'license metadata', 'license text', 'bundle path']) {
+    await t.test(scenario, async t => {
+      const { directory } = await releaseFixture(t)
+      const unpacked = join(directory, 'unpacked')
+      await mkdir(unpacked)
+      const archive = join(directory, dshName)
+      await run('tar', ['-xzf', archive, '-C', unpacked])
+      const path = join(unpacked, 'package', scenario === 'launcher version' ? 'resources/logic-margin/plugin.json' : 'package.json')
+      const manifest = JSON.parse(await readFile(path, 'utf8'))
+      if (scenario === 'package version' || scenario === 'launcher version') manifest.version = '0.0.0'
+      if (scenario === 'license metadata') manifest.license = 'UNLICENSED'
+      if (scenario === 'bundle path') manifest.dsh.bundle.patch = './missing.yml'
+      await writeFile(path, JSON.stringify(manifest))
+      if (scenario === 'license text') await writeFile(join(unpacked, 'package/LICENSE'), 'wrong license')
+      await run('tar', ['-czf', archive, '-C', unpacked, 'package'])
+      await writeFile(`${archive}.sha256`, `${createHash('sha256').update(await readFile(archive)).digest('hex')}  ${dshName}\n`)
+      await assert.rejects(verifyReleaseArtifacts(tag, directory), /不一致/)
       assert.equal((await readdir(directory)).includes('SHA256SUMS'), false)
     })
   }

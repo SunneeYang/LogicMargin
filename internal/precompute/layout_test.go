@@ -127,6 +127,14 @@ func TestLayoutV8Oracle(t *testing.T) {
 				t.Fatal(err)
 			}
 			assertLayoutEqual(t, fixture.Expected, actual)
+			for id, route := range actual.Edges {
+				for i := 1; i < len(route.Points); i++ {
+					a, b := route.Points[i-1], route.Points[i]
+					if math.Abs(a.X-b.X) > 1e-7 && math.Abs(a.Y-b.Y) > 1e-7 {
+						t.Fatalf("%s: diagonal route segment", id)
+					}
+				}
+			}
 			after, _ := json.Marshal(fixture.Input)
 			if string(before) != string(after) {
 				t.Fatal("input mutated")

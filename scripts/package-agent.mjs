@@ -51,12 +51,13 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target) 
     const stagedPlugin = join(staging, 'plugins/logic-margin')
     await mkdir(join(staging, '.agents/plugins'), { recursive: true })
     await mkdir(join(stagedPlugin, 'skills/logic-margin/scripts'), { recursive: true })
-    for (const path of ['plugin.json', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references']) {
+    for (const path of ['plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references']) {
       await cp(join(plugin, path), join(stagedPlugin, path), { recursive: true })
     }
     await cp(compiled, join(stagedPlugin, 'skills/logic-margin/scripts', executable))
     await cp(join(root, '.agents/plugins/marketplace.json'), join(staging, '.agents/plugins/marketplace.json'))
     await cp(join(root, 'docs/agent-plugin.md'), join(staging, 'README.md'))
+    await cp(join(root, 'LICENSE'), join(staging, 'LICENSE'))
     await mkdir(outputDir, { recursive: true })
     const archive = resolve(outputDir, `${name}.zip`)
     const temporaryArchive = join(temporary, `${name}.zip`)

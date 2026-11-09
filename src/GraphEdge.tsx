@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { BaseEdge } from '@xyflow/react'
 import type { Edge, EdgeProps } from '@xyflow/react'
 import type { LayoutEdge } from './graph-layout.ts'
-import { smoothEdgePath } from './graph-path.ts'
+import { edgePointsAtHandles, smoothEdgePath } from './graph-path.ts'
 import { measureEdgeLabel } from './graph-label.ts'
 import { useI18n } from './i18n.ts'
 
@@ -16,8 +16,7 @@ export const relationColors: Record<FlowRelation, string> = {
 export default memo(function GraphEdge({ id, data, label, markerEnd, style, interactionWidth, sourceX, sourceY, targetX, targetY }: EdgeProps<FlowEdge>) {
   const { t } = useI18n()
   if (!data) return null
-  const points = data.route.points.map((point, index) => index === 0 ? { x: sourceX, y: sourceY }
-    : index === data.route.points.length - 1 ? { x: targetX, y: targetY } : point)
+  const points = edgePointsAtHandles(data.route.points, { x: sourceX, y: sourceY }, { x: targetX, y: targetY })
   const path = smoothEdgePath(points)
   const lines = measureEdgeLabel(String(label ?? '')).lines
   const status = data.status

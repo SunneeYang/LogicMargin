@@ -85,6 +85,62 @@ test('parallel edges have separate routes, handles and boundary ports', () => {
   }
 })
 
+test('cross-stage bypasses leave the main line straight and same-row branches remain forward flow', () => {
+  const nodes = ['a', 'b', 'c', 'branch'].map((id, index) => ({ ...node(id), position: {
+    x: id === 'branch' ? 600 : 0, y: id === 'branch' ? 300 : index * 300,
+  } }))
+  const edges = [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('skip', 'a', 'c'),
+    edge('branch', 'b', 'branch'), edge('return', 'c', 'b'), edge('self', 'branch', 'branch')]
+  const result = layoutGraph(nodes, edges)
+  for (const id of ['ab', 'bc']) {
+    const points = result.edges.get(id)!.points
+    assert.equal(points.length, 2, `${id}: main line must not bend around a bypass port`)
+    assert.equal(points[0].x, points[1].x)
+  }
+  for (const [id, type] of [['a', 'source'], ['c', 'target']] as const) {
+    assert.equal(result.nodes.get(id)!.ports.find(port => port.id === `${type}:skip`)!.side, 'right')
+  }
+  assert.equal(result.edges.get('branch')!.kind, 'flow')
+  assert.equal(result.edges.get('return')!.kind, 'return')
+  assert.equal(result.edges.get('self')!.kind, 'return')
+})
+
+test('a main spine with side branches, returns and early exits avoids unnecessary wire crossings', () => {
+  const positions = [[0, 0], [0, 210], [0, 420], [0, 630], [0, 840], [520, 840], [-520, 840], [0, 1050], [0, 1260]]
+  const nodes = positions.map(([x, y], index) => ({ ...node(`n${index}`), position: { x, y },
+    kind: index === 8 ? 'result' as const : index > 0 && index < 5 ? 'decision' as const : 'action' as const }))
+  const pairs = [[0, 1], [1, 2], [1, 8], [2, 3], [2, 8], [3, 4], [3, 2], [4, 7], [4, 5], [4, 6], [7, 2], [5, 2], [6, 2]]
+  const edges = pairs.map(([source, target], index) => edge(`e${index}`, `n${source}`, `n${target}`))
+  const result = layoutGraph(nodes, edges)
+  const lines = [...result.edges].flatMap(([id, route]) => route.points.slice(1).map((b, index) => ({ id, a: route.points[index], b })))
+  for (let index = 0; index < lines.length; index++) for (const other of lines.slice(index + 1)) {
+    const one = lines[index]
+    if (one.id === other.id || (one.a.x === one.b.x) === (other.a.x === other.b.x)) continue
+    const [vertical, horizontal] = one.a.x === one.b.x ? [one, other] : [other, one]
+    const crosses = vertical.a.x >= Math.min(horizontal.a.x, horizontal.b.x) && vertical.a.x <= Math.max(horizontal.a.x, horizontal.b.x)
+      && horizontal.a.y >= Math.min(vertical.a.y, vertical.b.y) && horizontal.a.y <= Math.max(vertical.a.y, vertical.b.y)
+    assert.equal(crosses, false, `${one.id} crosses ${other.id}`)
+  }
+})
+
+test('a branch return uses a simple corner when the middle rail is blocked by its incoming label', () => {
+  const nodes = ['station', 'branch', 'guard'].map((id, index) => ({ ...node(id),
+    position: { x: id === 'branch' ? 0 : 512, y: index ? 600 : 0 },
+  }))
+  const result = layoutGraph(nodes, [edge('a', 'guard', 'branch'), edge('b', 'branch', 'station')])
+  const route = result.edges.get('b')!
+  assert.equal(route.points.length, 4, 'unblocked return must have two bends instead of six')
+  const incoming = result.edges.get('a')!
+  const label = { position: { x: incoming.label.x - incoming.labelWidth! / 2, y: incoming.label.y - incoming.labelHeight! / 2 },
+    width: incoming.labelWidth!, height: incoming.labelHeight!, ports: [] }
+  for (let index = 1; index < route.points.length; index++) {
+    assert.equal(crossesInterior(route.points[index - 1], route.points[index], label), false, 'return crosses the incoming label')
+    for (const [id, item] of result.nodes) if (id !== 'branch' && id !== 'station') {
+      assert.equal(crossesInterior(route.points[index - 1], route.points[index], item), false, 'return crosses another node')
+    }
+  }
+})
+
 test('short conditions reserve width for revision and comment status in both layout paths', () => {
   const collapsed = ['start', 'end'].map(node)
   const authored = collapsed.map((item, index) => ({ ...item, position: { x: 0, y: index * 220 } }))
@@ -100,7 +156,11 @@ test('self loops and reverse cycles preserve direction and finite route coordina
   const result = layoutGraph(['a', 'b'].map(node), edges)
   for (const item of edges) {
     const route = result.edges.get(item.id)!
-    assert.ok(route.points.length >= 3)
+    assert.ok(route.points.length >= (item.source === item.target ? 4 : 2))
+    for (let index = 1; index < route.points.length; index++) {
+      const a = route.points[index - 1], b = route.points[index]
+      assert.ok(a.x === b.x || a.y === b.y, `${item.id}: cycle route must stay orthogonal`)
+    }
     assert.ok([...route.points, route.label].every(point => Number.isFinite(point.x) && Number.isFinite(point.y)))
     assert.ok(result.nodes.get(item.source)!.ports.some(port => port.id === route.sourceHandle && port.type === 'source'))
     assert.ok(result.nodes.get(item.target)!.ports.some(port => port.id === route.targetHandle && port.type === 'target'))

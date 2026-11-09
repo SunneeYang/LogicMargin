@@ -49,7 +49,7 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target =
     await mkdir(dirname(binary), { recursive: true })
     await buildGo(target, binary)
     if (!target.startsWith('win32-')) await chmod(binary, 0o755)
-    for (const path of ['plugin.json', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references',
+    for (const path of ['plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references',
       'skills/logic-margin/scripts/logic-margin.sh', 'skills/logic-margin/scripts/logic-margin.ps1']) {
       await cp(join(plugin, path), join(stagedPlugin, path), { recursive: true })
     }
@@ -59,6 +59,7 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target =
     await mkdir(join(staging, '.agents/plugins'), { recursive: true })
     await cp(join(root, '.agents/plugins/marketplace.json'), join(staging, '.agents/plugins/marketplace.json'))
     await cp(join(root, 'docs/go-agent-plugin.md'), join(staging, 'README.md'))
+    await cp(join(root, 'LICENSE'), join(staging, 'LICENSE'))
     await mkdir(outputDir, { recursive: true })
     const archive = resolve(outputDir, `${name}.zip`)
     const candidate = join(temporary, `${name}.zip`)

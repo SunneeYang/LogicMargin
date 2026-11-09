@@ -31,7 +31,7 @@ jobs:
           pattern: logic-margin-release-*
           path: artifacts
           merge-multiple: true
-      - name: Verify five target ZIPs, versions and checksums
+      - name: Verify native ZIPs, DSH bundle, versions and checksums
         run: node scripts/release-agent.mjs "$RELEASE_TAG" --verify
       - name: Publish immutable version
         shell: bash
@@ -40,4 +40,4 @@ jobs:
           if [[ -f "docs/releases/${RELEASE_TAG}.md" ]]; then
             release_notes=(--notes-file "docs/releases/${RELEASE_TAG}.md")
           fi
-          gh release create "$RELEASE_TAG" artifacts/*.zip artifacts/*.zip.sha256 artifacts/SHA256SUMS --verify-tag --title "LogicMargin $RELEASE_TAG" "${release_notes[@]}"
+          gh release create "$RELEASE_TAG" artifacts/*.zip artifacts/*.zip.sha256 artifacts/*.tgz artifacts/*.tgz.sha256 artifacts/SHA256SUMS --verify-tag --title "LogicMargin $RELEASE_TAG" "${release_notes[@]}"

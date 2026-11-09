@@ -49,9 +49,9 @@ type ComputedLayout = { schemaVersion:1; algorithm:string;key:string;
   usesAuthoredPositions:boolean }
 ```
 
-`LayoutNode/LayoutEdge` 与 `src/graph-layout.ts` 一致。比较图调用现有 `comparisonLayout(nodes,edges,reference.nodes,reference.edges,sizes)`，保留 canonical union、共同槽位与重定向连线身份。实际尺寸变化重新请求精确布局；正常 Go 路径不先运行本地 Dagre。鼠标抬升时真实 handle 的首尾点修正与圆角路径仍在浏览器完成。
+`LayoutNode/LayoutEdge` 与 `src/graph-layout.ts` 一致。比较图调用现有 `comparisonLayout(nodes,edges,reference.nodes,reference.edges,sizes)`，保留 canonical union、共同槽位与重定向连线身份。实际尺寸变化重新请求精确布局；正常 Go 路径不先运行本地 Dagre。每段路线必须水平或垂直，前后端均拒绝斜线结果。鼠标抬升或 DOM 像素取整时，浏览器将端点和相邻折点一起校正；原本只有两点的直线使用正交短折线连接真实 handle，圆角仅作用于拐点。
 
-布局优先使用 Go 原生端口/正交路由实现，保留 authored 坐标、比较图 canonical union 和现有标签/返回/异常连线规则；坐标不可用或单节点时回退到 Goja 中的原 Dagre 与路由。Goja 执行构建时生成的无 DOM bundle，不启动 Node/Bun。Program 共享，每次后备任务创建独立 Runtime，并用 context Interrupt 限时。原生和 V8 固定向量同时比较位置、端口、标签、数组顺序与错误，避免仅比较截图。
+布局优先使用 Go 原生端口/正交路由实现，保留 authored 坐标、比较图 canonical union 和现有标签/返回/异常连线规则；坐标不可用或单节点时回退到 Goja。后备 Dagre 只确定节点层级和左右顺序，再采用与 authored 相同的网格间距、端口、避障及标签路由；不直接绘制 Dagre 的自由折线。比较图只为可见一侧布线，不为合并图中的历史关系重复占用通道；原有返回通道没有可行路线时才补试图外侧通道。Goja 执行构建时生成的无 DOM bundle，不启动 Node/Bun。Program 共享，每次后备任务创建独立 Runtime，并用 context Interrupt 限时。原生和 V8 固定向量同时比较位置、端口、标签、数组顺序与错误，并独立断言线段正交，避免两个实现一起产生斜线却通过对照。
 
 内部 ID 的 tie-break 改用固定 UTF-16 字典序，而非依赖系统 locale/ICU 版本的 localeCompare。新 emoji 在 V8 与 Goja 的旧 Unicode 排序表中曾导致不同槽位；这项明确的排序变化消除了跨运行时漂移，特殊 ID 的同分排列可能与旧主线不同。用户可见文字排序不受影响。
 

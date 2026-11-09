@@ -181,9 +181,12 @@ func validateLayoutResult(input LayoutInput, result LayoutResult) error {
 		if !ok || len(route.Points) < 2 || route.SourceHandle == "" || route.TargetHandle == "" || !finiteLayout(route.Label.X) || !finiteLayout(route.Label.Y) || route.LabelWidth != nil && !finiteLayout(*route.LabelWidth) || route.LabelHeight != nil && !finiteLayout(*route.LabelHeight) {
 			return fmt.Errorf("layout returned invalid route for edge %q", edge.ID)
 		}
-		for _, point := range route.Points {
+		for i, point := range route.Points {
 			if !finiteLayout(point.X) || !finiteLayout(point.Y) {
 				return fmt.Errorf("layout returned invalid route point for edge %q", edge.ID)
+			}
+			if i > 0 && math.Abs(point.X-route.Points[i-1].X) > 1e-7 && math.Abs(point.Y-route.Points[i-1].Y) > 1e-7 {
+				return fmt.Errorf("layout returned a diagonal route for edge %q", edge.ID)
 			}
 		}
 	}

@@ -1,10 +1,10 @@
-# LogicMargin 0.9.6 原生插件
+# LogicMargin 0.9.7 原生插件
 
-0.9.6 默认使用一个 Go 可执行文件，包含 HTTP MCP、评审 API、会话管理、CLI 和现有 React 网页。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 仅用于源码开发与构建。旧 Node 后端仅保留为开发兼容对照。
+0.9.7 默认使用一个 Go 可执行文件，包含 HTTP MCP、评审 API、会话管理、CLI 和现有 React 网页。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 仅用于源码开发与构建。旧 Node 后端仅保留为开发兼容对照。
 
 ## 选择并校验 ZIP
 
-从 [GitHub Release v0.9.6](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.6) 下载 `logic-margin-agent-0.9.6-TARGET.zip` 与同名 `.zip.sha256`：
+从 [GitHub Release v0.9.7](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.7) 下载 `logic-margin-agent-0.9.7-TARGET.zip` 与同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |
@@ -19,11 +19,11 @@ macOS 用 `shasum -a 256 -c ZIP文件名.sha256`，Linux 用 `sha256sum -c ZIP�
 将解压后的 ZIP 顶层目录注册为本地 marketplace，例如：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.6-darwin-arm64
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.7-darwin-arm64
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Windows 换成实际的 `logic-margin-agent-0.9.6-win32-x64` 目录。安装本身不搬迁评审数据，也不代表当前 Agent 已加载 MCP 工具。
+Windows 换成实际的 `logic-margin-agent-0.9.7-win32-x64` 目录。安装本身不搬迁评审数据，也不代表当前 Agent 已加载 MCP 工具。
 
 ## 原生入口与 MCP
 

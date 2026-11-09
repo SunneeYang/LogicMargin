@@ -1,7 +1,8 @@
 {
   "name": "logic-margin",
   "private": true,
-  "version": "0.9.6",
+  "version": "0.9.7",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -11,6 +12,9 @@
     "package:go": "node scripts/package-go-agent.mjs",
     "test:go:agent": "node --test scripts/go-agent.test.mjs",
     "test:go:compat": "node --test scripts/go-compat.test.mjs",
+    "package:dsh": "node scripts/package-dsh.mjs",
+    "test:dsh": "node --test scripts/dsh-plugin.test.mjs",
+    "test:dsh:integration": "node scripts/dsh-integration.mjs",
     "test:go:e2e": "node scripts/go-e2e.mjs",
     "test": "node --test src/*.test.ts server/*.test.ts bin/*.test.ts",
     "review": "node bin/entry.ts",

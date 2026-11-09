@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.6-2563eb?style=flat-square" alt="版本 0.9.6" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.7-2563eb?style=flat-square" alt="版本 0.9.7" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 原生程序；用户无需安装 Node.js 或 Go" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -101,9 +101,11 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 ## 快速开始
 
-**0.9.6 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
+**0.9.7 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
 
 ### 交给 Agent 使用
+
+**DeepSeek Harness 0.2.2-rc.1** 使用独立 tgz，见 [DSH 适配与安装](docs/deepseek-harness.md)。插件通过官方 MCP Client 连接同一原生服务并注册技能；以下命令专用于 Codex。
 
 注册 Git marketplace，安装插件：
 
@@ -130,7 +132,7 @@ codex plugin add logic-margin@logic-margin-local
 
 沿用原 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`、端口和 session ID。更新后加载新版技能和 CLI 路径，重启服务、重连 MCP；需要修复注册时用 `server setup`。评审数据独立于插件缓存，升级不删除会话。完整步骤见 [升级与数据连续性](docs/agent-plugin.md#升级与数据连续性)。marketplace 跟随注册的 ref，评审过程中不会后台轮询升级。
 
-不依赖 Git 时，从 [Release v0.9.6](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.6) 选择 `logic-margin-agent-0.9.6-TARGET.zip` 及同名 `.zip.sha256`：
+不依赖 Git 时，从 [Release v0.9.7](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.7) 选择 `logic-margin-agent-0.9.7-TARGET.zip` 及同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |
@@ -209,6 +211,7 @@ MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknow
 | 我想了解… | 从这里开始 |
 | --- | --- |
 | 插件安装、自动启动、分发与跨平台入口 | [Agent 插件](docs/agent-plugin.md) |
+| DeepSeek Harness 制品、隔离验收与市场收录路径 | [DSH 适配](docs/deepseek-harness.md) |
 | 发起、等待、回复、发布新版和清理 | [Agent 工作流](docs/agent-workflow.md) |
 | 流程图 JSON、稳定 ID 与来源摘要 | [评审文件格式](plugins/logic-margin/skills/logic-margin/references/review-format.md) |
 | 跨轮对比、批注迁移与原位置 | [跨轮评审设计](docs/revision-review-design.md) |
@@ -241,6 +244,8 @@ npm run test:go:e2e # Go 服务上的桌面/手机视口与主题交互
 </details>
 
 ## 致谢
+
+LogicMargin 采用 [MIT 许可](LICENSE)，发行包携带项目许可并保留第三方许可说明。
 
 特别感谢 **[Crit](https://github.com/tomasz-tomczyk/crit)** 为浏览器批注、明确提交与 Agent 等待评审的工作流提供启发。LogicMargin 借鉴这些交互机制，围绕业务流程节点与逻辑关系，自行实现图上批注、跨轮复核与评审任务管理。相关主源与设计取舍记录在 [Crit 参考说明](docs/crit-reference.md)。
 

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { layoutGraph } from './graph-layout.ts'
 import type { LayoutPoint } from './graph-layout.ts'
-import { smoothEdgePath } from './graph-path.ts'
+import { edgePointsAtHandles, smoothEdgePath } from './graph-path.ts'
 import { parseReview } from './model.ts'
 import { sampleReview } from './sample.ts'
 import type { ReviewEdge, ReviewNode } from './types.ts'
@@ -32,6 +32,26 @@ function samplePath(path: string) {
   }
   return result
 }
+
+test('rounded DOM handles and lifted nodes keep every straight segment orthogonal without moving the saved route', () => {
+  for (const route of [
+    [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    [{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 0, y: 100 }],
+    [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }],
+    [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 200, y: 100 }],
+  ]) {
+    const saved = structuredClone(route)
+    const source = { x: .5, y: -4.5 }, target = { x: route.at(-1)!.x + .5, y: route.at(-1)!.y + .5 }
+    const adjusted = edgePointsAtHandles(route, source, target)
+    assert.deepEqual(adjusted[0], source)
+    assert.deepEqual(adjusted.at(-1), target)
+    for (let index = 1; index < adjusted.length; index++) {
+      const a = adjusted[index - 1], b = adjusted[index]
+      assert.ok(a.x === b.x || a.y === b.y)
+    }
+    assert.deepEqual(route, saved)
+  }
+})
 
 test('corners keep the route endpoints, tangent directions and a bounded local turn', () => {
   const points = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]

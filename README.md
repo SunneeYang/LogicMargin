@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.6-2563eb?style=flat-square" alt="Version 0.9.6" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.7-2563eb?style=flat-square" alt="Version 0.9.7" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -101,9 +101,11 @@ Structural focus is applied automatically for supported Go and JavaScript/TypeSc
 
 ## Quickstart
 
-**0.9.6 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
+**0.9.7 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
 
 ### Use it with an agent
+
+For **DeepSeek Harness 0.2.2-rc.1**, build and install the dedicated tgz following the [DSH guide](docs/deepseek-harness.md). It registers the skill and connects the same native service through DSH's official MCP Client. The Codex commands below are specific to Codex.
 
 Register the Git marketplace and install the plugin:
 
@@ -131,7 +133,7 @@ codex plugin add logic-margin@logic-margin-local
 
 Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, use [Release v0.9.6](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.6). Choose `logic-margin-agent-0.9.6-TARGET.zip` and its `.zip.sha256`:
+For installation without Git, use [Release v0.9.7](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.7). Choose `logic-margin-agent-0.9.7-TARGET.zip` and its `.zip.sha256`:
 
 | Platform | TARGET |
 | --- | --- |
@@ -212,6 +214,7 @@ The detailed guides below are currently in Chinese.
 | Topic | Start here |
 | --- | --- |
 | Plugin installation, automatic startup, distribution, and platform entry points | [Agent plugin](docs/agent-plugin.md) |
+| DeepSeek Harness package, isolated validation, and market submission paths | [DSH integration](docs/deepseek-harness.md) |
 | Starting, waiting, replying, publishing revisions, and cleanup | [Agent workflow](docs/agent-workflow.md) |
 | Diagram JSON, stable IDs, and source digests | [Review format](plugins/logic-margin/skills/logic-margin/references/review-format.md) |
 | Cross-round comparison, carried comments, and original locations | [Revision review design](docs/revision-review-design.md) |
@@ -244,6 +247,8 @@ Built with React 19, TypeScript, React Flow, Vite, and a local Go HTTP service. 
 </details>
 
 ## Acknowledgements
+
+LogicMargin is available under the [MIT license](LICENSE). Distribution archives include the project license and retain their third-party notices.
 
 Special thanks to **[Crit](https://github.com/tomasz-tomczyk/crit)** for inspiring the workflow of browser annotations, explicit submissions, and agents waiting for review. LogicMargin draws on these interaction patterns and independently implements diagram annotations, cross-round verification, and review task management around business flows and logical relationships. Primary sources and design decisions are recorded in the [Crit reference notes](docs/crit-reference.md).
 

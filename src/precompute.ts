@@ -103,6 +103,7 @@ function validLayout(value: unknown, algorithm: string, input: LayoutInput): val
   }) && input.edges.every(({ id, source, target }) => {
     const edge = item.edges[id]
     return edge && Array.isArray(edge.points) && edge.points.length >= 2 && edge.points.every(point) && point(edge.label) &&
+      edge.points.every((point, index) => !index || Math.abs(point.x - edge.points[index - 1].x) <= 1e-7 || Math.abs(point.y - edge.points[index - 1].y) <= 1e-7) &&
       (edge.labelWidth === undefined || Number.isFinite(edge.labelWidth)) && (edge.labelHeight === undefined || Number.isFinite(edge.labelHeight)) &&
       (edge.kind === undefined || ['flow', 'return', 'exception'].includes(edge.kind)) &&
       item.nodes[source]?.ports.some(port => port.type === 'source' && port.id === edge.sourceHandle) &&
