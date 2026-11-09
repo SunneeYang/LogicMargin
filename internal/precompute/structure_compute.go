@@ -12,16 +12,20 @@ func StructureAlgorithm() string {
 }
 
 func ComputeStructure(ctx context.Context, before, after, language string) (StructureResult, error) {
+	return computeStructure(ctx, before, after, language, diffMaxUTF16, diffMaxLines)
+}
+
+func computeStructure(ctx context.Context, before, after, language string, maxUTF16, maxLines int) (StructureResult, error) {
 	if err := ctx.Err(); err != nil {
 		return StructureResult{}, err
 	}
-	result, a, b, err := structureBase(before, after, language)
+	work, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	result, a, b, err := structureBaseWithLimits(before, after, language, maxUTF16, maxLines)
 	if err != nil {
 		return result, err
 	}
 	result.Algorithm = StructureAlgorithm()
-	work, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
 	left, err := structure.Parse(work, before, language)
 	if err != nil {
 		if ctx.Err() != nil {

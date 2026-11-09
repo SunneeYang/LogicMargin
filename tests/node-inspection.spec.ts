@@ -33,14 +33,82 @@ function fixture(beforeCode?: string, afterCode?: string) {
   return after
 }
 
-async function openFixture(page: Page, review = fixture()) {
-  await page.addInitScript(document => {
+async function openFixture(page: Page, review = fixture(), codeLayout: 'unified' | 'split' | null = 'unified') {
+  await page.addInitScript(({ document, codeLayout }) => {
     localStorage.setItem('logic-margin:active', document.id)
     localStorage.setItem(`logic-margin:review:${document.id}`, JSON.stringify(document))
-  }, review)
+    if (codeLayout) localStorage.setItem('logic-margin:code-layout', codeLayout)
+  }, { document: review, codeLayout })
   await page.goto('/')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
 }
+
+function sceneFixture() {
+  const review = fixture()
+  for (const document of [review.baseline!, review]) {
+    document.scenes.push({ id: 'other-scene', title: '另一个场景', description: '跨场景阅读回归' })
+    document.nodes.push({ ...structuredClone(document.nodes[0]), id: 'other-step', sceneId: 'other-scene', title: '另一个场景的步骤' })
+  }
+  return review
+}
+
+for (const tab of ['讨论', '详情', '代码 diff']) test(`docked ${tab} stays a node reader across scene changes and preserves drafts`, async ({ page }) => {
+  await openFixture(page, sceneFixture())
+  await openInspector(page, 'changes')
+  await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
+  const window = surface(page)
+  await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+  await window.getByRole('button', { name: '添加新批注', exact: true }).click()
+  await window.getByLabel('问题与预期行为').fill('跨场景仍应保留的草稿')
+  await window.getByRole('tab', { name: tab, exact: true }).click()
+  await page.locator('.scene-button').filter({ hasText: '另一个场景' }).click()
+  await expect(window).toHaveClass(/is-docked/)
+  await expect(window.locator('.discussion-target')).toHaveText('选择一个步骤')
+  await expect(page.locator('.inspector-body')).not.toBeVisible()
+  await expect(window.getByRole('tab', { name: tab, exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(window.getByRole('button', { name: '添加新批注', exact: true })).toHaveCount(0)
+  await page.locator('.react-flow__node[data-id="other-step"] .node-title').click()
+  await expect(window.locator('.discussion-target')).toHaveText('另一个场景的步骤')
+  await expect(window.getByRole('tab', { name: tab, exact: true })).toHaveAttribute('aria-selected', 'true')
+  await page.locator('.scene-button').first().click()
+  await page.locator(`${target} .node-title`).click()
+  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await window.getByRole('button', { name: '添加新批注', exact: true }).click()
+  await expect(window.getByLabel('问题与预期行为')).toHaveValue('跨场景仍应保留的草稿')
+})
+
+test('code layout defaults to side by side and persists with settings across scenes, nodes and reload', async ({ page }) => {
+  await openFixture(page, sceneFixture(), null)
+  await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
+  const window = surface(page)
+  await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window.getByRole('button', { name: '并排', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(window.locator('.cm-editor')).toHaveCount(2)
+  await window.getByRole('button', { name: '统一', exact: true }).click()
+  await expect(window.locator('.cm-editor')).toHaveCount(1)
+  await page.locator('.scene-button').filter({ hasText: '另一个场景' }).click()
+  await page.locator('.react-flow__node[data-id="other-step"] .node-title').click()
+  await expect(window.getByRole('button', { name: '统一', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(window.locator('.cm-editor')).toHaveCount(1)
+  await page.reload()
+  await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window.getByRole('button', { name: '统一', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  const settings = await openMenu(page, '.appearance-menu')
+  await expect(settings.getByLabel('代码对照布局', { exact: true })).toHaveValue('unified')
+  await settings.getByLabel('界面主题', { exact: true }).selectOption('glass')
+  await settings.getByLabel('代码对照布局', { exact: true }).selectOption('split')
+  await settings.locator('summary').click()
+  await expect(window.getByRole('button', { name: '并排', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(window.locator('.cm-editor')).toHaveCount(2)
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'glass')
+  await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window.getByRole('button', { name: '并排', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(window.locator('.cm-editor')).toHaveCount(2)
+})
 
 test('node details, discussions and code share one window and preserve drafts and reading position', async ({ page }) => {
   await openFixture(page)
@@ -154,7 +222,7 @@ test('professional diff highlights words, navigates changes, shares scrolling an
   await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
   const window = surface(page)
   await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
-  await expect(window.getByRole('status')).toHaveText('2 处差异')
+  await expect(window.getByRole('status').filter({ hasText: /^2 处差异$/ })).toHaveText('2 处差异')
   await expect(window.locator('.cm-collapsedLines').first()).toBeVisible()
   await expect(window.locator('.tok-keyword').first()).toHaveText('const')
   await expect(window.locator('.cm-changedText').first()).toHaveText('1')

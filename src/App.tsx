@@ -31,6 +31,7 @@ const ACTIVE_KEY = 'logic-margin:active'
 const DRAFTS_KEY = SESSION_ID ? `logic-margin:session:${SESSION_ID}:drafts` : 'logic-margin:drafts'
 const HISTORY_KEY = 'logic-margin:record-history'
 const NODE_APPEARANCE_KEY = 'logic-margin:node-appearance'
+const CODE_LAYOUT_KEY = 'logic-margin:code-layout'
 const SPIRIT_SANCTUM_PATH = '/reviews/spirit-sanctum.logic-margin.json'
 const HAS_BUNDLED_SPIRIT_REVIEW = import.meta.env.VITE_LOGIC_MARGIN_PACKAGED !== 'true'
 const EMPTY_CHANGES: ReviewChanges = { added: [], changed: [], removed: [] }
@@ -145,6 +146,15 @@ export default function App() {
     setNodeAppearance(appearance)
     try { localStorage.setItem(NODE_APPEARANCE_KEY, appearance) }
     catch { /* Display preferences must not block reviewing when storage is unavailable. */ }
+  }, [])
+  const [codeSplit, setCodeSplit] = useState(() => {
+    try { return localStorage.getItem(CODE_LAYOUT_KEY) !== 'unified' }
+    catch { return true }
+  })
+  const changeCodeSplit = useCallback((split: boolean) => {
+    setCodeSplit(split)
+    try { localStorage.setItem(CODE_LAYOUT_KEY, split ? 'split' : 'unified') }
+    catch { /* Reading preferences stay usable when storage is unavailable. */ }
   }, [])
   const [importChanges, setChanges] = useState(EMPTY_CHANGES)
   const [submitting, setSubmitting] = useState(false)
@@ -521,7 +531,8 @@ export default function App() {
     })
   }, [closeComposer])
   function switchScene(id: string) {
-    setSceneId(id); setSelection([]); setDiscussionTargets(null); closeComposer(false)
+    setSceneId(id); setSelection([]); setDiscussionTargets(windowDocked ? [] : null); closeComposer(false)
+    if (windowDocked) { setThreadId(null); setContinuous(false); setPoint(undefined) }
     if (matchMedia('(max-width: 900px)').matches) setNavOpen(false)
   }
   function openPanel(nextTab: typeof tab) {
@@ -842,7 +853,7 @@ export default function App() {
         </div>
       </details>
       <div className="topbar-actions"><span className={`save-state ${displaySaveState.includes('失败') ? 'save-error' : ''}`} role="status"><Circle size={7} fill="currentColor" />{translateError(displaySaveState, locale)}</span>
-        <AppearanceMenu />
+        <AppearanceMenu codeSplit={codeSplit} onCodeSplitChange={changeCodeSplit} />
         <input className="screen-reader-only" ref={inputRef} type="file" accept=".json,application/json" aria-label={t('导入评审文件')} onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = '' }} />
         <details className="workspace-menu file-menu"><summary className="button">{t('文件')}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">
           {!SESSION_ID && <button className="button" onClick={() => { closeMenus(); inputRef.current?.click() }}><Upload size={15} />{t('导入评审')}</button>}
@@ -971,17 +982,17 @@ export default function App() {
         <CommentComposer draft={composer ? { ...composer, labels: composer.targets.map(target => displayTargetLabel(composer.basis === 'baseline' && taskBaseline ? taskBaseline : review, target)) } : null} docked={docked} position={position} onInteract={stopFlow}
           inspection={windowTargets ? {
             key: JSON.stringify([displayReview.revision, displayReview.snapshot.fingerprint, viewBaseline, activeRound, windowTargets]),
-            title: windowTargets.length > 1 ? t('所选 {count} 项 · {labels}', { count: windowTargets.length, labels: windowTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、') }) : windowTargets.map(target => displayTargetLabel(displayReview, target)).join(''),
+            title: windowTargets.length > 1 ? t('所选 {count} 项 · {labels}', { count: windowTargets.length, labels: windowTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、') }) : windowTargets.map(target => displayTargetLabel(displayReview, target)).join('') || t('选择一个步骤'),
             context: `${viewBaseline ? `${t('基线 B')} · ` : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? t(' · 只读') : ''}`,
             tab: windowTab, onTabChange: setWindowTab,
             detail: <TargetDetails review={displayReview} targets={windowTargets} />,
-            code: <>{viewBaseline && <p className="muted">{t('当前查看基线 B，以下为原版代码依据。')}</p>}{codeError ? <p role="alert">{translateError(codeError, locale)}</p> : <NodeCodeDiff precomputeContext={codePrecompute} before={codeBefore} after={displayReview} targets={windowTargets} beforeLabel={comparingBaseline ? t('基线 B') : roundLabel(activeRound - 1)} afterLabel={viewBaseline ? t('基线 B') : session.session ? roundLabel(activeRound) : t('当前评审')} />}</>,
+            code: <>{viewBaseline && <p className="muted">{t('当前查看基线 B，以下为原版代码依据。')}</p>}{codeError ? <p role="alert">{translateError(codeError, locale)}</p> : <NodeCodeDiff split={codeSplit} onSplitChange={changeCodeSplit} precomputeContext={codePrecompute} before={codeBefore} after={displayReview} targets={windowTargets} beforeLabel={comparingBaseline ? t('基线 B') : roundLabel(activeRound - 1)} afterLabel={viewBaseline ? t('基线 B') : session.session ? roundLabel(activeRound) : t('当前评审')} />}</>,
           } : undefined}
           discussion={discussionTargets ? {
             key: discussionTargets.map(keyOf).join('|'),
-            title: discussionTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、'),
+            title: discussionTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、') || t('选择一个步骤'),
             context: `${viewBaseline ? `${t('基线 B')} · ` : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? t(' · 只读') : ''}`,
-            content: <>{historical && <p className="muted">{t('历史流程只读，讨论显示当前处理状态。')}</p>}{!discussionComments.length && <p className="muted">{t('这个步骤还没有批注。')}</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" chronological comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!composer && !historical && <button className="button node-window-new-comment" disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>{t('添加新批注')}</button>}</>,
+            content: <>{historical && <p className="muted">{t('历史流程只读，讨论显示当前处理状态。')}</p>}{!discussionComments.length && <p className="muted">{t(discussionTargets.length ? '这个步骤还没有批注。' : '选择步骤后，可在这里继续查看讨论、详情和代码。')}</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" chronological comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!!discussionTargets.length && !composer && !historical && <button className="button node-window-new-comment" disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>{t('添加新批注')}</button>}</>,
             replyLabel: composer?.replyTo ? t('回复意见 #{number}', { number: review.comments.findIndex(comment => comment.id === composer.replyTo) + 1 }) : undefined,
             onCollapse: () => closeComposer(false),
           } : undefined}

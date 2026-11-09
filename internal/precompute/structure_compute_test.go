@@ -60,7 +60,7 @@ func TestStructureGoOptionalSemicolons(t *testing.T) {
 		t.Fatal(result, err)
 	}
 	result, err = ComputeStructure(t.Context(), "func f(){ return x() }", "func f(){ return\nx() }", "go")
-	if err != nil || result.Mode != "text" || result.Reason != "syntax-boundary" {
+	if err != nil || result.Mode != "structural" || result.FormattingOnly || len(result.Highlights.Before)+len(result.Highlights.After) == 0 {
 		t.Fatal(result, err)
 	}
 }

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.2-2563eb?style=flat-square" alt="版本 0.9.2" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.3-2563eb?style=flat-square" alt="版本 0.9.3" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 原生程序；用户无需安装 Node.js 或 Go" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -74,7 +74,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
   <a href="docs/images/code-diff-dark.png">查看深色代码对照</a>
 </p>
 
-截图来自 0.9.0 Go 构建，0.9.2 未改变界面；使用虚构订单流程和示例代码。代码图为默认“文本差异”模式的并排对照，可见文本／结构重点切换控件。演示文件包含固定基线与已保存的代码片段，不含真实业务会话，也不代表生产源码核验结果。
+截图来自 0.9.0 Go 构建，使用虚构订单流程和示例代码。代码图中的文本／结构重点切换属于旧版界面；当前界面在结构分析可用时自动采用结构重点，否则保留文本差异。演示文件包含固定基线与已保存的代码片段，不含真实业务会话，也不代表生产源码核验结果。
 
 ## 核心能力
 
@@ -89,17 +89,17 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 | **按目的隔离任务** | 同一段对话可关联多个独立评审；不同目的的批注、草稿与轮次分别保留。 |
 | **掌握数据的去留** | JSON 导入导出、完整备份、可恢复归档与显式永久删除；支持完成后自动归档。 |
 
-提供“纸页审阅、柔光浮雕、清透玻璃”三种主题，均可选择浅色、深色或跟随系统，支持桌面与手机浏览。桌面左右侧栏可拖动调宽，右侧栏可继续展开覆盖画布，方便阅读较长讨论和并排代码。
+提供“纸页审阅、柔光浮雕、清透玻璃”三种主题，均可选择浅色、深色或跟随系统，支持桌面与手机浏览。代码对照默认并排，可在代码页或“设置”中改为统一；布局偏好保存在当前浏览器，切换节点、场景或刷新后继续沿用。桌面左右侧栏可拖动调宽，右侧栏可继续展开覆盖画布，方便阅读较长讨论和并排代码。
 
-界面支持**简体中文和英文**，首次使用根据浏览器语言选择，也可在**外观 → 界面语言**中切换并保存偏好。流程、代码和批注保留原文；切换语言会保留当前选择与草稿。
+界面支持**简体中文和英文**，首次使用根据浏览器语言选择，也可在**设置 → 界面语言**中切换并保存偏好。流程、代码和批注保留原文；切换语言会保留当前选择与草稿。
 
-代码 diff 比较的是评审固定基线 B 与轮次 R 中保存且能匹配的相关源码片段。缺少历史片段或无法确定对应关系时，界面显示已有原文和原因；不会用当前代码推测旧版本，也不提供全仓库 diff。
+代码 diff 比较的是评审固定基线 B 与轮次 R 中保存且能匹配的相关源码片段。缺少历史片段或无法确定对应关系时，界面显示已有原文和原因；不会用当前代码推测旧版本，也不提供全仓库 diff。 Go CLI 在本机核验来源时还会将经版本核验的完整文件保存到可选的后端分析缓存；结构分析使用全文上下文，再把结果映射回原片段。全文不进入评审 JSON 或浏览器；缓存缺失或淘汰时保留原片段分析和文本回退。
 
-支持的 Go、JavaScript/TypeScript（含 JSX/TSX）语法可切换到“结构重点”，减少可安全忽略的排版差异强调；明确配对的移动代码可“与原位置对照”，移动时又修改的内容也可局部核对。完整文本差异始终可读，不支持的语法、配对不确定或预算耗尽时保留文本阅读。这是语法结构阅读辅助，不使用 SemanticDiff 引擎，也不判定通用语义等价。具体边界见 [结构 diff 契约与验收](docs/structural-diff.md)。
+支持的 Go、JavaScript/TypeScript（含 JSX/TSX）语法在分析有效后自动采用“结构重点”，减少可安全忽略的排版差异强调；明确配对的移动代码可“与原位置对照”，移动时又修改的内容也可局部核对。原文、行号对齐与统一／并排布局保持可用；不支持的语法、配对不确定或预算耗尽时自动保留文本高亮并说明原因，无需手动切换模式。这是语法结构阅读辅助，不使用 SemanticDiff 引擎，也不判定通用语义等价。具体边界见 [结构 diff 契约与验收](docs/structural-diff.md)。
 
 ## 快速开始
 
-**0.9.2 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
+**0.9.3 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
 
 ### 交给 Agent 使用
 
@@ -128,7 +128,7 @@ codex plugin add logic-margin@logic-margin-local
 
 沿用原 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`、端口和 session ID。更新后加载新版技能和 CLI 路径，重启服务、重连 MCP；需要修复注册时用 `server setup`。评审数据独立于插件缓存，升级不删除会话。完整步骤见 [升级与数据连续性](docs/agent-plugin.md#升级与数据连续性)。marketplace 跟随注册的 ref，评审过程中不会后台轮询升级。
 
-不依赖 Git 时，从 [Release v0.9.2](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.2) 选择 `logic-margin-agent-0.9.2-TARGET.zip` 及同名 `.zip.sha256`：
+不依赖 Git 时，从 [Release v0.9.3](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.3) 选择 `logic-margin-agent-0.9.3-TARGET.zip` 及同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |

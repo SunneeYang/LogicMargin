@@ -6,10 +6,12 @@
 
 ## HTTP 契约
 
-- `GET /api/precompute`：`{schemaVersion:1,diffAlgorithm:string,layoutAlgorithm:string,structureAlgorithm?:string,coordinate:'utf16'}`。旧 Node 不提供该接口；客户端在旧服务、本地导入、离线或计算失败时保留原本地算法。
+- `GET /api/precompute`：`{schemaVersion:1,diffAlgorithm:string,layoutAlgorithm:string,structureAlgorithm?:string,sourceContextVersion?:1,coordinate:'utf16'}`。旧 Node 不提供该接口；客户端在旧服务、本地导入、离线或计算失败时保留原本地算法。
 - `POST /api/review-sessions/{id}/precompute/diff`：只提交以下引用，服务读取该会话已保存的原文。`beforeSnapshot/afterSnapshot` 是 `{kind:'baseline'}` 或 `{kind:'round',round:number}`；使用真实存储轮次，不使用显示的 R 编号。`before/after` 各为 `{path,symbol,startLine,endLine,digest}`。代码页的上一轮是 `activeRound-1`，不能误用最新轮次的 publication.baseRound。
-- `POST /api/review-sessions/{id}/precompute/structure`：与 `/diff` 使用相同的保存快照/证据引用，另行返回语法 token 重点、明确的作用域移动及移动切片对照。文本先显示，读者显式切到结构重点；协议和保守回退见 [结构 diff](structural-diff.md)。
+- `POST /api/review-sessions/{id}/precompute/structure`：与 `/diff` 使用相同的保存快照/证据引用，另行返回语法 token 重点、明确的作用域移动及移动切片对照。文本先显示，有效结构结果到达后自动采用结构重点；协议和保守回退见 [结构 diff](structural-diff.md)。
 - `POST /api/review-sessions/{id}/precompute/layout`：布局输入见下；只发送布局实际使用的节点字段、连线和尺寸，不发送证据源码或批注。当前会话、本轮/历史与比较图选择由调用方提供的实际图数据确定。
+
+`POST /api/review-sessions/{id}/source-contexts` 是仅限本机的可选全文分析输入接口：`{snapshot,fingerprint,sources:[{path,sha256,content}]}`，完成后可发送 `{snapshot,fingerprint,sources:[],warm:true}`。它要求真实回环 peer、可信 Host、同源及无转发头，核对固定快照、原始文件 SHA 和全部保存片段。CLI 在发布成功后自动上传，旧服务、远程地址或失败时保持已发布评审，不把分析失败当成发布失败。全文不加入评审 JSON 或网页响应。
 
 这些 POST 使用原有同源检查、JSON/请求大小校验及取消传播。响应头 `X-Logic-Margin-Cache` 标识计算命中情况，供验收使用。界面不显示实现细节。非会话本地导入不会自动上传到后端。
 
@@ -59,10 +61,12 @@ type ComputedLayout = { schemaVersion:1; algorithm:string;key:string;
 
 key 绑定 schema、算法版本、原文摘要/语言或实际几何输入及参数；布局算法版本包含 bundle、原生源码与后备运行时指纹。LRU、磁盘缓存、在途去重和有限 worker 防止无界堆积。同一任务的一个订阅取消不取消其他订阅；服务关闭取消计算。派生文件损坏可重新计算，缓存写失败不影响有效结果或评审保存。
 
-创建、发布、补基线及旧会话首次读取后，后台预热常用 B→当前、上一轮→当前的唯一片段组合以及各场景的默认尺寸布局。选中目标才可唯一配对的片段、阅读子图和真实尺寸按需计算并复用缓存。普通批注变化不重复预热。预热在独立 goroutine 执行；独立文本 diff/结构/布局任务最多由 3 个后台调用者并发派发到原有计算池，CPU 配额较小时降低并发，常规四 worker 配置保留交互容量。基线/记录读取只在锁内复制所需对象，避免完整历史克隆。引用收集最多访问 4096 项，配对最多执行 65536 步且可取消；超出时跳过可选预热，按需接口保持可用。预计算仍有实际 CPU、内存和首个结果延迟。
+创建、发布、补基线及旧会话首次读取后，后台预热常用 B→当前、上一轮→当前的唯一片段组合以及各场景的默认尺寸布局。选中目标才可唯一配对的片段、阅读子图和真实尺寸按需计算并复用缓存。普通批注变化不重复预热。预热在独立 goroutine 执行；独立文本 diff/结构/布局任务最多由 3 个后台调用者并发派发；CPU 配额较小时降低并发。普通 diff/layout 共享最多四个 worker，结构分析另有最多两个 worker，避免长解析占满普通计算 worker；输入预算、缓存及磁盘锁仍共享，并非完全资源隔离。基线/记录读取只在锁内复制所需对象，避免完整历史克隆。引用收集最多访问 4096 项，配对最多执行 65536 步且可取消；超出时跳过可选预热，按需接口保持可用。预计算仍有实际 CPU、内存和首个结果延迟。
 
-资源限制为最多 4 worker、32 个排队任务、64 MiB 在途输入，单任务 4 秒；内存 LRU 为 32 MiB/64 项，磁盘为 128 MiB/1024 项，单结果最多 8 MiB。源码两侧各最多 2000 行/100000 UTF-16 单元；布局两侧合计最多 512 节点、1024 边，并受 `节点×边×(节点+边)≤8000000` 工作量上限限制。后备 VM 没有独立进程级内存硬限制。
+普通 diff/layout 为最多 4 worker、32 个排队任务、单任务 4 秒；结构另有 1–2 worker、32 个排队任务、单任务 15 秒，单次全文结构流程 12 秒。两池共享 64 MiB 在途输入；内存 LRU 为 32 MiB/64 项，磁盘为 128 MiB/1024 项，单结果最多 16 MiB。普通 diff 与显示片段两侧各最多 2000 行/100000 UTF-16 单元；全文结构分析每侧最多 10000 行/500000 UTF-16 单元。全文解析、全文匹配与片段投影分别缓存，同文件多个节点复用解析和匹配结果；不在 worker 内等待同池依赖。布局两侧合计最多 512 节点、1024 边，并受 `节点×边×(节点+边)≤8000000` 工作量上限限制。后备 VM 没有独立进程级内存硬限制。
 
-缓存只回收严格命名、已确认 owner 进程退出的临时文件；活动进程和无法确认归属的文件保留；它们不计入最终缓存文件的 128 MiB 预算。正常缓存损坏重算，缓存不可写也返回有效计算结果。客户端能力探测 2 秒、计算 HTTP 8 秒超时后回退；服务恢复后，能力探测失败的页面需刷新才重新探测。
+缓存只回收严格命名、已确认 owner 进程退出的临时文件；活动进程和无法确认归属的文件保留；它们不计入最终缓存文件的 128 MiB 预算。正常缓存损坏重算，缓存不可写也返回有效计算结果。经版本核验的原始全文另存于 `derived/source-contexts/v1`，每文件最多 2 MiB，总计 256 MiB/4096 项，gzip、0600、原子写入；淘汰或缺失只影响分析，不删除历史片段。缓存绑定会话、文件摘要及已核验引用集合，新增未经核验范围不能借用旧全文。BOM/CRLF 保留用于原始 SHA 核验，分析时规范化并投影回保存片段的 UTF-16 坐标。
+
+客户端能力探测 2 秒、普通计算 HTTP 8 秒、结构 HTTP 20 秒超时后回退；服务恢复后，能力探测失败的页面需刷新才重新探测。
 
 最新完成状态、实际测量及未验收范围见 [迁移验收](go-backend-validation.md)。

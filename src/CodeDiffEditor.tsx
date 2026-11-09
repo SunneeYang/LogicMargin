@@ -168,12 +168,11 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
   const editors = useRef<EditorView | MergeView | null>(null)
   const localization = useRef(new Compartment())
   const updateExpanded = useRef<(expanded: boolean) => void>(() => {})
-  const navigate = useRef<(direction: number) => boolean>(() => false)
+  const navigate = useRef<(direction: number, target?: EditorView) => boolean>(() => false)
   const [expanded, setExpanded] = useState(false)
   const expandedRef = useRef(expanded)
   expandedRef.current = expanded
   const updateStructure = useRef<(highlights: InlineStructure | null, result?: StructureResult | null) => void>(() => {})
-  const [structureMode, setStructureMode] = useState(false)
   const [openMoves, setOpenMoves] = useState<Set<string>>(() => new Set())
   const [structure, setStructure] = useState<{ requestKey: string; before: string; after: string; result: StructureResult | null } | null>(null)
   const [summary, setSummary] = useState({ count: 0, precise: true })
@@ -194,14 +193,23 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
     const controller = new AbortController()
     void precompute.structure(sessionId, input, before.code!, after.code!, controller.signal).then(result => {
       if (!controller.signal.aborted) setStructure({ requestKey, before: before.code!, after: after.code!, result })
-    }).catch(() => {})
+    }).catch(() => { if (!controller.signal.aborted) setStructure({ requestKey, before: before.code!, after: after.code!, result: null }) })
     return () => controller.abort()
   }, [requestKey, before.code, after.code])
   const structureReady = structure?.requestKey === requestKey && structure.before === before.code && structure.after === after.code
   const structureResult = structureReady ? structure.result : null
-  const structural = inlineStructure && validHighlights(inlineStructure.highlights, before.code!, after.code!) ? inlineStructure
+  const activeStructure = inlineStructure && validHighlights(inlineStructure.highlights, before.code!, after.code!) ? inlineStructure
     : structureResult?.mode === 'structural' ? structureResult : null
-  const activeStructure = structureMode ? structural : null
+  const associationOnly = precomputedDiff?.algorithm === 'association-text-v1'
+  const reasons: Record<string, string> = {
+    'invalid-syntax': '文本模式：片段不完整或语法无效，无法进行结构比较。',
+    'unsupported-language': '文本模式：暂不支持此语言的结构比较。',
+    'syntax-boundary': '文本模式：语法边界无法可靠匹配，保留完整差异。',
+    budget: '文本模式：结构分析达到预算，保留完整差异。',
+  }
+  const structureExplanation = associationOnly ? '单侧关联仅显示片段增减，无两侧结构可比较。'
+    : requestKey && !structureReady ? '正在分析结构…'
+      : reasons[structureResult?.reason ?? ''] ?? '文本模式：当前材料未提供可用的结构分析结果。'
   const ready = !requestKey || computed?.requestKey === requestKey && computed.before === before.code && computed.after === after.code
   const result = precomputedDiff ?? (ready && requestKey ? computed?.result : null)
   const computedKey = result?.key ?? ''
@@ -227,8 +235,8 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
       }),
       lineNumbers({ formatNumber: number }),
       syntaxHighlighting(classHighlighter), language(evidence.path),
-      keymap.of([{ key: 'F7', run: () => navigate.current(1) },
-        { key: 'Shift-F7', run: () => navigate.current(-1) }]),
+      keymap.of([{ key: 'F7', run: target => navigate.current(1, target) },
+        { key: 'Shift-F7', run: target => navigate.current(-1, target) }]),
     ]
     const options = { highlightChanges: true, gutter: true, diffConfig: codeDiffConfig(result) }
     let editor: EditorView | MergeView
@@ -285,8 +293,8 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
     }
     editors.current = editor
     view.current = editor instanceof MergeView ? editor.b : editor
-    const textNavigate = (direction: number) => {
-      const current = view.current!
+    const textNavigate = (direction: number, target?: EditorView) => {
+      const current = target ?? view.current!
       if (split || !unified) return direction > 0 ? goToNextChunk(current) : goToPreviousChunk(current)
       if (!unified.changes.length) return false
       const head = current.state.selection.main.head
@@ -318,8 +326,8 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
       if (chunk.changes.some(change => change.toB > change.fromB)) ranges.push({ view: view.current, from: chunk.fromB, to: chunk.toB, kind: 'added' })
     }
     const refreshOverview = (marks: OverviewRange[]) => {
-      overview?.destroy()
-      overview = codeOverview(overviewHost.current!, view.current!,
+      if (overview) overview.setRanges(marks)
+      else overview = codeOverview(overviewHost.current!, view.current!,
         editor instanceof MergeView ? editor.dom : view.current!.scrollDOM, marks)
     }
     refreshOverview(ranges)
@@ -368,7 +376,7 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
     updateStructure.current(activeStructure, structureResult)
   }, [activeStructure, structureResult, ready, computedKey, split])
   useEffect(() => {
-    setStructureMode(false); setOpenMoves(new Set())
+    setOpenMoves(new Set())
   }, [requestKey, before.code, after.code])
   useEffect(() => updateExpanded.current(expanded), [expanded])
   useEffect(() => {
@@ -401,17 +409,13 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
   return <div data-diff-mode={activeStructure ? 'structural' : 'text'} className={`code-editor ${split ? 'is-split' : 'is-unified'}`}>
     <div className="code-editor-tools">
       <span role="status">{!ready ? t('正在加载代码对照…') : summary.count ? t('{count} 处差异', { count: summary.count }) : t('片段内容相同')}</span>
-      <div className="code-structure-mode" role="group" aria-label={t('差异重点模式')}>
-        <button className="button" disabled={!structural} aria-pressed={!!activeStructure} onClick={() => setStructureMode(true)}>{t('结构重点')}</button>
-        <button className="button" aria-pressed={!activeStructure} onClick={() => setStructureMode(false)}>{t('文本差异')}</button>
-        {!structural && <span role="status">{t(requestKey && !structureReady ? '正在分析结构…' : '文本模式')}</span>}
-      </div>
+      <span className="code-control-label" role="status">{t(associationOnly ? '高亮：关联片段增减' : activeStructure ? '高亮：结构重点' : '高亮：文本差异')}</span>
       <div className="tool-group"><button className="button icon-button" disabled={!ready || !summary.count} aria-label={t('上一处差异')} title={t('上一处差异 · Shift+F7')} onClick={() => navigate.current(-1)}><ArrowUp size={14} /></button>
         <button className="button icon-button" disabled={!ready || !summary.count} aria-label={t('下一处差异')} title={t('下一处差异 · F7')} onClick={() => navigate.current(1)}><ArrowDown size={14} /></button>
         <button className="button" aria-pressed={expanded} onClick={() => setExpanded(!expanded)}>{t(expanded ? '折叠未变' : '展开全文')}</button></div>
     </div>
-    {structural?.formattingOnly && <p className="code-diff-note">{t('仅排版变化')}</p>}
-    {structureResult?.mode === 'text' && <p className="code-diff-note">{t(structureResult.reason === 'budget' ? '结构分析达到预算，已保留完整文本差异。' : '此片段使用文本模式，已保留完整文本差异。')}</p>}
+    {activeStructure?.formattingOnly && <p className="code-diff-note">{t('仅排版变化')}</p>}
+    {!activeStructure && <p className="code-diff-note code-structure-reason" role="status">{t(structureExplanation)}</p>}
     {ready && !summary.precise && <p className="code-diff-note">{t('差异较大，部分区域仅标出整段变化。')}</p>}
     <div className="code-editor-labels">{split ? <><span>{t('{label} · 原行', { label: beforeLabel })}</span><span>{t('{label} · 新行', { label: afterLabel })}</span></> : <span>{t('原行 / 新行 · 删除 / 新增')}</span>}</div>
     <div className="code-editor-host"><div ref={container} className="code-editor-content" /><div ref={overviewHost} className="code-overview-host" /></div>

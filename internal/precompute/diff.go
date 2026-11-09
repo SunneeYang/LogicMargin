@@ -67,9 +67,13 @@ func ComputeDiff(ctx context.Context, before, after, language string) (DiffResul
 }
 
 func readDiffText(text string, lineIDs map[string]int) (diffText, error) {
+	return readDiffTextWithLimits(text, lineIDs, diffMaxUTF16, diffMaxLines)
+}
+
+func readDiffTextWithLimits(text string, lineIDs map[string]int, maxUTF16, maxLines int) (diffText, error) {
 	// A valid BMP rune uses at most three UTF-8 bytes per UTF-16 unit.
-	if len(text) > 3*diffMaxUTF16 || !utf8.ValidString(text) {
-		return diffText{}, fmt.Errorf("source must be valid UTF-8 within %d UTF-16 units", diffMaxUTF16)
+	if len(text) > 3*maxUTF16 || !utf8.ValidString(text) {
+		return diffText{}, fmt.Errorf("source must be valid UTF-8 within %d UTF-16 units", maxUTF16)
 	}
 	length, lines := 0, 1
 	for i, r := range text {
@@ -83,8 +87,8 @@ func readDiffText(text string, lineIDs map[string]int) (diffText, error) {
 		if r == '\n' {
 			lines++
 		}
-		if length > diffMaxUTF16 || lines > diffMaxLines {
-			return diffText{}, fmt.Errorf("source exceeds %d UTF-16 units or %d lines", diffMaxUTF16, diffMaxLines)
+		if length > maxUTF16 || lines > maxLines {
+			return diffText{}, fmt.Errorf("source exceeds %d UTF-16 units or %d lines", maxUTF16, maxLines)
 		}
 	}
 	digest := sha256.Sum256([]byte(text))

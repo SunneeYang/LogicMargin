@@ -4,6 +4,10 @@
 `docs/structural-diff.md`. `Algorithm()` binds the bundle, embedded native adapter
 sources, grammar versions, pinned Goja version, and actual Go runtime version.
 There is no matching, cache, HTTP API, or UI implementation in this package.
+Callers may parse a complete, revision-verified source file for background
+analysis and project the resulting coordinates onto their displayed slice.
+Source verification and projection belong to the caller; this package never
+reads a workspace to supplement its input.
 
 ## Runtime and build
 
@@ -51,8 +55,14 @@ all-whitespace JSX/template contents remain tokens. Restricted-production and
 increment/decrement newlines produce conservative zero-length boundary tokens;
 invalid throw, arrow, and delegated-yield line breaks are rejected explicitly.
 
-The shared limits are 100,000 UTF-16 units, 2,000 lines, 50,000 tokens/nodes,
-depth 256, and about 750ms per call. A VM timeout or cancellation uses
+The `Parse` limits are 500,000 UTF-16 units, 10,000 lines, 150,000 tokens and
+syntax nodes, depth 256, and five seconds per call (each side is a separate
+call). These background-analysis limits do not change ordinary text diff or
+frontend saved-slice limits. Source validation is included in the deadline,
+with a byte-length guard before UTF-8 validation and periodic cancellation
+checks during UTF-16 counting and native offset mapping. Go checks cancellation
+around its non-interruptible standard-library parser and during scanner/AST
+work. A VM timeout or cancellation uses
 `Interrupt`; the `AfterFunc` callback is stopped or joined before returning.
 Budget exhaustion returns `ErrBudget`; a caller's cancellation/deadline returns
 its context error. Unsupported languages return `ErrUnsupported`; scanner,
@@ -79,11 +89,19 @@ Contract tests cover Go files/declarations/statements/truncation, all supported
 JS dialects, real TS/TSX types, safe formatting, condition edits, content-bearing
 whitespace, ASI boundaries, tree-packing invariance, duplicate scope names,
 UTF-16 emoji/Chinese coordinates, coverage, budgets, cancellation, and concurrent
-isolated VMs. The cross-compile check builds test executables with
+isolated VMs. Non-race runtime tests require complete Go/TS/TSX files larger than
+100,000 UTF-16 units and 2,000 lines to parse under the production deadline,
+retain content/ASI distinctions, and reject real syntax errors. Boundary tests
+cover exactly 500,000 units/10,000 lines, over-limit surrogate pairs, independent
+token/node exhaustion, and the bundle's own source guards. Native cancellation
+checks cover offset mapping, scanning, and AST work; VM cancellation remains
+interruptible. The cross-compile check builds test executables with
 `CGO_ENABLED=0 GOOS=windows GOARCH=amd64` and `GOARCH=arm64`; it does not run them
 on Windows. Service integration remains the caller's responsibility.
 
-Measured on Apple M4 Pro, darwin/arm64, Go 1.26.0, using synthetic public test
+The following historical measurements used the former 750ms deadline; they have
+not been rerun for the larger background budget. Measured on Apple M4 Pro,
+darwin/arm64, Go 1.26.0, using synthetic public test
 inputs of exactly 100,000 UTF-16 units. The dense Go case has 1,907 functions,
 43,864 tokens, and fewer than 2,000 lines. The dense JS case fills the same source
 limit with short functions. These are parser microbenchmarks, not HTTP latency
@@ -100,10 +118,10 @@ or overall diff speedups.
 | JS long template literal | 260.12ms | 26.28MB | Parsed |
 | JS dense functions | 751.95ms | 114.27MB | `ErrBudget` |
 
-The dense JS result measures work until interruption, not a completed parse.
-The 750ms production budget has not been increased to accommodate that input.
-Race instrumentation can make VM initialization alone reach the same fixed
-budget. Syntax correctness tests use adapter calls with a separate test deadline;
+The historical dense JS result measures work until interruption, not a completed
+parse under the current five-second deadline. The benchmark fixtures remain
+exactly 100,000 units regardless of the background parser's source limit.
+Syntax correctness tests use adapter calls with a separate test deadline;
 non-race tests also require public `Parse` success under the production budget.
 Cancellation and resource-limit tests still exercise public `Parse` under race.
 Large-input measurements permit a budget fallback. The tree-packing

@@ -31,6 +31,7 @@ html { background: var(--color-paper); scrollbar-color: var(--color-control-bord
 .appearance-panel { position: absolute; z-index: 96; right: 0; top: calc(100% + 8px); display: grid; gap: var(--space-lg); width: 264px; max-width: calc(100dvw - 24px); max-height: calc(var(--app-height, 100dvh) - 80px); overflow-y: auto; overscroll-behavior: contain; padding: var(--space-lg); border: 1px solid var(--color-rule); border-radius: var(--panel-radius); background: var(--color-surface-solid); box-shadow: var(--shadow-popover); }
 .appearance-field { display: grid; gap: var(--space-sm); min-width: 0; }
 .appearance-field-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-ink); }
+.settings-section-title { margin: 0; color: var(--color-ink); font: inherit; font-size: var(--text-sm); font-weight: 600; }
 .appearance-panel select { display: block; width: 100%; min-height: 44px; padding: var(--space-sm); border: 1px solid var(--color-control-border); border-radius: var(--control-radius); background: var(--color-control); color: var(--color-ink); }
 .appearance-options { display: flex; gap: 2px; min-width: 0; padding: 2px; border: 1px solid var(--color-rule); border-radius: var(--control-radius); background: var(--color-control); }
 .app-shell .appearance-options .button { flex: 1; min-width: 0; min-height: 44px; padding-inline: var(--space-sm); border-color: var(--color-clear); border-radius: var(--radius-sm); background: var(--color-clear); }
@@ -82,3 +83,9 @@ html { background: var(--color-paper); scrollbar-color: var(--color-control-bord
 @media (prefers-reduced-motion: reduce) {
   .review-node, .react-flow__node.selected .review-node { transform: none; }
 }
+
+.version-settings { padding-block-start: var(--space-md); border-block-start: 1px solid var(--color-rule); }
+.runtime-version { font-variant-numeric: tabular-nums; }
+.app-shell .version-settings > .button { min-height: 44px; white-space: normal; line-height: 1.4; }
+.version-status { display: grid; gap: var(--space-sm); }
+.version-error code { overflow-wrap: anywhere; color: var(--color-ink); }

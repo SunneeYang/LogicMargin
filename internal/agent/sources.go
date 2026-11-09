@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"logicmargin/internal/review"
+	"logicmargin/internal/sourcecontext"
 )
 
 const maxFileBytes = 10 * 1024 * 1024
@@ -99,14 +101,30 @@ func (r boundedSourceReader) Read(p []byte) (int, error) {
 }
 
 type sourceResult struct {
-	file  object
-	codes map[int]string
-	err   error
+	file   object
+	codes  map[int]string
+	source *sourcecontext.Source
+	err    error
 }
 
 // VerifySources captures only the current document. Historical baselines are
 // verified separately against their explicitly supplied original workspace.
 func VerifySources(ctx context.Context, doc review.Object, sourceRoot string) (review.Object, error) {
+	return verifySources(ctx, doc, sourceRoot, nil)
+}
+
+// VerifySourcesWithContexts returns optional analysis inputs from the same reads
+// that verified the manifest. Failed verification never exposes partial inputs.
+func VerifySourcesWithContexts(ctx context.Context, doc review.Object, sourceRoot string) (review.Object, []sourcecontext.Source, error) {
+	var sources []sourcecontext.Source
+	report, err := verifySources(ctx, doc, sourceRoot, &sources)
+	if err != nil {
+		return nil, nil, err
+	}
+	return report, sources, nil
+}
+
+func verifySources(ctx context.Context, doc review.Object, sourceRoot string, contexts *[]sourcecontext.Source) (review.Object, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -216,7 +234,7 @@ func VerifySources(ctx context.Context, doc review.Object, sourceRoot string) (r
 		go func() {
 			defer workers.Done()
 			for i := range jobs {
-				results[i] = verifySource(ctx, root, paths[i], files[i], hasDeclared, evidence, references[str(files[i]["path"])], budget)
+				results[i] = verifySource(ctx, root, paths[i], files[i], hasDeclared, evidence, references[str(files[i]["path"])], budget, contexts != nil)
 			}
 		}()
 	}
@@ -270,10 +288,17 @@ func VerifySources(ctx context.Context, doc review.Object, sourceRoot string) (r
 	nextSnapshot["files"] = manifest
 	// Publish together only after every source, snippet and fingerprint succeeded.
 	doc["nodes"], doc["snapshot"] = nodes, nextSnapshot
+	if contexts != nil {
+		for _, result := range results {
+			if result.source != nil {
+				*contexts = append(*contexts, *result.source)
+			}
+		}
+	}
 	return object{"algorithm": "sha256-path-content-v1", "checkedAt": now(), "files": manifest, "fingerprint": fingerprint}, nil
 }
 
-func verifySource(ctx context.Context, root *os.Root, rel string, file object, declared bool, evidence []object, indexes []int, budget *sourceBudget) (result sourceResult) {
+func verifySource(ctx context.Context, root *os.Root, rel string, file object, declared bool, evidence []object, indexes []int, budget *sourceBudget, captureContext bool) (result sourceResult) {
 	fail := func(err error) sourceResult { return sourceResult{err: err} }
 	if err := ctx.Err(); err != nil {
 		return fail(err)
@@ -295,14 +320,14 @@ func verifySource(ctx context.Context, root *os.Root, rel string, file object, d
 	if info.Size() > maxFileBytes {
 		return fail(sourceSizeError)
 	}
-	bytes, err := io.ReadAll(io.LimitReader(boundedSourceReader{ctx, f, budget}, maxFileBytes+1))
+	raw, err := io.ReadAll(io.LimitReader(boundedSourceReader{ctx, f, budget}, maxFileBytes+1))
 	if err != nil {
 		return fail(err)
 	}
-	if len(bytes) > maxFileBytes {
+	if len(raw) > maxFileBytes {
 		return fail(sourceSizeError)
 	}
-	hash := digest(bytes)
+	hash := digest(raw)
 	if declared && file["sha256"] != hash {
 		return fail(fmt.Errorf("来源文件已变化：%s；当前 SHA-256 为 %s，请重新核对流程并更新清单", path, hash))
 	}
@@ -311,10 +336,14 @@ func verifySource(ctx context.Context, root *os.Root, rel string, file object, d
 	if len(indexes) == 0 {
 		return result
 	}
-	if !utf8.Valid(bytes) {
+	if !utf8.Valid(raw) {
 		return fail(fmt.Errorf("源码依据不是有效 UTF-8 文本：%s", path))
 	}
-	content := strings.TrimPrefix(string(bytes), "\ufeff")
+	content := string(raw)
+	if captureContext && len(raw) <= sourcecontext.MaxFileBytes && !bytes.ContainsRune(raw, 0) && contains(strings.ToLower(filepath.Ext(path)), ".go", ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx") {
+		result.source = &sourcecontext.Source{Path: path, SHA256: hash, Content: content}
+	}
+	content = strings.TrimPrefix(content, "\ufeff")
 	content = strings.ReplaceAll(content, "\r\n", "\n")
 	// Keep offsets only for referenced boundaries, even for newline-heavy files.
 	offsets := map[int]int{1: 0}

@@ -8,6 +8,7 @@ import * as merge from '@codemirror/merge'
 import * as focus from './graph-focus.ts'
 import { sampleReview } from './sample.ts'
 import { precompute } from './precompute.ts'
+import { associationComparison } from './code-diff.ts'
 import type { ComputedDiff, ComputedLayout, LayoutInput } from './precompute.ts'
 import type { StructureResult } from './structural-code-diff.ts'
 
@@ -111,7 +112,7 @@ const mocks: Record<string, string> = {
   react, './i18n.ts': i18n,
   '@codemirror/view': moduleUrl(`export * from ${JSON.stringify(import.meta.resolve('@codemirror/view'))}; export const EditorView = globalThis.__precomputeTest.FakeView;`),
   '@codemirror/merge': moduleUrl(`export * from ${JSON.stringify(import.meta.resolve('@codemirror/merge'))}; export const MergeView = globalThis.__precomputeTest.FakeMerge, getChunks = globalThis.__precomputeTest.getChunks, mergeViewSiblings = () => null;`),
-  './code-overview.ts': moduleUrl('export const codeOverview = () => ({update(){}, destroy(){}});'),
+  './code-overview.ts': moduleUrl('export const codeOverview = () => ({update(){}, setRanges(){}, destroy(){}});'),
   './graph-layout.ts': moduleUrl('export const layoutGraph = globalThis.__precomputeTest.localLayout;'),
   './graph-focus.ts': moduleUrl(`export const { availableScopeNodeIds, graphBounds, relatedNodeIds } = globalThis.__precomputeTest.focus;
     export const comparisonLayout = globalThis.__precomputeTest.localLayout;`),
@@ -146,6 +147,30 @@ function computed(before: string, after: string, key: string): ComputedDiff {
     before: { digest: 'digest', length: before.length }, after: { digest: 'digest', length: after.length },
     changes: [{ fromA: 0, toA: before.length, fromB: 0, toB: after.length }] }
 }
+
+test('single-sided references explain text-only highlighting without an unusable structural switch', () => {
+  const comparison = associationComparison({ key: 'new-reference', ambiguous: false,
+    after: { evidence: { ...ref, code: 'const added = true;' }, nodeIds: ['new'], nodeTitles: ['New'] } })!
+  const host = hookHost(Editor)
+  try {
+    const tree = host.render({ before: comparison.before, after: comparison.after, beforeLabel: 'B', afterLabel: 'R1', split: false, precomputedDiff: comparison.diff })
+    assert.equal(find(tree, item => item.type === 'button' && item.props.children === '结构重点'), undefined)
+    assert.equal(find(tree, item => item.props?.className === 'code-diff-note code-structure-reason').props.children, '单侧关联仅显示片段增减，无两侧结构可比较。')
+  } finally { host.unmount() }
+})
+
+test('an unexpected structure rejection settles to an explained text fallback', async () => {
+  const originalDiff = precompute.diff, originalStructure = precompute.structure
+  precompute.diff = async () => computed('old', 'new', 'fallback')
+  precompute.structure = async () => { throw new Error('fixture rejection') }
+  const host = hookHost(Editor)
+  try {
+    host.render({ before: { ...ref, code: 'old' }, after: { ...ref, code: 'new' }, beforeLabel: 'B', afterLabel: 'R1', split: false, precomputeContext: context })
+    const tree = await host.settle()
+    assert.equal(find(tree, item => item.type === 'button' && item.props.children === '结构重点'), undefined)
+    assert.equal(find(tree, item => item.props?.className === 'code-diff-note code-structure-reason').props.children, '文本模式：当前材料未提供可用的结构分析结果。')
+  } finally { host.unmount(); precompute.diff = originalDiff; precompute.structure = originalStructure }
+})
 
 test('all three editor modes wait for the backend and consume its override; comment and locale updates retain the editor', async () => {
   const original = precompute.diff
@@ -344,7 +369,7 @@ function structural(before: string, after: string): StructureResult {
       after: [{ from: after.indexOf('new'), to: after.indexOf('new') + 1 }] }, scopes: [], moves: [] }
 }
 
-test('split, short and virtual editors consume independent structural marks and restore full text emphasis in place', async () => {
+test('split, short and virtual editors automatically apply late structural marks in place', async () => {
   const originalDiff = precompute.diff, originalStructure = precompute.structure
   try {
     for (const mode of ['split', 'short', 'virtual']) {
@@ -367,9 +392,8 @@ test('split, short and virtual editors consume independent structural marks and 
         assert.equal(runtime.views.length, count, 'late structure keeps editor identity')
         assert.deepEqual(view.state.selection.toJSON(), selection)
         assert.equal(Reflect.get(view.scrollDOM, 'scrollTop'), 130)
-        find(tree, element => element.type === 'button' && element.props.children === '结构重点').props.onClick()
-        tree = host.flush()
         assert.equal(tree.props['data-diff-mode'], 'structural')
+        assert.equal(find(tree, element => element.type === 'button' && ['结构重点', '文本差异'].includes(element.props.children)), undefined)
         assert.deepEqual(structuralMarks(view).map(mark => view.state.doc.sliceString(mark.from, mark.to)), mode === 'split' ? ['n'] : ['o', 'n'])
         const chunk = mode === 'split' ? Reflect.get(runtime, 'getChunks')(view.state).chunks[0] : null
         if (chunk) assert.equal(chunk.fromB + chunk.changes[0].fromB, 0, 'raw alignment still consumes the coarse text diff')
@@ -381,16 +405,13 @@ test('split, short and virtual editors consume independent structural marks and 
         find(tree, element => element.type === 'button' && element.props['aria-label'] === '下一处差异').props.onClick()
         const target = mode === 'split' ? runtime.views.at(-2)! : view
         assert.equal(target.state.selection.main.head, structuralMarks(target)[0].from, 'navigation follows structural ranges, not the coarse raw text chunk')
-        find(tree, element => element.type === 'button' && element.props.children === '文本差异').props.onClick()
-        tree = host.flush()
-        assert.equal(tree.props['data-diff-mode'], 'text'); assert.equal(structuralMarks(view).length, 0)
         assert.equal(runtime.views.length, count)
       } finally { host.unmount() }
     }
   } finally { precompute.diff = originalDiff; precompute.structure = originalStructure }
 })
 
-test('late structure and explicit mode switches preserve repeated context expansions', async () => {
+test('automatic structure preserves repeated context expansions and language changes', async () => {
   const originalDiff = precompute.diff, originalStructure = precompute.structure, document = globalThis.document
   const before = Array.from({ length: 360 }, (_, i) => i === 200 ? 'old' : `line ${i}`).join('\n'), after = before.replace('old', 'new')
   const from = before.indexOf('old'), pending = deferred<StructureResult | null>()
@@ -412,11 +433,9 @@ test('late structure and explicit mode switches preserve repeated context expans
     }
     for (let i = 0; i < 2; i++) folds()[0].toDOM(view).children.find((button: any) => button.dataset.contextEdge === 'end').onclick()
     const saved = folds().map(widget => ({ ...widget.fold })), count = runtime.views.length
-    pending.resolve(structural(before, after)); let tree = await host.settle()
-    for (const mode of ['结构重点', '文本差异', '结构重点']) {
-      find(tree, element => element.type === 'button' && element.props.children === mode).props.onClick(); tree = host.flush()
-      assert.deepEqual(folds().map(widget => widget.fold), saved)
-    }
+    pending.resolve(structural(before, after)); const tree = await host.settle()
+    assert.equal(tree.props['data-diff-mode'], 'structural')
+    assert.deepEqual(folds().map(widget => widget.fold), saved)
     runtime.locale = 'en-US'; host.render(props); runtime.locale = 'zh-CN'; host.render(props)
     assert.deepEqual(folds().map(widget => widget.fold), saved); assert.equal(runtime.views.length, count)
   } finally { host.unmount(); precompute.diff = originalDiff; precompute.structure = originalStructure; globalThis.document = document }
@@ -469,7 +488,7 @@ test('unsupported, budget, invalid and old-service structures retain the complet
         host.render({ before: { ...ref, code: before }, after: { ...ref, code: after }, beforeLabel: 'B', afterLabel: 'R2', split: false, precomputeContext: context })
         const tree = await host.settle(), view = runtime.views.at(-1)!
         assert.equal(tree.props['data-diff-mode'], 'text')
-        assert.equal(find(tree, element => element.type === 'button' && element.props.children === '结构重点').props.disabled, true)
+        assert.equal(find(tree, element => element.type === 'button' && element.props.children === '结构重点'), undefined)
         assert.ok(view.state.doc.toString().includes(before)); assert.ok(view.state.doc.toString().includes(after))
         assert.equal(structuralMarks(view).length, 0)
       } finally { host.unmount() }
@@ -490,9 +509,10 @@ test('a stale structure response cannot attach highlights or moves to the new sn
     host.render(next); await host.settle(); assert.equal(signals[0].aborted, true)
     const view = runtime.views.at(-1)!, count = runtime.views.length
     first.resolve(structural('old', 'new')); let tree = await host.settle()
-    assert.equal(find(tree, element => element.type === 'button' && element.props.children === '结构重点').props.disabled, true)
+    assert.equal(tree.props['data-diff-mode'], 'text')
     second.resolve(structural('old', 'new snippet')); tree = await host.settle()
-    assert.equal(find(tree, element => element.type === 'button' && element.props.children === '结构重点').props.disabled, false)
+    assert.equal(tree.props['data-diff-mode'], 'structural')
+    assert.ok(structuralMarks(view).length > 0)
     assert.equal(view.destroyed, false); assert.equal(runtime.views.length, count)
   } finally { host.unmount(); precompute.diff = originalDiff; precompute.structure = originalStructure }
 })

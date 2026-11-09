@@ -11,7 +11,7 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 ## 建立连接
 
-将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.2 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
+将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.3 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
 
 ```sh
 "$LM_CLI" server start
@@ -45,7 +45,7 @@ MCP 只接受本机连接。用户要求 Tailscale/局域网网页访问时，�
 
 基线已嵌入 `review_file` 的 `baseline` 字段时，传 `baseline_source_root` 核验旧树即可。B 在后续 R2、R3 中保持固定；`base_round` 继续填写实际处理的评审轮次。
 
-代码对照仅使用固定 B/R 保存的源码片段；历史缺失时说明缺失，不补读当前工作区。结构重点和明确移动块的原位置局部对照是阅读辅助，移动时又修改的内容也需核对；不支持、配对不确定或预算耗尽时保留文本差异，不据此判断通用语义等价。
+代码对照仅显示固定 B/R 保存的源码片段；后端可使用发布时按版本核验的完整源码缓存做结构分析，再投影回原片段。历史缺失时说明缺失，不补读当前工作区。结构重点和明确移动块的原位置局部对照是阅读辅助，移动时又修改的内容也需核对；不支持、配对不确定或预算耗尽时保留文本差异，不据此判断通用语义等价。
 
 从原系统 B 开始收集改造意见时，`review_file` 提供原版图，`source_root` 指向其真实源码，设置 `baseline_review: true`，省略独立的基线文件与目录。工具核验原版一次并固定为 B，页面先显示 B，第一次实现发布后显示 R1。
 

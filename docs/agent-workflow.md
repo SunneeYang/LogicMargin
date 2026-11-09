@@ -6,7 +6,7 @@
 
 ## 连接服务
 
-0.9.2 默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server setup`。
+0.9.3 默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server setup`。
 
 首次使用执行：
 
@@ -34,7 +34,7 @@
 }
 ```
 
-`start_review` 创建前核验源码文件、片段摘要和快照指纹；`verify_review` 可独立核验，不创建任务。来源范围优先取 `snapshot.files`，未声明时取图内依据涉及的文件。校验不能代替按源码核对业务语义。
+`start_review` 创建前核验源码文件、片段摘要和快照指纹；`verify_review` 可独立核验，不创建任务。来源范围优先取 `snapshot.files`，未声明时取图内依据涉及的文件。校验不能代替按源码核对业务语义。 Go CLI 在同次核验中另行捕获原始完整源码，发布成功后仅向本机后台上传可选分析缓存；旧服务或上传失败不改变已成功的发布。全文绑定快照内文件 SHA 与已核验片段，只用于后端结构分析，不写入评审/历史 JSON，也不自动上传本地导入。
 
 每个独立目的分别创建任务，即使来自同一对话或使用同一评审文件，也取得新的 session ID。`purpose` 必填，`context` 使用实际上下文标识，可省略。新建任务不继承文件里的旧批注；同一目的的连续修改沿原 session 调用 `revise_review`。
 

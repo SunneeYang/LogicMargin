@@ -1,4 +1,5 @@
 import type { Evidence, ReviewDocument, Target } from './types.ts'
+import type { ComputedDiff } from './precompute.ts'
 
 export interface CodeReference {
   evidence: Evidence
@@ -11,6 +12,32 @@ export interface CodePair {
   before?: CodeReference
   after?: CodeReference
   ambiguous: boolean
+}
+
+export function codePairKind(pair: CodePair) {
+  if (pair.ambiguous) return 'ambiguous'
+  if (pair.before && pair.before.evidence.code === undefined || pair.after && pair.after.evidence.code === undefined) return 'unavailable'
+  if (!pair.before) return 'added'
+  if (!pair.after) return 'removed'
+  return pair.before.evidence.code === pair.after.evidence.code ? 'unchanged' : 'changed'
+}
+
+export function prioritizeCodePairs(pairs: CodePair[]): CodePair[] {
+  const priority = { changed: 0, added: 1, removed: 2, unavailable: 3, ambiguous: 4, unchanged: 5 }
+  return pairs.slice().sort((a, b) => priority[codePairKind(a)] - priority[codePairKind(b)])
+}
+
+export function associationComparison(pair: CodePair): { before: Evidence; after: Evidence; diff: ComputedDiff } | undefined {
+  const saved = pair.after?.evidence ?? pair.before?.evidence
+  if (pair.ambiguous || !!pair.before === !!pair.after || saved?.code === undefined) return
+  // The empty side denotes an absent reference, never proof that a file did not exist.
+  const empty: Evidence = { ...saved, startLine: 1, endLine: 1, code: '', digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }
+  const before = pair.before?.evidence ?? empty, after = pair.after?.evidence ?? empty
+  return { before, after, diff: { schemaVersion: 1, algorithm: 'association-text-v1', coordinate: 'utf16',
+    key: JSON.stringify([pair.key, !!pair.after, saved.digest]), language: '', precise: true,
+    before: { digest: before.digest, length: before.code!.length }, after: { digest: after.digest, length: after.code!.length },
+    changes: saved.code ? [{ fromA: 0, toA: before.code!.length, fromB: 0, toB: after.code!.length }] : [],
+  } }
 }
 
 export function collectCodeReferences(review: ReviewDocument, targets: Target[]): CodeReference[] {

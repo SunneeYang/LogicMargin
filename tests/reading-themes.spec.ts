@@ -15,7 +15,7 @@ async function openReview(page: Page) {
 }
 
 async function chooseTheme(page: Page, theme: string, mode: string) {
-  await page.getByLabel('外观设置', { exact: true }).click()
+  await page.getByLabel('设置', { exact: true }).click()
   await page.getByLabel('界面主题', { exact: true }).selectOption(theme)
   await page.locator(`#appearance-mode button[value="${mode}"]`).click()
   await page.keyboard.press('Escape')

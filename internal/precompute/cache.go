@@ -24,7 +24,9 @@ import (
 const memoryBudget = 32 * 1024 * 1024
 const inputBudget = 64 * 1024 * 1024
 const diskBudget = 128 * 1024 * 1024
-const maxArtifactBytes = 8 * 1024 * 1024
+
+// A 150k-token document can exceed 8 MiB; the shared LRU remains 32 MiB.
+const maxArtifactBytes = 16 * 1024 * 1024
 const maxDiskEntries = 1024
 
 var ErrBusy = errors.New("预计算任务繁忙，请稍后重试")
@@ -70,18 +72,23 @@ type Engine struct {
 	memoryBytes, inputBytes int
 	inFlight                map[string]*artifactJob
 	queue                   chan *artifactJob
+	structureQueue          chan *artifactJob
 	stats                   Stats
 }
 
 func NewEngine(cacheDir string) *Engine {
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &Engine{ctx: ctx, cancel: cancel, cacheDir: cacheDir, cache: map[string]*list.Element{}, lru: list.New(), inFlight: map[string]*artifactJob{}, queue: make(chan *artifactJob, 32)}
+	e := &Engine{ctx: ctx, cancel: cancel, cacheDir: cacheDir, cache: map[string]*list.Element{}, lru: list.New(), inFlight: map[string]*artifactJob{}, queue: make(chan *artifactJob, 32), structureQueue: make(chan *artifactJob, 32)}
 	if cacheDir != "" {
 		e.pruneDisk()
 	}
 	for i := 0; i < min(4, max(1, runtime.GOMAXPROCS(0))); i++ {
 		e.workers.Add(1)
-		go e.worker()
+		go e.worker(e.queue, 4*time.Second)
+	}
+	for i := 0; i < min(2, max(1, runtime.GOMAXPROCS(0))); i++ {
+		e.workers.Add(1)
+		go e.worker(e.structureQueue, 15*time.Second)
 	}
 	return e
 }
@@ -93,6 +100,14 @@ func artifactKey(kind string, input any) string {
 }
 
 func (e *Engine) get(ctx context.Context, key string, inputBytes int, compute func(context.Context) ([]byte, error)) (json.RawMessage, string, error) {
+	return e.getQueued(ctx, key, inputBytes, compute, e.queue)
+}
+
+func (e *Engine) getStructure(ctx context.Context, key string, inputBytes int, compute func(context.Context) ([]byte, error)) (json.RawMessage, string, error) {
+	return e.getQueued(ctx, key, inputBytes, compute, e.structureQueue)
+}
+
+func (e *Engine) getQueued(ctx context.Context, key string, inputBytes int, compute func(context.Context) ([]byte, error), queue chan *artifactJob) (json.RawMessage, string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, "", err
 	}
@@ -113,7 +128,7 @@ func (e *Engine) get(ctx context.Context, key string, inputBytes int, compute fu
 	if job != nil {
 		e.stats.Shared++
 	} else {
-		if e.inputBytes+inputBytes > inputBudget {
+		if inputBytes < 0 || inputBytes > inputBudget-e.inputBytes {
 			e.mu.Unlock()
 			return nil, "", ErrBusy
 		}
@@ -121,7 +136,7 @@ func (e *Engine) get(ctx context.Context, key string, inputBytes int, compute fu
 		e.inFlight[key] = job
 		e.inputBytes += inputBytes
 		select {
-		case e.queue <- job:
+		case queue <- job:
 		default:
 			delete(e.inFlight, key)
 			e.inputBytes -= inputBytes
@@ -142,7 +157,7 @@ func (e *Engine) get(ctx context.Context, key string, inputBytes int, compute fu
 	}
 }
 
-func (e *Engine) worker() {
+func (e *Engine) worker(queue <-chan *artifactJob, timeout time.Duration) {
 	defer e.workers.Done()
 	for {
 		if e.ctx.Err() != nil {
@@ -151,7 +166,7 @@ func (e *Engine) worker() {
 		select {
 		case <-e.ctx.Done():
 			return
-		case job := <-e.queue:
+		case job := <-queue:
 			if e.ctx.Err() != nil {
 				e.finish(job, nil, ErrClosed, "miss")
 				continue
@@ -168,7 +183,7 @@ func (e *Engine) worker() {
 			e.stats.Computations++
 			e.stats.PeakActive = max(e.stats.PeakActive, e.stats.Active)
 			e.mu.Unlock()
-			ctx, cancel := context.WithTimeout(e.ctx, 4*time.Second)
+			ctx, cancel := context.WithTimeout(e.ctx, timeout)
 			raw, err := computeArtifact(ctx, job.compute)
 			if err == nil {
 				err = ctx.Err()
@@ -230,6 +245,7 @@ func (e *Engine) finish(job *artifactJob, raw []byte, err error, status string) 
 		}
 	}
 	job.raw, job.err, job.status = raw, err, status
+	job.compute = nil
 	close(job.done)
 }
 
@@ -249,6 +265,12 @@ func (e *Engine) Close() {
 		e.mu.Unlock()
 		e.cancel()
 		e.workers.Wait()
+		// No producer can enqueue after closed; release abandoned queued closures.
+		for _, queue := range []chan *artifactJob{e.queue, e.structureQueue} {
+			for len(queue) > 0 {
+				<-queue
+			}
+		}
 		e.mu.Lock()
 		jobs := make([]*artifactJob, 0, len(e.inFlight))
 		for _, job := range e.inFlight {

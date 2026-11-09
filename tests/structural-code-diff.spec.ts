@@ -133,13 +133,13 @@ async function openCode(page: Page, split = false, id = 'sparse') {
   const dock = panel.getByRole('button', { name: '移到侧栏编辑', exact: true })
   if (await dock.isVisible()) await dock.click()
   await page.locator('.resize-right').focus(); await page.keyboard.press('End')
-  if (split) await panel.getByRole('button', { name: '并排', exact: true }).click()
+  await panel.getByRole('button', { name: split ? '并排' : '统一', exact: true }).click()
   await expect(panel.locator('.cm-editor')).toHaveCount(split ? 2 : 1)
   return panel
 }
 
-function structureButton(panel: Locator) {
-  return panel.locator('.code-structure-mode').getByRole('button', { name: /^(结构重点|Structural focus)$/ })
+function structureEditor(panel: Locator) {
+  return panel.locator('.code-editor').first()
 }
 
 for (const sample of structuralCases) test(`API ${sample.id}: saved sources, UTF-16 highlights and conservative pairing`, async ({ request }) => {
@@ -172,7 +172,7 @@ test('structure accepts only saved references and snapshot identity', async ({ r
   }
 })
 
-for (const mode of modes) test(`${mode.name}: consumes injected structure highlights and retains complete text mode`, async ({ page, request }) => {
+for (const mode of modes) test(`${mode.name}: automatically consumes injected structure highlights and retains source text`, async ({ page, request }) => {
   const sample = structuralReadingCase(mode.lines), session = await createSession(request, sample)
   let consumed = false
   const input = structuralInput(session.review)
@@ -191,18 +191,12 @@ for (const mode of modes) test(`${mode.name}: consumes injected structure highli
   })
   await page.goto(`/?session=${session.id}`)
   const panel = await openCode(page, mode.split)
-  await expect(structureButton(panel)).toBeEnabled()
+  await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
   expect(consumed).toBe(true)
-  await expect(panel.locator('.cm-structural-highlight')).toHaveCount(0)
-  const rawMarkers = await panel.locator('.code-overview .is-added, .code-overview .is-removed').count()
-  expect(rawMarkers).toBeGreaterThan(0)
-  await structureButton(panel).click()
+  await expect(panel.getByRole('button', { name: /^(结构重点|文本差异|Structural focus|Text diff)$/ })).toHaveCount(0)
   await expect(panel.locator('.cm-structural-added')).toHaveText(['accepts'])
   await expect(panel.locator('.cm-structural-removed')).toHaveText(['accepts'])
   await expect(panel.locator('.cm-structural-highlight')).toHaveCount(2)
-  await panel.getByRole('button', { name: '文本差异', exact: true }).click()
-  await expect(panel.locator('.cm-structural-highlight')).toHaveCount(0)
-  await expect(panel.locator('.code-overview .is-added, .code-overview .is-removed')).toHaveCount(rawMarkers)
   await expect(panel.locator('.cm-content').first()).toContainText('accepts')
 })
 
@@ -221,6 +215,8 @@ for (const mode of modes) test(`${mode.name}: late structure preserves reader id
     await page.goto(`/?session=${session.id}`)
     const panel = await openCode(page, mode.split), editors = panel.locator('.cm-editor')
     await expect.poll(() => received).toBe(true)
+    await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'text')
+    await expect(panel.locator('.cm-structural-highlight')).toHaveCount(0)
     await editors.evaluateAll(elements => elements.forEach(element => { (element as HTMLElement).dataset.structureIdentity = 'retained' }))
     const gap = editors.first().locator('[data-fold-id="1"]')
     const count = Number(await gap.getAttribute('data-line-count'))
@@ -248,30 +244,25 @@ for (const mode of modes) test(`${mode.name}: late structure preserves reader id
     const top = await scroll.evaluate(element => element.scrollTop)
     expect(top).toBeGreaterThan(0)
     release()
-    await expect(structureButton(panel)).toBeEnabled()
+    await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
     for (const editor of await editors.all()) await expect(editor).toHaveAttribute('data-structure-identity', 'retained')
     expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(selected)
     expect(Math.abs(await scroll.evaluate(element => element.scrollTop) - top)).toBeLessThan(2)
     await scroll.evaluate((element, top) => { element.scrollTop = top }, foldTop)
     await expect(gap).toHaveAttribute('data-line-count', String(count - 60))
     await expect(gap.locator('[data-context-edge="start"]')).toHaveAccessibleName(/Expand \d+ lines below/)
-    await expect(panel.locator('.cm-structural-highlight')).toHaveCount(0)
-    await structureButton(panel).click()
-    await expect(panel.locator('.code-editor').first()).toHaveAttribute('data-diff-mode', 'structural')
-    await expect(gap).toHaveAttribute('data-line-count', String(count - 60))
-    for (const editor of await editors.all()) await expect(editor).toHaveAttribute('data-structure-identity', 'retained')
   } finally { release() }
 })
 
-test('format-only has a clear label and keeps the full text diff available', async ({ page, request }) => {
+test('format-only is automatic with a clear label and preserved source text', async ({ page, request }) => {
   const session = await createSession(request, structuralCases.find(sample => sample.id === 'ts-format')!)
   await page.goto(`/?session=${session.id}`)
   const panel = await openCode(page)
-  await expect(structureButton(panel)).toBeEnabled(); await structureButton(panel).click()
+  await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
   await expect(panel.getByText('仅排版变化', { exact: true })).toBeVisible()
   await expect(panel.locator('.cm-structural-highlight')).toHaveCount(0)
-  await panel.getByRole('button', { name: '文本差异', exact: true }).click()
-  expect(await panel.locator('.code-overview .is-added, .code-overview .is-removed').count()).toBeGreaterThan(0)
+  await expect(panel.locator('.cm-content')).not.toBeEmpty()
+  await expect(panel.getByRole('button', { name: /^(结构重点|文本差异)$/ })).toHaveCount(0)
 })
 
 test('a late result for the previous node cannot replace the selected saved node', async ({ page, request }) => {
@@ -291,9 +282,8 @@ test('a late result for the previous node cannot replace the selected saved node
     await expect.poll(() => received).toBe(true)
     await first.getByRole('button', { name: '关闭讨论', exact: true }).click()
     const panel = await openCode(page, false, 'alternate')
-    await expect(structureButton(panel)).toBeEnabled()
+    await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
     await panel.locator('.cm-editor').evaluate(element => { (element as HTMLElement).dataset.structureIdentity = 'alternate' })
-    await structureButton(panel).click()
     await expect(panel.locator('.cm-structural-highlight').first()).toBeAttached()
     const marks = await panel.locator('.cm-structural-highlight').allTextContents()
     release()
@@ -317,7 +307,7 @@ test('moved code opens the saved slices with original line numbers and no slice 
   page.on('request', request => { if (/\/precompute\/(diff|structure)$/.test(new URL(request.url()).pathname)) calls.push(request.postDataJSON()) })
   await page.goto(`/?session=${session.id}`)
   const panel = await openCode(page)
-  await expect(structureButton(panel)).toBeEnabled(); await structureButton(panel).click()
+  await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
   const row = panel.locator('.code-move').filter({ hasText: 'Alpha' })
   await expect(row).toHaveCount(1)
   await expect(row).toContainText('移动并修改')
@@ -357,7 +347,7 @@ for (const id of ['duplicate-name', 'duplicate-body', 'offset-only']) test(`${id
   expect(response.ok(), await response.text()).toBe(true)
   const value = await response.json() as StructureResult
   expect(value.moves).toEqual([])
-  if (value.mode === 'structural') { await expect(structureButton(panel)).toBeEnabled(); await structureButton(panel).click() }
+  if (value.mode === 'structural') { await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural') }
   await expect(panel.locator('.code-move')).toHaveCount(0)
 })
 
@@ -387,11 +377,18 @@ for (const fallback of ['old-capability', 'failed-request', 'text-result', 'inva
     await expect.poll(() => structureRequests).toBeGreaterThan(0)
     await expect(panel.getByText(/文本模式/).first()).toBeVisible()
   } else expect(structureRequests).toBe(0)
+  const reason = panel.locator('.code-structure-reason')
+  if (fallback === 'invalid-syntax') await expect(reason).toContainText('片段不完整或语法无效')
+  if (fallback === 'unsupported-language') await expect(reason).toContainText('暂不支持此语言')
+  if (fallback === 'text-result') await expect(reason).toContainText('达到预算')
+  await expect(panel.locator('.code-diff-mode')).toContainText('布局')
+  await expect(panel.locator('.code-editor-tools .code-control-label')).toContainText('高亮：文本差异')
+  await expect(panel.getByRole('button', { name: /^(结构重点|文本差异)$/ })).toHaveCount(0)
   await panel.getByRole('button', { name: '并排', exact: true }).click()
   await expect(panel.locator('.cm-editor')).toHaveCount(2)
 })
 
-test('late structure in text mode retains the focused overview control', async ({ page, request }) => {
+test('automatic late structure retains the focused overview control', async ({ page, request }) => {
   const session = await createSession(request)
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
@@ -408,7 +405,7 @@ test('late structure in text mode retains the focused overview control', async (
     await overview.evaluate(element => { (element as HTMLElement).dataset.structureIdentity = 'retained' })
     await overview.focus()
     release()
-    await expect(structureButton(panel)).toBeEnabled()
+    await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
     await expect(overview).toHaveAttribute('data-structure-identity', 'retained')
     await expect(overview).toBeFocused()
   } finally { release() }
@@ -420,8 +417,7 @@ test('structure and moved slices validate when browser crypto.subtle is unavaila
   await page.goto(`/?session=${session.id}`)
   const panel = await openCode(page)
   expect(await page.evaluate(() => crypto.subtle)).toBeUndefined()
-  await expect(structureButton(panel)).toBeEnabled()
-  await structureButton(panel).click()
+  await expect(structureEditor(panel)).toHaveAttribute('data-diff-mode', 'structural')
   await expect(panel.locator('.code-editor').first()).toHaveAttribute('data-diff-mode', 'structural')
   await panel.locator('.code-move').filter({ hasText: 'Alpha' }).getByRole('button', { name: '与原位置对照', exact: true }).click()
   await expect(panel.locator('.code-move-comparison .cm-editor')).toHaveCount(1)

@@ -71,6 +71,17 @@ test('structure transport uses only snapshot references, deduplicates, caches an
   assert.deepEqual(requests, [{ url: '/api/precompute', body: undefined }, { url: '/api/review-sessions/a%2Fb/precompute/structure', body: input }])
 })
 
+test('background structure gets a longer request deadline while capability checks stay short', async t => {
+  const deadlines: number[] = []
+  t.mock.method(AbortSignal, 'timeout', (ms: number) => {
+    deadlines.push(ms)
+    return new AbortController().signal
+  })
+  const client = createPrecomputeClient(async url => response(String(url) === '/api/precompute' ? caps : structure()))
+  assert.deepEqual(await client.structure('saved', input, before, after), structure())
+  assert.deepEqual(deadlines, [2000, 20_000])
+})
+
 test('optional capabilities, old endpoints, invalid data and timeouts preserve text fallback', async t => {
   for (const capabilities of [null, { ...caps, structureAlgorithm: undefined }, { ...caps, structureAlgorithm: null }]) {
     let posts = 0

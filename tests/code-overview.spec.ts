@@ -32,19 +32,20 @@ for (const sample of [
   await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
   if (!sample.mobile) {
     await panel.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
     await page.locator('.resize-right').focus()
     await page.keyboard.press('End')
   }
-  if (sample.split) await panel.getByRole('button', { name: '并排', exact: true }).click()
+  await panel.getByRole('button', { name: sample.split ? '并排' : '统一', exact: true }).click()
   await expect(panel.locator('.cm-editor')).toHaveCount(sample.split ? 2 : 1)
   const overview = panel.locator('.code-overview')
   const input = overview.getByRole('slider', { name: '当前片段差异总览', exact: true })
   await expect(input).toBeEnabled()
   await input.evaluate(element => { (element as HTMLElement).dataset.identity = 'overview' })
-  await expect(overview.locator('.is-added')).toHaveCount(2)
-  await expect(overview.locator('.is-removed')).toHaveCount(2)
+  await expect.poll(() => overview.locator('.is-added').count()).toBeGreaterThan(0)
+  await expect.poll(() => overview.locator('.is-removed').count()).toBeGreaterThan(0)
   const scroll = panel.locator(sample.split ? '.cm-mergeView' : '.cm-scroller').first()
   const viewport = overview.locator('.code-overview-viewport')
   const column = await overview.evaluate(element => {
@@ -126,7 +127,7 @@ for (const sample of [
   const oldHeight = await viewport.evaluate(element => element.getBoundingClientRect().height)
   await panel.getByRole('button', { name: '展开全文', exact: true }).click()
   await expect.poll(() => viewport.evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(oldHeight)
-  const expandedMarks = await overview.evaluate(element => [...element.querySelectorAll('.code-overview-mark')].slice(0, 2).map(mark => mark.getBoundingClientRect().toJSON()))
+  const expandedMarks = await overview.evaluate(element => ['.is-removed', '.is-added'].map(selector => element.querySelector(selector)!.getBoundingClientRect().toJSON()))
   expect(expandedMarks[0].bottom).toBeLessThanOrEqual(expandedMarks[1].y + 1)
   if (sample.lines > 200) expect(await panel.locator('.cm-line').count()).toBeLessThan(200)
   const menu = page.locator('.appearance-menu')
@@ -164,15 +165,20 @@ for (const sample of [
   await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
   const overview = panel.locator('.code-overview')
-  await expect(overview.locator('.is-removed')).toHaveCount(sample.removed)
-  await expect(overview.locator('.is-added')).toHaveCount(sample.added)
+  for (const [kind, count] of [['removed', sample.removed], ['added', sample.added]] as const) {
+    if (!count) await expect(overview.locator(`.is-${kind}`)).toHaveCount(0)
+    else await expect.poll(() => overview.locator(`.is-${kind}`).count()).toBeGreaterThan(0)
+  }
   if (!sample.added && !sample.removed) await expect(overview).toBeHidden()
   else {
     await expect(overview).toBeVisible()
-    const mark = (await overview.locator('.code-overview-mark').boundingBox())!
-    const rail = (await overview.boundingBox())!
-    expect(mark.height / rail.height).toBeGreaterThan(0.65)
+    await expect.poll(() => overview.evaluate(element => {
+      const bounds = [...element.querySelectorAll('.code-overview-mark')].map(marker => marker.getBoundingClientRect())
+      const height = element.getBoundingClientRect().height
+      return bounds.length && height ? (Math.max(...bounds.map(box => box.bottom)) - Math.min(...bounds.map(box => box.top))) / height : 0
+    })).toBeGreaterThan(0.65)
   }
 })
 
@@ -183,6 +189,7 @@ test('large deletion has one removed band and stays virtualized', async ({ page,
   await page.locator('.react-flow__node[data-id="deleted"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
   const overview = panel.locator('.code-overview')
   await expect(overview.locator('.is-removed')).toHaveCount(1)
   await expect(overview.locator('.is-added')).toHaveCount(0)

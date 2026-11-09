@@ -20,8 +20,11 @@ for (const view of [
       await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
       await page.locator('.appearance-menu > summary').click()
       const panel = page.locator('.appearance-panel')
+      await expect(page.getByLabel(view.locale === 'en' ? 'Settings' : '设置', { exact: true })).toBeVisible()
+      await expect(panel.getByRole('heading')).toHaveText(view.locale === 'en' ? ['Interface', 'Version and updates'] : ['界面', '版本与更新'])
       await expect(panel).toBeInViewport({ ratio: 1 })
-      await expect(panel.locator('.appearance-field')).toHaveCount(3)
+      await expect(panel.locator('.appearance-field')).toHaveCount(5)
+      await expect(panel.getByLabel(view.locale === 'en' ? 'Code comparison layout' : '代码对照布局', { exact: true })).toHaveValue('split')
       await expect(panel.locator('#appearance-mode')).toHaveAttribute('role', 'group')
       await expect(panel.locator('#interface-language')).toHaveAttribute('role', 'group')
       await expect(panel.locator(`#appearance-mode button[value="${view.mode}"]`)).toHaveAttribute('aria-pressed', 'true')
@@ -34,7 +37,7 @@ for (const view of [
         }
         return {
           panel: rect(element),
-          fields: [...element.querySelectorAll('.appearance-field')].map(field => ({
+          fields: [...element.querySelectorAll('.appearance-field:not(.version-settings)')].map(field => ({
             ...rect(field),
             label: rect(field.querySelector('.appearance-field-label')!),
             control: rect(field.querySelector('select, [role="group"]')!),

@@ -152,8 +152,8 @@ export function createPrecomputeClient(fetcher: typeof fetch = (...args) => fetc
       current.promise.then(value => { if (finish()) resolve(value as T) }, error => { if (finish()) reject(error) })
     })
   }
-  async function json(path: string, signal: AbortSignal, body?: unknown) {
-    signal = AbortSignal.any([signal, AbortSignal.timeout(body === undefined ? 2000 : 8000)])
+  async function json(path: string, signal: AbortSignal, body?: unknown, timeout = body === undefined ? 2000 : 8000) {
+    signal = AbortSignal.any([signal, AbortSignal.timeout(timeout)])
     const response = await fetcher(path, { signal, ...(body === undefined ? { cache: 'no-store' } : {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     }) })
@@ -190,7 +190,7 @@ export function createPrecomputeClient(fetcher: typeof fetch = (...args) => fetc
         if (!caps || typeof caps.structureAlgorithm !== 'string' || !caps.structureAlgorithm) return null
         const algorithm = caps.structureAlgorithm
         const result = await shared<StructureResult>(JSON.stringify(['structure', caps.schemaVersion, algorithm, sessionId, input]), async signal => {
-          const value: unknown = await json(`/api/review-sessions/${encodeURIComponent(sessionId)}/precompute/structure`, signal, input)
+          const value: unknown = await json(`/api/review-sessions/${encodeURIComponent(sessionId)}/precompute/structure`, signal, input, 20_000)
           if (!await validStructure(value, algorithm, caps.diffAlgorithm, input, before, after)) throw new Error('Invalid computed structure')
           return value as StructureResult
         }, signal)

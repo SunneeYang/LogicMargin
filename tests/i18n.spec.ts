@@ -65,6 +65,7 @@ test('language changes preserve virtual diff identity, reading position, and man
   await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
   const editor = panel.locator('.cm-unified-virtual')
   await expect(editor).toBeVisible()
   await editor.evaluate(element => { element.dataset.identity = 'virtual-language' })
@@ -97,6 +98,7 @@ test('deferred code comparison placeholders follow the interface language', asyn
   await page.locator('.react-flow__node[data-id="multiple"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
   await expect(panel.locator('.cm-editor')).toHaveCount(1)
   await panel.locator('.code-evidence-section').evaluateAll(elements => {
     for (const element of elements) (element as HTMLDetailsElement).open = true
@@ -124,7 +126,7 @@ test.describe('English browser preference', () => {
     const window = page.locator('[data-composer][data-state="open"]')
     for (const tab of ['Discussion', 'Details', 'Code diff']) {
       await window.getByRole('tab', { name: tab, exact: true }).click()
-      if (tab === 'Code diff') await expect(window.locator('.cm-editor')).toBeVisible()
+      if (tab === 'Code diff') await expect(window.locator('.cm-editor').first()).toBeVisible()
       expect(await page.locator('body').innerText()).not.toMatch(/[\u4e00-\u9fff]/)
     }
     expect(await page.evaluate(key => localStorage.getItem(key), storageKey)).toBe(before)

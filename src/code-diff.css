@@ -1,7 +1,8 @@
 .node-code-diff { min-width: 0; font-size: var(--text-sm); }
-.code-diff-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.code-diff-heading { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-sm); background: var(--color-surface-solid); }
 .code-diff-heading > p { color: var(--color-ink); font-weight: 600; }
-.code-diff-mode { display: flex; gap: var(--space-xs); }
+.code-diff-mode { display: flex; align-items: center; gap: var(--space-xs); }
+.code-control-label { align-self: center; color: var(--color-muted); font-size: var(--text-xs); }
 .code-diff-mode .button { min-height: 36px; }
 .code-diff-mode .button[aria-pressed="true"] { background: var(--color-accent-paper); border-color: var(--color-accent); color: var(--color-accent); }
 .code-diff-note, .code-related-nodes { color: var(--color-muted); font-size: var(--text-xs); line-height: 1.65; overflow-wrap: anywhere; }
@@ -86,8 +87,6 @@
   .code-editor { --code-overview-size: 45px; }
   .code-diff-mode .button, .code-editor-tools .button, .code-context-fold button { min-height: 44px; }
 }
-.code-structure-mode { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-xs); }
-.code-structure-mode .button[aria-pressed="true"] { color: var(--color-accent); border-color: var(--color-accent); background: var(--color-accent-paper); }
 .code-editor[data-diff-mode="structural"] > .code-editor-host .cm-changedLine,
 .code-editor[data-diff-mode="structural"] > .code-editor-host .cm-deletedLine,
 .code-editor[data-diff-mode="structural"] > .code-editor-host .cm-deletedChunk,

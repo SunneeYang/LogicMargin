@@ -4,7 +4,9 @@ import type { SyntaxNode } from '@lezer/common'
 
 type Token = { from: number; to: number; key: string; boundary?: boolean }
 type Scope = { kind: string; name: string; from: number; to: number; shape: string }
-const maxNodes = 50_000
+const maxSourceUnits = 500_000
+const maxSourceLines = 10_000
+const maxNodes = 150_000
 const maxDepth = 256
 const syntax = new Error('invalid-syntax')
 const budget = new Error('budget')
@@ -32,7 +34,7 @@ function fileDeclaration(node: SyntaxNode) {
 }
 
 function parseSource(source: string, language: string) {
-  if (source.length > 100_000 || (source.match(/\r\n|[\r\n\u2028\u2029]/gu)?.length ?? 0) >= 2_000) throw budget
+  if (source.length > maxSourceUnits || (source.match(/\r\n|[\r\n\u2028\u2029]/gu)?.length ?? 0) >= maxSourceLines) throw budget
   const dialect = language === 'tsx' ? 'ts jsx' : language === 'ts' ? 'ts' : language === 'jsx' ? 'jsx' : ''
   const typescript = language === 'ts' || language === 'tsx'
   const tree = parser.configure({ dialect }).parse(source)
@@ -55,6 +57,7 @@ function parseSource(source: string, language: string) {
     if (!typescript && name === 'PostfixExpression' && directName(cursor.node, 'LogicOp', source) === '!') throw syntax
     const shapeFrom = shape.length
     const template = name === 'TemplateString' || name === 'TemplateType'
+    const literal = template || name === 'String' || name === 'RegExp'
     // Anonymous repetition containers change with tree packing, even for pure formatting.
     const anonymous = cursor.type.isAnonymous
     if (!anonymous) shape.push(`(${JSON.stringify(name)}`)
@@ -83,12 +86,12 @@ function parseSource(source: string, language: string) {
     if (cursor.firstChild()) {
       let end = from
       do {
-        // Lezer exposes interpolations but omits the template's raw text and delimiters.
-        if (template) token(end, cursor.from, 'TemplateText')
+        // Lezer exposes escapes/interpolations without all literal text or delimiters.
+        if (literal) token(end, cursor.from, template ? 'TemplateText' : `${name}Text`)
         walk(depth + 1, inFunction || isFunction || !!scopeName, className)
         end = cursor.to
       } while (cursor.nextSibling())
-      if (template) token(end, to, 'TemplateText')
+      if (literal) token(end, to, template ? 'TemplateText' : `${name}Text`)
       cursor.parent()
     } else {
       // Keep even all-whitespace JSXText/template leaves, as these are user data.

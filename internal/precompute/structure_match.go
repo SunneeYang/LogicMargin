@@ -13,10 +13,14 @@ import (
 	"logicmargin/internal/structure"
 )
 
-const structureMatcherVersion = "structure-v1"
-const maxStructureTokens = 40000
-const maxStructureScopes = 256
-const maxStructureMoves = 32
+// Limits, local boundary emphasis and context projection are cache semantics.
+const structureMatcherVersion = "structure-v2-context500k-lines10k-tokens160k-scopes1024-moves128-search8m-time12s-local-boundary-projection1"
+const maxStructureTokens = 160000
+const maxStructureScopes = 1024
+const maxStructureMoves = 128
+const structureSearchBudget = 8_000_000
+const structureMaxUTF16 = 500_000
+const structureMaxLines = 10_000
 
 func structureID(parts ...any) string {
 	raw, _ := json.Marshal(parts)
@@ -24,11 +28,14 @@ func structureID(parts ...any) string {
 	return hex.EncodeToString(sum[:])
 }
 func structureBase(before, after, language string) (StructureResult, diffText, diffText, error) {
-	a, err := readDiffText(before, map[string]int{})
+	return structureBaseWithLimits(before, after, language, diffMaxUTF16, diffMaxLines)
+}
+func structureBaseWithLimits(before, after, language string, maxUTF16, maxLines int) (StructureResult, diffText, diffText, error) {
+	a, err := readDiffTextWithLimits(before, map[string]int{}, maxUTF16, maxLines)
 	if err != nil {
 		return StructureResult{}, a, diffText{}, err
 	}
-	b, err := readDiffText(after, map[string]int{})
+	b, err := readDiffTextWithLimits(after, map[string]int{}, maxUTF16, maxLines)
 	if err != nil {
 		return StructureResult{}, a, b, err
 	}
@@ -175,21 +182,35 @@ func meaningfulHighlights(ctx context.Context, a, b diffText, left, right []stru
 	}
 	for _, change := range changes {
 		x, y := left[change.FromA:change.ToA], right[change.FromB:change.ToB]
+		boundary, boundaryOnly := false, true
 		for _, tokens := range [][]structure.Token{x, y} {
 			for _, t := range tokens {
 				if t.Boundary {
-					return out, "syntax-boundary", nil
+					boundary = true
+				} else {
+					boundaryOnly = false
 				}
 			}
+		}
+		if boundary {
+			if boundaryOnly {
+				// Include neighbours so inserted zero-width semicolons stay visible.
+				out.Before = emphasizeBoundary(out.Before, left, change.FromA, change.ToA)
+				out.After = emphasizeBoundary(out.After, right, change.FromB, change.ToB)
+			} else {
+				out.Before = emphasizeTokens(out.Before, x)
+				out.After = emphasizeTokens(out.After, y)
+			}
+			continue
 		}
 		if len(x) == 1 && len(y) == 1 {
 			before, _ := sourceRange(a, CodeRange{x[0].From, x[0].To})
 			after, _ := sourceRange(b, CodeRange{y[0].From, y[0].To})
-			aa, err := readDiffText(before, map[string]int{})
+			aa, err := readDiffTextWithLimits(before, map[string]int{}, structureMaxUTF16, structureMaxLines)
 			if err != nil {
 				return out, "syntax-boundary", nil
 			}
-			bb, err := readDiffText(after, map[string]int{})
+			bb, err := readDiffTextWithLimits(after, map[string]int{}, structureMaxUTF16, structureMaxLines)
 			if err != nil {
 				return out, "syntax-boundary", nil
 			}
@@ -211,6 +232,17 @@ func meaningfulHighlights(ctx context.Context, a, b diffText, left, right []stru
 		}
 	}
 	return out, "", ctx.Err()
+}
+
+func emphasizeBoundary(ranges []CodeRange, tokens []structure.Token, from, to int) []CodeRange {
+	from, to = max(0, from-1), min(len(tokens), to+1)
+	return emphasizeTokens(ranges, tokens[from:to])
+}
+func emphasizeTokens(ranges []CodeRange, tokens []structure.Token) []CodeRange {
+	if len(tokens) > 0 {
+		ranges = appendHighlight(ranges, CodeRange{tokens[0].From, tokens[len(tokens)-1].To})
+	}
+	return ranges
 }
 
 type matchedScope struct {
@@ -320,10 +352,8 @@ func analyzeDocuments(ctx context.Context, result StructureResult, a, b diffText
 		left.Tokens = withoutOptionalGoSemicolons(left.Tokens)
 		right.Tokens = withoutOptionalGoSemicolons(right.Tokens)
 	}
-	if equalTokenKeys(left.Tokens, right.Tokens) && left.Shape != right.Shape {
-		return structureFallback(result, "syntax-boundary"), nil
-	}
-	budget := diffBudget{ctx: ctx, remaining: diffSearchBudget}
+	shapeOnly := equalTokenKeys(left.Tokens, right.Tokens) && left.Shape != right.Shape
+	budget := diffBudget{ctx: ctx, remaining: structureSearchBudget}
 	pairs := matchScopes(a, b, left, right)
 	moves := 0
 	for _, pair := range pairs {
@@ -339,27 +369,37 @@ func analyzeDocuments(ctx context.Context, result StructureResult, a, b diffText
 	for _, pair := range pairs {
 		x, y := tokensInScope(left.Tokens, pair.before), tokensInScope(right.Tokens, pair.after)
 		if equalTokenKeys(x, y) && pair.before.Shape != pair.after.Shape {
-			return structureFallback(result, "syntax-boundary"), nil
+			local[pair.pair.ID] = Highlights{Before: []CodeRange{pair.pair.Before}, After: []CodeRange{pair.pair.After}}
+		} else {
+			value, reason, err := meaningfulHighlights(ctx, a, b, x, y, &budget)
+			if err != nil {
+				return result, err
+			}
+			if reason != "" {
+				return structureFallback(result, reason), nil
+			}
+			local[pair.pair.ID] = value
 		}
-		value, reason, err := meaningfulHighlights(ctx, a, b, x, y, &budget)
-		if err != nil {
-			return result, err
-		}
-		if reason != "" {
-			return structureFallback(result, reason), nil
-		}
-		local[pair.pair.ID] = value
 		if !pair.moved || !pair.ambiguous {
 			oldRanges = append(oldRanges, pair.pair.Before)
 			newRanges = append(newRanges, pair.pair.After)
 		}
 	}
-	highlights, reason, err := meaningfulHighlights(ctx, a, b, tokensOutsideScopes(left.Tokens, oldRanges), tokensOutsideScopes(right.Tokens, newRanges), &budget)
+	outsideA, outsideB := tokensOutsideScopes(left.Tokens, oldRanges), tokensOutsideScopes(right.Tokens, newRanges)
+	highlights, reason, err := meaningfulHighlights(ctx, a, b, outsideA, outsideB, &budget)
 	if err != nil {
 		return result, err
 	}
 	if reason != "" {
 		return structureFallback(result, reason), nil
+	}
+	if shapeOnly {
+		for _, token := range outsideA {
+			highlights.Before = appendHighlight(highlights.Before, CodeRange{token.From, token.To})
+		}
+		for _, token := range outsideB {
+			highlights.After = appendHighlight(highlights.After, CodeRange{token.From, token.To})
+		}
 	}
 	for _, pair := range pairs {
 		value := local[pair.pair.ID]
@@ -375,7 +415,13 @@ func analyzeDocuments(ctx context.Context, result StructureResult, a, b diffText
 		after, _ := sourceRange(b, pair.pair.After)
 		comparison, err := ComputeDiff(ctx, before, after, result.Language)
 		if err != nil {
-			return result, err
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
+			// A full-file scope can exceed the unchanged snippet diff protocol.
+			highlights.Before = appendHighlight(highlights.Before, pair.pair.Before)
+			highlights.After = appendHighlight(highlights.After, pair.pair.After)
+			continue
 		}
 		comparison.Key = structureID(DiffAlgorithm, result.Language, comparison.Before.Digest, comparison.After.Digest)
 		result.Moves = append(result.Moves, MovedCode{ScopePair: pair.pair, Modified: len(value.Before)+len(value.After) > 0, Highlights: localHighlights(value, pair.before.From, pair.after.From), Comparison: comparison})

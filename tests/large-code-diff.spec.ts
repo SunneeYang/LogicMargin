@@ -10,6 +10,8 @@ test('a large deleted block renders only visible lines and expands without repla
   await page.locator('.react-flow__node[data-id="deleted"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
+  await expect(panel.locator('.cm-editor')).toHaveCount(1)
   await expect(panel.locator('.cm-deletedLine').first()).toBeVisible()
   expect(await panel.locator('.cm-deletedLine').count()).toBeLessThan(150)
   await panel.locator('.cm-editor').evaluate(element => { element.dataset.identity = 'retained' })
@@ -30,6 +32,7 @@ test('offscreen files defer layout work and every expanded file becomes readable
   await page.locator('.react-flow__node[data-id="multiple"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await panel.getByRole('button', { name: '统一', exact: true }).click()
   await expect(panel.locator('.cm-editor')).toHaveCount(1)
   await panel.locator('.code-evidence-section').evaluateAll(elements => {
     for (const element of elements) (element as HTMLDetailsElement).open = true
@@ -60,6 +63,7 @@ for (const target of ['sparse', 'replaced', 'deleted', 'multiple']) {
     await page.locator(`.react-flow__node[data-id="${target}"] .node-comment-button`).click()
     const panel = page.locator('[data-composer][data-state="open"]')
     await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
+    await panel.getByRole('button', { name: '统一', exact: true }).click()
     await expect(panel.locator('.cm-editor')).toHaveCount(1)
     await expect(panel.locator('.code-evidence-section')).toHaveCount(target === 'multiple' ? 12 : 1)
     if (target === 'deleted' || target === 'replaced') {
@@ -78,7 +82,7 @@ for (const target of ['sparse', 'replaced', 'deleted', 'multiple']) {
       await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeLessThan(500)
     }
     for (const split of [false, true]) {
-      if (split) await panel.getByRole('button', { name: '并排', exact: true }).click()
+      await panel.getByRole('button', { name: split ? '并排' : '统一', exact: true }).click()
       const scroll = panel.locator(split ? '.cm-mergeView' : '.cm-scroller').first()
       await scroll.evaluate(element => { element.scrollTop = 0 })
       await scroll.hover()
@@ -94,6 +98,7 @@ for (const target of ['sparse', 'replaced', 'deleted', 'multiple']) {
     if (target === 'multiple') {
       const second = panel.locator('.code-evidence-section').nth(1)
       await second.locator('summary').click()
+      await second.locator('.code-evidence-body').scrollIntoViewIfNeeded()
       await expect(panel.locator('.cm-editor')).toHaveCount(4)
       await second.locator('summary').click()
       await expect(panel.locator('.cm-editor')).toHaveCount(2)

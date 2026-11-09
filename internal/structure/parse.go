@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	maxSourceUnits = 100_000
-	maxSourceLines = 2_000
-	maxNodes       = 50_000
+	maxSourceUnits = 500_000
+	maxSourceLines = 10_000
+	maxNodes       = 150_000
 	maxDepth       = 256
-	parseTimeout   = 750 * time.Millisecond
+	parseTimeout   = 5 * time.Second
 )
 
 //go:embed parse.go go.go javascript.go types.go
@@ -45,15 +45,27 @@ func Parse(ctx context.Context, source, language string) (Document, error) {
 	default:
 		return Document{}, ErrUnsupported
 	}
-	if !utf8.ValidString(source) {
-		return Document{}, ErrSyntax
-	}
 	if len(source) > 4*maxSourceUnits {
 		return Document{}, ErrBudget
 	}
+	budget, cancel := context.WithTimeout(ctx, parseTimeout)
+	defer cancel()
+	if !utf8.ValidString(source) {
+		return Document{}, ErrSyntax
+	}
 	units := 0
 	lines := 1
+	nextCheck := 0
 	for i, r := range source {
+		if i >= nextCheck {
+			if err := ctx.Err(); err != nil {
+				return Document{}, err
+			}
+			if budget.Err() != nil {
+				return Document{}, ErrBudget
+			}
+			nextCheck = i + 4096
+		}
 		units++
 		if r > 0xffff {
 			units++
@@ -61,12 +73,10 @@ func Parse(ctx context.Context, source, language string) (Document, error) {
 		if r == '\n' || language != "go" && (r == '\u2028' || r == '\u2029' || r == '\r' && (i+1 == len(source) || source[i+1] != '\n')) {
 			lines++
 		}
+		if units > maxSourceUnits || lines > maxSourceLines {
+			return Document{}, ErrBudget
+		}
 	}
-	if units > maxSourceUnits || lines > maxSourceLines {
-		return Document{}, ErrBudget
-	}
-	budget, cancel := context.WithTimeout(ctx, parseTimeout)
-	defer cancel()
 	var result Document
 	var err error
 	if language == "go" {

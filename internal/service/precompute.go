@@ -49,13 +49,16 @@ func decodeComputation(body []byte, value any) error {
 }
 
 func (s *Server) servePrecompute(w http.ResponseWriter, r *http.Request, pathname string) bool {
+	if s.serveSourceContexts(w, r, pathname) {
+		return true
+	}
 	if pathname == "/api/precompute" {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			sendJSON(w, r, 405, review.Object{"error": "此接口仅支持读取"})
 			return true
 		}
-		sendJSON(w, r, 200, review.Object{"schemaVersion": 1, "diffAlgorithm": precompute.DiffAlgorithm, "layoutAlgorithm": precompute.LayoutAlgorithm(), "structureAlgorithm": precompute.StructureAlgorithm(), "coordinate": "utf16"})
+		sendJSON(w, r, 200, review.Object{"schemaVersion": 1, "diffAlgorithm": precompute.DiffAlgorithm, "layoutAlgorithm": precompute.LayoutAlgorithm(), "structureAlgorithm": precompute.StructureAlgorithm(), "sourceContextVersion": 1, "coordinate": "utf16"})
 		return true
 	}
 	match := computationRoute.FindStringSubmatch(pathname)
@@ -122,7 +125,9 @@ func (s *Server) servePrecompute(w http.ResponseWriter, r *http.Request, pathnam
 			return true
 		}
 		if kind == "structure" {
-			raw, status, err = s.derived.Structure(r.Context(), a, b, sourceLanguage(request.After.Path))
+			ac := s.structureSourceContext(r.Context(), id, before, request.Before, a)
+			bc := s.structureSourceContext(r.Context(), id, after, request.After, b)
+			raw, status, err = s.derived.StructureWithContext(r.Context(), a, b, sourceLanguage(request.After.Path), ac, bc)
 		} else {
 			raw, status, err = s.derived.Diff(r.Context(), a, b, sourceLanguage(request.After.Path))
 		}

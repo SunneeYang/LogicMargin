@@ -46,7 +46,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify the packaged Go review UI
         if: runner.os == 'Linux'
-        run: npm run test:go:e2e -- tests/structural-code-diff.spec.ts tests/backend-precompute.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts tests/i18n.spec.ts tests/large-code-diff.spec.ts --workers=1
+        run: npm run test:go:e2e -- tests/source-context.spec.ts tests/update-settings.spec.ts tests/code-associations.spec.ts tests/node-inspection.spec.ts tests/appearance-settings.spec.ts tests/structural-code-diff.spec.ts tests/backend-precompute.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts tests/i18n.spec.ts tests/large-code-diff.spec.ts --workers=1
       - uses: actions/upload-artifact@v4
         with:
           name: logic-margin-native-${{ runner.os }}

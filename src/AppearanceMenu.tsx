@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from 'react'
-import { Palette } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { useI18n } from './i18n.ts'
+import VersionSettings from './VersionSettings.tsx'
 
 const themes = {
   paper: { name: '纸页审阅', description: '暖白纸面、宋体标题与纸张投影' },
@@ -31,9 +32,10 @@ function applyAppearance(value: Appearance) {
 // Apply saved preferences before React paints, including portals and loading states.
 applyAppearance(readAppearance())
 
-export default function AppearanceMenu() {
+export default function AppearanceMenu({ codeSplit, onCodeSplitChange }: { codeSplit: boolean; onCodeSplitChange: (split: boolean) => void }) {
   const { t, locale, setLocale } = useI18n()
   const [appearance, setAppearance] = useState(readAppearance)
+  const [menuOpen, setMenuOpen] = useState(false)
   useLayoutEffect(() => {
     const system = matchMedia('(prefers-color-scheme: dark)')
     const update = () => applyAppearance(appearance)
@@ -46,9 +48,10 @@ export default function AppearanceMenu() {
     try { localStorage.setItem(key, JSON.stringify(next)) }
     catch { /* Appearance stays usable when private browsing disables storage. */ }
   }
-  return <details className="workspace-menu appearance-menu" data-keep-composer>
-    <summary className="button" aria-label={t('外观设置')}><Palette size={16} /><span>{t('外观')}</span></summary>
+  return <details className="workspace-menu appearance-menu" data-keep-composer onToggle={event => setMenuOpen(event.currentTarget.open)}>
+    <summary className="button" aria-label={t('设置')}><Settings size={16} /><span>{t('设置')}</span></summary>
     <div className="appearance-panel">
+      <h2 className="settings-section-title">{t('界面')}</h2>
       <div className="appearance-field">
         <label className="appearance-field-label" htmlFor="interface-theme">{t('界面主题')}</label>
         <select id="interface-theme" aria-describedby="interface-theme-help" value={appearance.theme} onChange={event => change({ ...appearance, theme: event.target.value as Appearance['theme'] })}>
@@ -69,6 +72,14 @@ export default function AppearanceMenu() {
         </div>
         <p className="appearance-hint" id="interface-language-help">{t('仅切换界面语言，评审内容与批注保留原文。')}</p>
       </div>
+      <div className="appearance-field">
+        <label className="appearance-field-label" htmlFor="code-layout">{t('代码对照布局')}</label>
+        <select id="code-layout" value={codeSplit ? 'split' : 'unified'} onChange={event => onCodeSplitChange(event.target.value === 'split')}>
+          <option value="split">{t('并排')}</option>
+          <option value="unified">{t('统一')}</option>
+        </select>
+      </div>
+      {menuOpen && <VersionSettings />}
     </div>
   </details>
 }

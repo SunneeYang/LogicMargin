@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"logicmargin/internal/review"
+	"logicmargin/internal/sourcecontext"
 )
 
 func textFile(ctx context.Context, path string, maxBytes int64) (string, error) {
@@ -145,6 +146,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 		argument = p[2]
 	}
 	var prepared, baselineSource, preparedBaseline, source object
+	var contexts, baselineContexts []sourcecontext.Source
 	if contains(command, "start", "verify", "revise") {
 		path := id
 		if command == "revise" {
@@ -176,7 +178,11 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 		if !o.has("baseline-source-root") {
 			return errors.New("核验修改前基线需要 --baseline-source-root，不能使用当前源码目录代替")
 		}
-		baselineSource, err = VerifySources(ctx, obj(prepared["baseline"]), o.value("baseline-source-root"))
+		if command == "verify" {
+			baselineSource, err = VerifySources(ctx, obj(prepared["baseline"]), o.value("baseline-source-root"))
+		} else {
+			baselineSource, baselineContexts, err = VerifySourcesWithContexts(ctx, obj(prepared["baseline"]), o.value("baseline-source-root"))
+		}
 		if err != nil {
 			return err
 		}
@@ -192,7 +198,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 		if err != nil {
 			return err
 		}
-		baselineSource, err = VerifySources(ctx, preparedBaseline, o.value("source-root"))
+		baselineSource, baselineContexts, err = VerifySourcesWithContexts(ctx, preparedBaseline, o.value("source-root"))
 		if err != nil {
 			return err
 		}
@@ -205,7 +211,11 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 				return err
 			}
 		}
-		source, err = VerifySources(ctx, prepared, root)
+		if command == "verify" {
+			source, err = VerifySources(ctx, prepared, root)
+		} else {
+			source, contexts, err = VerifySourcesWithContexts(ctx, prepared, root)
+		}
 		if err != nil {
 			return err
 		}
@@ -419,6 +429,11 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 			return err
 		}
 	}
+	baselineDoc := preparedBaseline
+	if command == "start" {
+		baselineDoc = obj(prepared["baseline"])
+	}
+	analysisContext := publishedSourceContexts(ctx, o.url, command, current, prepared, baselineDoc, contexts, baselineContexts, o.baselineReview)
 	if contains(command, "start", "revise", "resume", "restore") {
 		if _, err := fmt.Fprintf(errOut, "审查地址：%s\n", reviewLink(o.publicURL, str(current["id"]))); err != nil {
 			return err
@@ -439,6 +454,9 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 		return writeJSON(out, result)
 	}
 	result := object{"sessionId": current["id"], "version": current["version"], "round": current["round"], "phase": current["phase"], "url": reviewLink(o.publicURL, str(current["id"]))}
+	if analysisContext != nil {
+		result["analysisContext"] = analysisContext
+	}
 	for _, k := range []string{"baselineReview", "scope", "cleanupPolicy"} {
 		if v, ok := current[k]; ok {
 			result[k] = v

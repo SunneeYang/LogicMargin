@@ -18,7 +18,14 @@ func parseGo(ctx context.Context, source string) (Document, error) {
 	// Scanner offsets are bytes; this table also maps zero-width inserted semicolons.
 	offsets := make([]int, len(source)+1)
 	units := 0
+	nextCheck := 0
 	for i, r := range source {
+		if i >= nextCheck {
+			if err := ctx.Err(); err != nil {
+				return Document{}, err
+			}
+			nextCheck = i + 4096
+		}
 		for j := 0; j < utf8.RuneLen(r); j++ {
 			offsets[i+j] = units
 		}
@@ -46,6 +53,9 @@ func parseGo(ctx context.Context, source string) (Document, error) {
 		}
 		fset := token.NewFileSet()
 		file, err := parser.ParseFile(fset, "saved.go", prefix+source+suffix, parser.ParseComments|parser.SkipObjectResolution)
+		if err := ctx.Err(); err != nil {
+			return Document{}, err
+		}
 		if err != nil {
 			continue
 		}
@@ -190,6 +200,9 @@ var nodeType = reflect.TypeFor[ast.Node]()
 
 // Reflection includes syntax fields and values but excludes every token.Pos and resolver back-link.
 func goShape(ctx context.Context, root any) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	hash := sha256.New()
 	nodes := 0
 	var walk func(reflect.Value, int) error

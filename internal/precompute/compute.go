@@ -39,7 +39,7 @@ func (e *Engine) Layout(ctx context.Context, input LayoutInput) (json.RawMessage
 
 func (e *Engine) Structure(ctx context.Context, before, after, language string) (json.RawMessage, string, error) {
 	key := artifactKey(StructureAlgorithm(), []string{language, artifactDigest([]byte(before)), artifactDigest([]byte(after))})
-	return e.get(ctx, key, len(before)+len(after), func(ctx context.Context) ([]byte, error) {
+	return e.getStructure(ctx, key, len(before)+len(after), func(ctx context.Context) ([]byte, error) {
 		result, err := ComputeStructure(ctx, before, after, language)
 		if err != nil {
 			return nil, err

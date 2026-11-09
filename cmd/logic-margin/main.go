@@ -18,9 +18,10 @@ import (
 	"logicmargin/internal/mcpconfig"
 	"logicmargin/internal/service"
 	"logicmargin/internal/ui"
+	"logicmargin/internal/update"
 )
 
-var version = "0.9.2"
+var version = "0.9.3"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -78,6 +79,9 @@ func output(out io.Writer, value any) error {
 }
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
+	if len(args) == 2 && args[0] == "_update-worker" {
+		return update.RunWorker(ctx, args[1])
+	}
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "version") {
 		_, err := fmt.Fprintln(out, version)
 		return err
@@ -198,7 +202,7 @@ func serve(ctx context.Context, args []string, out io.Writer) (err error) {
 	if p != nil {
 		listenPort = *p
 	}
-	server, err := service.Start(service.Options{Assets: ui.Assets(), DataDir: dataDir, Host: host, Port: listenPort, InstanceID: values["--instance-id"], Version: version, ShutdownToken: values["--shutdown-token"]})
+	server, err := service.Start(service.Options{Assets: ui.Assets(), DataDir: dataDir, Host: host, Port: listenPort, InstanceID: values["--instance-id"], Version: version, ShutdownToken: values["--shutdown-token"], Home: home})
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -211,5 +212,139 @@ func TestInputBudgetAndOwnedDiskPruning(t *testing.T) {
 	}
 	if raw, err := os.ReadFile(unknown); err != nil || string(raw) != "preserve" {
 		t.Fatal("pruning deleted unrelated data", err)
+	}
+}
+
+func TestStructureWorkersLeaveOrdinaryQueueAvailable(t *testing.T) {
+	engine := NewEngine("")
+	defer engine.Close()
+	workers := min(2, max(1, runtime.GOMAXPROCS(0)))
+	started, release := make(chan struct{}, workers), make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			key := artifactKey("heavy", i)
+			_, _, err := engine.getStructure(t.Context(), key, 1, func(ctx context.Context) ([]byte, error) {
+				deadline, _ := ctx.Deadline()
+				if remaining := time.Until(deadline); remaining < 14*time.Second || remaining > 15*time.Second {
+					t.Error("wrong structure worker deadline", remaining)
+				}
+				started <- struct{}{}
+				select {
+				case <-release:
+					return cachePayload(key), nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			})
+			if err != nil {
+				t.Error(err)
+			}
+		}(i)
+	}
+	defer func() { close(release); wg.Wait() }()
+	for i := 0; i < workers; i++ {
+		<-started
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	if _, _, err := engine.Diff(ctx, "one", "two", "txt"); err != nil {
+		t.Fatal("structure work blocked diff", err)
+	}
+	if _, _, err := engine.Layout(ctx, LayoutInput{Nodes: []PlanNode{{ID: "one", Kind: "action"}}, Edges: []PlanEdge{}}); err != nil {
+		t.Fatal("structure work blocked layout", err)
+	}
+	key := artifactKey("ordinary-deadline", 1)
+	if _, _, err := engine.get(ctx, key, 1, func(ctx context.Context) ([]byte, error) {
+		deadline, _ := ctx.Deadline()
+		if remaining := time.Until(deadline); remaining < 3*time.Second || remaining > 4*time.Second {
+			t.Error("ordinary worker deadline changed", remaining)
+		}
+		return cachePayload(key), nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestStructureQueueSharedBudgetCancellationAndShutdown(t *testing.T) {
+	engine := NewEngine("")
+	defer engine.Close()
+	started, release := make(chan struct{}), make(chan struct{})
+	key := artifactKey("structure-shared", 1)
+	ctx, cancel := context.WithCancel(t.Context())
+	first, second := make(chan error, 1), make(chan error, 1)
+	go func() {
+		_, _, err := engine.getStructure(ctx, key, inputBudget-8, func(ctx context.Context) ([]byte, error) {
+			close(started)
+			select {
+			case <-release:
+				return cachePayload(key), nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		})
+		first <- err
+	}()
+	<-started
+	go func() {
+		_, _, err := engine.getStructure(t.Context(), key, inputBudget-8, func(context.Context) ([]byte, error) {
+			t.Error("shared structure computation ran twice")
+			return nil, nil
+		})
+		second <- err
+	}()
+	deadline := time.Now().Add(time.Second)
+	for engine.Stats().Shared == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("structure subscriber did not share work")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if _, _, err := engine.get(t.Context(), artifactKey("ordinary-budget", 1), 16, nil); err != ErrBusy {
+		t.Fatal("structure and ordinary input budgets are not shared", err)
+	}
+	cancel()
+	if err := <-first; err != context.Canceled {
+		t.Fatal(err)
+	}
+	close(release)
+	if err := <-second; err != nil {
+		t.Fatal("one subscriber cancelled shared structure work", err)
+	}
+	engine.mu.Lock()
+	remaining := engine.inputBytes
+	engine.mu.Unlock()
+	if remaining != 0 {
+		t.Fatal("input budget not released", remaining)
+	}
+	workers := min(2, max(1, runtime.GOMAXPROCS(0)))
+	startedJobs := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers+cap(engine.structureQueue)+2; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, _, err := engine.getStructure(t.Context(), artifactKey("closing-structure", i), 1, func(ctx context.Context) ([]byte, error) {
+				startedJobs <- struct{}{}
+				<-ctx.Done()
+				return nil, ctx.Err()
+			})
+			if err != ErrClosed && err != ErrBusy {
+				t.Error("queued structure job escaped close", err)
+			}
+		}(i)
+	}
+	for i := 0; i < workers; i++ {
+		<-startedJobs
+	}
+	engine.Close()
+	wg.Wait()
+	engine.mu.Lock()
+	remaining = engine.inputBytes
+	engine.mu.Unlock()
+	if stats := engine.Stats(); remaining != 0 || stats.InFlight != 0 || stats.Active != 0 || len(engine.structureQueue) != 0 || stats.PeakActive > workers {
+		t.Fatal("structure shutdown leaked jobs or exceeded worker bound", remaining, stats)
 	}
 }

@@ -110,6 +110,7 @@ async function commandIdentity(variant) {
 function browserInstrumentation(expected) {
   localStorage.setItem('logic-margin:language', 'zh-CN')
   localStorage.setItem('logic-margin:appearance', JSON.stringify({ theme: 'paper', mode: 'light' }))
+  localStorage.setItem('logic-margin:code-layout', 'unified')
   const state = window.__reviewBenchmark = { results: [], longTasks: [], activeStage: null }
   performance.setResourceTimingBufferSize(5000)
   new PerformanceObserver(list => state.longTasks.push(...list.getEntries().map(entry => ({ startTime: entry.startTime, duration: entry.duration })))).observe({ type: 'longtask', buffered: true })

@@ -33,15 +33,10 @@ export function overviewBands(marks: readonly { top: number; bottom: number; kin
 export function codeOverview(parent: HTMLElement, view: EditorView, scroll: HTMLElement, ranges: readonly OverviewRange[]) {
   const rail = parent.appendChild(document.createElement('div'))
   rail.className = 'code-overview'
-  rail.hidden = !ranges.length
   const track = rail.appendChild(document.createElement('div'))
   track.className = 'code-overview-track'
   track.setAttribute('aria-hidden', 'true')
-  const markers = ranges.map(range => {
-    const marker = track.appendChild(document.createElement('span'))
-    marker.className = `code-overview-mark is-${range.kind}`
-    return marker
-  })
+  const markers: HTMLElement[] = []
   const viewport = track.appendChild(document.createElement('span'))
   viewport.className = 'code-overview-viewport'
   const input = rail.appendChild(document.createElement('input'))
@@ -51,7 +46,6 @@ export function codeOverview(parent: HTMLElement, view: EditorView, scroll: HTML
   let active = true
   let boundary: 'start' | 'end' | null = null
   const root = parent.closest<HTMLElement>('.code-editor')!
-  root.dataset.codeOverview = String(ranges.length > 0)
   const releaseBoundary = () => { boundary = null }
   const inputEvents = ['pointerdown', 'touchstart', 'keydown', 'wheel'] as const
   for (const event of inputEvents) root.addEventListener(event, releaseBoundary, { capture: true, passive: true })
@@ -98,6 +92,29 @@ export function codeOverview(parent: HTMLElement, view: EditorView, scroll: HTML
       },
     })
   }
+  const setRanges = (next: readonly OverviewRange[]) => {
+    const merged: OverviewRange[] = []
+    // The rail marks lines; thousands of tokens on adjacent lines need one band.
+    for (const target of new Set(next.map(range => range.view))) for (const kind of ['removed', 'added'] as const) {
+      const line = (offset: number) => target.state.doc.lineAt(Math.max(0, Math.min(offset, target.state.doc.length))).number
+      for (const range of next.filter(range => range.view === target && range.kind === kind).sort((a, b) => a.from - b.from)) {
+        const previous = merged.at(-1)
+        if (previous?.view === target && previous.kind === kind && line(Math.max(previous.from, previous.to - 1)) + 1 >= line(range.from)) {
+          previous.to = Math.max(previous.to, range.to)
+        } else merged.push({ ...range })
+      }
+    }
+    ranges = merged
+    rail.hidden = !ranges.length
+    root.dataset.codeOverview = String(ranges.length > 0)
+    for (const marker of markers) marker.remove()
+    markers.splice(0, markers.length, ...ranges.map(range => {
+      const marker = track.insertBefore(document.createElement('span'), viewport)
+      marker.className = `code-overview-mark is-${range.kind}`
+      return marker
+    }))
+    update()
+  }
   input.oninput = () => {
     const value = Number(input.value)
     boundary = value === 0 ? 'start' : value === 1000 ? 'end' : null
@@ -127,8 +144,8 @@ export function codeOverview(parent: HTMLElement, view: EditorView, scroll: HTML
   scroll.addEventListener('scroll', update, { passive: true })
   const resize = new ResizeObserver(update)
   resize.observe(scroll)
-  update()
-  return { update, destroy() {
+  setRanges(ranges)
+  return { update, setRanges, destroy() {
     active = false; resize.disconnect(); scroll.removeEventListener('scroll', update)
     delete root.dataset.codeOverview
     root.style.removeProperty('--code-native-gutter'); root.style.removeProperty('--code-overview-bottom')

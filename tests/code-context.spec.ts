@@ -25,7 +25,7 @@ for (const sample of [
     await page.locator('.resize-right').focus()
     await page.keyboard.press('End')
   }
-  if (sample.split) await panel.getByRole('button', { name: '并排', exact: true }).click()
+  await panel.getByRole('button', { name: sample.split ? '并排' : '统一', exact: true }).click()
   const editors = panel.locator('.cm-editor')
   await expect(editors).toHaveCount(sample.split ? 2 : 1)
   await editors.evaluateAll(elements => elements.forEach(element => { (element as HTMLElement).dataset.identity = 'context' }))
@@ -120,7 +120,7 @@ for (const sample of [
   await panel.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
   await page.locator('.resize-right').focus()
   await page.keyboard.press('End')
-  if (sample.split) await panel.getByRole('button', { name: '并排', exact: true }).click()
+  await panel.getByRole('button', { name: sample.split ? '并排' : '统一', exact: true }).click()
   const editors = panel.locator('.cm-editor'), first = editors.first()
   await expect(editors).toHaveCount(sample.split ? 2 : 1)
   const gap = first.locator('[data-fold-id="1"]')

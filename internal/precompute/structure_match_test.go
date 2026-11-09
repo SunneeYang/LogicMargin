@@ -97,7 +97,7 @@ func TestStructureAmbiguityBoundariesAndBadRanges(t *testing.T) {
 	before = "return x"
 	after = "return; x"
 	result = matchFixture(t, before, after, matchDocument(before), matchDocument(after))
-	if result.Mode != "text" || result.Reason != "syntax-boundary" {
+	if result.Mode != "structural" || len(result.Highlights.Before)+len(result.Highlights.After) == 0 {
 		t.Fatal(result)
 	}
 	before = "return x"
@@ -105,7 +105,7 @@ func TestStructureAmbiguityBoundariesAndBadRanges(t *testing.T) {
 	a, b := matchDocument(before), matchDocument(after)
 	b.Shape = "different-return-structure"
 	result = matchFixture(t, before, after, a, b)
-	if result.Mode != "text" || result.FormattingOnly {
+	if result.Mode != "structural" || result.FormattingOnly || len(result.Highlights.Before)+len(result.Highlights.After) == 0 {
 		t.Fatal("changed parse hidden as whitespace", result)
 	}
 	a, b = matchDocument(before), matchDocument(before)

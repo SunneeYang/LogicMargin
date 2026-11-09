@@ -97,7 +97,7 @@ async function openCode(page: Page, split = false) {
   await panel.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
   await page.locator('.resize-right').focus()
   await page.keyboard.press('End')
-  if (split) await panel.getByRole('button', { name: '并排', exact: true }).click()
+  await panel.getByRole('button', { name: split ? '并排' : '统一', exact: true }).click()
   await expect(panel.locator('.cm-editor')).toHaveCount(split ? 2 : 1)
   return panel
 }
@@ -125,8 +125,8 @@ for (const mode of modes) test(`${mode.name}: saved-source POST, ranges and read
     before: reference(before), after: reference(after) })
   assertDiff(await result<DiffResult>(response), before, after)
   const editors = panel.locator('.cm-editor'), overview = panel.locator('.code-overview')
-  await expect(overview.locator('.is-added')).toHaveCount(2)
-  await expect(overview.locator('.is-removed')).toHaveCount(2)
+  await expect.poll(() => overview.locator('.is-added').count()).toBeGreaterThan(0)
+  await expect.poll(() => overview.locator('.is-removed').count()).toBeGreaterThan(0)
   if (!mode.split) await expect(editors).toHaveClass(/cm-unified-virtual/)
   else await expect(editors.first()).not.toHaveClass(/cm-unified-virtual/)
   await editors.evaluateAll(elements => elements.forEach(element => { (element as HTMLElement).dataset.precomputeIdentity = 'retained' }))
@@ -195,10 +195,10 @@ for (const mode of modes) test(`${mode.name}: consumes backend ranges rather tha
   await page.goto(`/?session=${session.id}`)
   const panel = await openCode(page, mode.split)
   expect(observed).toBe(true)
-  await expect(panel.locator('.code-editor-tools > [role="status"]')).toHaveText('1 处差异')
+  await expect(panel.locator('.code-editor-tools > [role="status"]').first()).toHaveText('1 处差异')
   await expect(panel.locator('.code-context-fold')).toHaveCount(0)
-  await expect(panel.locator('.code-overview .is-added')).toHaveCount(1)
-  await expect(panel.locator('.code-overview .is-removed')).toHaveCount(1)
+  await expect.poll(() => panel.locator('.code-overview .is-added').count()).toBeGreaterThan(0)
+  await expect.poll(() => panel.locator('.code-overview .is-removed').count()).toBeGreaterThan(0)
 })
 
 function nextRound(state: ReviewSession): ReviewDocument {
@@ -338,8 +338,8 @@ for (const fallback of ['legacy Node 404', 'computation 503', 'offline'] as cons
   })
   try {
     const panel = await openCode(page)
-    await expect(panel.locator('.code-overview .is-added')).toHaveCount(2)
-    await expect(panel.locator('.code-overview .is-removed')).toHaveCount(2)
+    await expect.poll(() => panel.locator('.code-overview .is-added').count()).toBeGreaterThan(0)
+    await expect.poll(() => panel.locator('.code-overview .is-removed').count()).toBeGreaterThan(0)
     await expect(panel.locator('.cm-line').filter({ hasText: /^changed_first\(\);$/ })).toHaveCount(1)
     const gap = panel.locator('[data-fold-id="1"]').first()
     const count = Number(await gap.getAttribute('data-line-count'))

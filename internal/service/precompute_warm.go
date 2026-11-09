@@ -49,7 +49,7 @@ func (s *Server) warmWorker() {
 			if s.ctx.Err() != nil {
 				return
 			}
-			ctx, cancel := context.WithTimeout(s.ctx, 12*time.Second)
+			ctx, cancel := context.WithTimeout(s.ctx, 60*time.Second)
 			s.warmSession(ctx, task.id)
 			cancel()
 		}
@@ -83,7 +83,11 @@ func (s *Server) warmSession(ctx context.Context, id string) {
 				return
 			}
 			tasks = append(tasks, func() { _, _, _ = s.derived.Diff(ctx, pair.before, pair.after, pair.language) })
-			tasks = append(tasks, func() { _, _, _ = s.derived.Structure(ctx, pair.before, pair.after, pair.language) })
+			tasks = append(tasks, func() {
+				a := s.structureSourceContext(ctx, id, before, pair.beforeRef, pair.before)
+				b := s.structureSourceContext(ctx, id, current, pair.afterRef, pair.after)
+				_, _, _ = s.derived.StructureWithContext(ctx, pair.before, pair.after, pair.language, a, b)
+			})
 		}
 	}
 	graphComparisons := comparisons
@@ -162,7 +166,10 @@ type warmReference struct {
 	evidence review.Object
 	nodes    map[string]bool
 }
-type warmPair struct{ before, after, language string }
+type warmPair struct {
+	before, after, language string
+	beforeRef, afterRef     evidenceReference
+}
 
 func referencesForWarm(ctx context.Context, document review.Object) map[string][]*warmReference {
 	groups := map[string][]*warmReference{}
@@ -263,7 +270,8 @@ func uniqueWarmPairs(ctx context.Context, before, after review.Object) []warmPai
 			if count != 1 {
 				continue
 			}
-			pairs = append(pairs, warmPair{textForComputation(candidate.evidence["code"]), textForComputation(matches[0].evidence["code"]), sourceLanguage(textForComputation(matches[0].evidence["path"]))})
+			pairs = append(pairs, warmPair{before: textForComputation(candidate.evidence["code"]), after: textForComputation(matches[0].evidence["code"]),
+				language: sourceLanguage(textForComputation(matches[0].evidence["path"])), beforeRef: referenceForWarm(candidate.evidence), afterRef: referenceForWarm(matches[0].evidence)})
 		}
 	}
 	return pairs

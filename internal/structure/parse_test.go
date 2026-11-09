@@ -193,6 +193,17 @@ func TestJavaScriptFormattingAndContent(t *testing.T) {
 	}
 }
 
+func TestJavaScriptEscapedLiteralCoverage(t *testing.T) {
+	for _, language := range []string{"js", "ts", "tsx"} {
+		before := `export function split(value) { return value.split('\n').join("a\"b") + /\d+/.source; }`
+		after := strings.Replace(before, `'\n'`, `'\t'`, 1)
+		a, b := mustParse(t, before, language), mustParse(t, after, language)
+		if reflect.DeepEqual(keys(a), keys(b)) {
+			t.Fatal("escaped literal change disappeared", language)
+		}
+	}
+}
+
 func TestJavaScriptScopesRequireFileDeclarations(t *testing.T) {
 	before := "if (enabled) { function f(){return 1;} use(f); } else {}"
 	after := "if (enabled) { use(f); } else { function f(){return 1;} }"
@@ -306,6 +317,9 @@ func TestErrorsAndBudgets(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, language := range []string{"go", "js"} {
+		if _, err := Parse(t.Context(), "\xff", language); !errors.Is(err, ErrSyntax) {
+			t.Fatalf("%s invalid UTF-8: %v", language, err)
+		}
 		for _, source := range []string{strings.Repeat("x", maxSourceUnits+1), strings.Repeat("\n", maxSourceLines), "var x=" + strings.Repeat("(", maxDepth+1) + "1" + strings.Repeat(")", maxDepth+1)} {
 			if _, err := Parse(context.Background(), source, language); !errors.Is(err, ErrBudget) {
 				t.Errorf("%s over budget = %v", language, err)
@@ -318,10 +332,56 @@ func TestErrorsAndBudgets(t *testing.T) {
 		}
 	}
 	for _, language := range []string{"go", "js"} {
-		ctx, cancel := context.WithCancel(context.Background())
+		for _, timeout := range []time.Duration{0, time.Hour} {
+			ctx, cancel := context.WithTimeout(t.Context(), timeout)
+			if timeout != 0 {
+				cancel()
+			}
+			<-ctx.Done()
+			_, err := Parse(ctx, "", language)
+			cancel()
+			if !errors.Is(err, ctx.Err()) {
+				t.Fatalf("%s cancellation/deadline: %v, want %v", language, err, ctx.Err())
+			}
+		}
+	}
+}
+
+type nativeCancelContext struct {
+	context.Context
+	calls, limit int
+	cancel       context.CancelFunc
+}
+
+func (c *nativeCancelContext) Err() error {
+	c.calls++
+	if c.calls == c.limit {
+		c.cancel()
+	}
+	return c.Context.Err()
+}
+
+func TestGoInFlightCancellation(t *testing.T) {
+	source := benchmarkSource("go", true)
+	for _, limit := range []int{1, 64, 400} {
+		ctx, cancel := context.WithCancel(t.Context())
+		counting := &nativeCancelContext{Context: ctx, limit: limit, cancel: cancel}
+		_, err := parseGo(counting, source)
 		cancel()
-		if _, err := Parse(ctx, "", language); !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancel after %d offset/scanner/AST checks: %v", limit, err)
+		}
+	}
+}
+
+func TestSourceValidationCancellation(t *testing.T) {
+	for _, language := range []string{"go", "ts"} {
+		ctx, cancel := context.WithCancel(t.Context())
+		counting := &nativeCancelContext{Context: ctx, limit: 2, cancel: cancel}
+		_, err := Parse(counting, strings.Repeat("😀", 100_000), language)
+		cancel()
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("%s input-validation cancellation: %v", language, err)
 		}
 	}
 }
@@ -347,6 +407,7 @@ func TestJavaScriptInterruptAndIsolation(t *testing.T) {
 }
 
 func benchmarkSource(language string, dense bool) string {
+	const sourceUnits = 100_000
 	if !dense {
 		if language == "go" {
 			return "package p\nvar text = `" + strings.Repeat("x", 99_976) + "`\n"
@@ -362,12 +423,12 @@ func benchmarkSource(language string, dense bool) string {
 		if language == "go" {
 			line = fmt.Sprintf("func F%d(x int) int {if x>1 {return x+1};return x}\n", i)
 		}
-		if b.Len()+len(line) > maxSourceUnits || i >= 1_990 {
+		if b.Len()+len(line) > sourceUnits || i >= 1_990 {
 			break
 		}
 		b.WriteString(line)
 	}
-	b.WriteString(strings.Repeat(" ", maxSourceUnits-b.Len()))
+	b.WriteString(strings.Repeat(" ", sourceUnits-b.Len()))
 	return b.String()
 }
 

@@ -1,5 +1,13 @@
 package precompute
 
+// StructureContext locates the unchanged saved snippet in complete LF source.
+// From and To are UTF-16 offsets; callers supply source bound to their snapshot.
+type StructureContext struct {
+	Code string
+	From int
+	To   int
+}
+
 type CodeRange struct {
 	From int `json:"from"`
 	To   int `json:"to"`

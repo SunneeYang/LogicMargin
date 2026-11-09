@@ -311,6 +311,10 @@ func Stop(ctx context.Context, home string) (bool, error) {
 		return false, err
 	}
 	defer release()
+	return stop(ctx, home)
+}
+
+func stop(ctx context.Context, home string) (bool, error) {
 	entry, err := registry(home)
 	if err != nil || entry == nil {
 		return false, err

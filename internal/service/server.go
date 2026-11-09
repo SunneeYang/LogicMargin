@@ -20,6 +20,8 @@ import (
 
 	"logicmargin/internal/precompute"
 	"logicmargin/internal/review"
+	"logicmargin/internal/sourcecontext"
+	"logicmargin/internal/update"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -32,6 +34,7 @@ type Options struct {
 	InstanceID    string
 	Version       string
 	ShutdownToken string
+	Home          string
 }
 
 type asset struct {
@@ -60,11 +63,14 @@ type Server struct {
 	done           chan struct{}
 	closeErr       error
 	derived        *precompute.Engine
+	contexts       *sourcecontext.Store
 	warmMu         sync.Mutex
 	warmSeen       map[string]bool
 	warmOrder      []string
 	warmQueue      chan warmTask
 	warmWorkers    sync.WaitGroup
+	updater        *update.Manager
+	updateToken    string
 }
 
 func Start(opts Options) (*Server, error) {
@@ -114,12 +120,15 @@ func Start(opts Options) (*Server, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Server{opts: opts, assets: assets, store: review.NewStore(opts.DataDir), ctx: ctx, cancel: cancel, done: make(chan struct{})}
+	s.updater = &update.Manager{Home: opts.Home, DataDir: opts.DataDir, InstanceID: opts.InstanceID, Version: opts.Version}
+	s.updateToken = newUpdateToken()
 	s.newConnections = make(map[net.Conn]struct{})
 	derivedDir := opts.DataDir
 	if derivedDir == "" {
 		derivedDir = filepath.Join(".logic-margin", "sessions")
 	}
 	s.derived = precompute.NewEngine(filepath.Join(derivedDir, "derived"))
+	s.contexts = sourcecontext.NewStore(filepath.Join(derivedDir, "derived", "source-contexts", "v1"))
 	s.warmSeen = map[string]bool{}
 	s.warmQueue = make(chan warmTask, 16)
 	s.warmWorkers.Add(1)
@@ -270,6 +279,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.servePrecompute(w, r, pathname) {
+		return
+	}
+	if s.serveUpdate(w, r, pathname) {
 		return
 	}
 	switch pathname {

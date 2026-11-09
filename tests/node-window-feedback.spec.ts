@@ -36,7 +36,7 @@ for (const mode of ['light', 'dark']) test(`glass ${mode} reading window shields
     localStorage.setItem('logic-margin:mode', mode)
   }, mode)
   await page.goto('/')
-  await page.getByLabel('外观设置', { exact: true }).click()
+  await page.getByLabel('设置', { exact: true }).click()
   await page.getByLabel('界面主题', { exact: true }).selectOption('glass')
   await page.locator(`#appearance-mode button[value="${mode}"]`).click()
   await page.keyboard.press('Escape')
