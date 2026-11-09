@@ -3,10 +3,13 @@ import type { ReactNode } from 'react'
 import { MessageSquare, PanelRight, Plus, X } from 'lucide-react'
 import type { CommentDraft } from './types.ts'
 import { translateError, useI18n } from './i18n.ts'
+import { ariaShortcut, formatShortcut, resolvedShortcut, shortcutFromEvent } from './shortcuts.ts'
+import type { ShortcutAction } from './shortcuts.ts'
+import { useShortcutSettings } from './use-shortcuts.ts'
 
 export type InspectionTab = 'comments' | 'detail' | 'code'
-const inspectionTabs: { id: InspectionTab; label: string }[] = [
-  { id: 'comments', label: '讨论' }, { id: 'detail', label: '详情' }, { id: 'code', label: '代码 diff' },
+const inspectionTabs: { id: InspectionTab; label: string; action: ShortcutAction }[] = [
+  { id: 'comments', label: '讨论', action: 'showDiscussion' }, { id: 'detail', label: '详情', action: 'showDetails' }, { id: 'code', label: '代码 diff', action: 'showCode' },
 ]
 
 export default function CommentComposer({ draft, discussion, inspection, docked, position, onChange, onSave, onClose, onToggle, onInteract }: {
@@ -22,6 +25,7 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
   onInteract: () => void
 }) {
   const { t, locale } = useI18n()
+  const { bindings } = useShortcutSettings()
   const id = useId()
   const container = useRef<HTMLElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
@@ -98,6 +102,7 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
     </header>
     {heading && <div className="discussion-heading"><p className="discussion-target">{heading.title}</p><p className="discussion-context">{heading.context}</p></div>}
     {inspection && <div className="inspection-tabs" role="tablist" aria-label={t('节点窗口内容')}>{inspectionTabs.map((tab, index) => <button key={tab.id} type="button" role="tab" id={`${id}-tab-${tab.id}`}
+      title={bindings[tab.action] ? `${t(tab.label)} · ${formatShortcut(bindings[tab.action])}` : t(tab.label)} aria-keyshortcuts={ariaShortcut(bindings[tab.action]) || undefined}
       aria-selected={inspection.tab === tab.id} aria-controls={`${id}-panel-${tab.id}`} tabIndex={inspection.tab === tab.id ? 0 : -1}
       onClick={() => inspection.onTabChange(tab.id)} onKeyDown={event => {
         const next = event.key === 'ArrowRight' ? (index + 1) % inspectionTabs.length : event.key === 'ArrowLeft' ? (index + inspectionTabs.length - 1) % inspectionTabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? inspectionTabs.length - 1 : null
@@ -117,10 +122,14 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
       <textarea ref={input} id={`${id}-body`} rows={4} maxLength={10000} value={draft.body} aria-invalid={!!error} aria-describedby={`${id}-${error ? 'error' : 'hint'}`}
         placeholder={t(draft.replyTo ? '补充问题、处理结果或复核依据…' : '哪里不符合预期？希望怎样处理？')}
         onChange={event => { setError(''); onChange(event.target.value) }}
-        onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.preventDefault(); save() } }} />
+        onKeyDown={event => {
+          if (event.repeat || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
+          const binding = shortcutFromEvent(event.nativeEvent)
+          if (binding && bindings.saveComment && resolvedShortcut(binding) === resolvedShortcut(bindings.saveComment)) { event.preventDefault(); save() }
+        }} />
       {error && <p className="composer-error" id={`${id}-error`} role="alert">{translateError(error, locale)}</p>}
-      <p className="composer-hint" id={`${id}-hint`}>{t('草稿自动保留 · ⌘ / Ctrl + Enter 保存')}</p>
-      <div className="composer-actions">{discussion && <button className="button collapse-reply" type="button" aria-expanded="true" onClick={discussion.onCollapse}>{t(draft.replyTo ? '收起回复' : '收起输入')}</button>}<button className="button primary" type="submit" disabled={!draft.body.trim()}><Plus size={14} />{t(draft.replyTo ? '保存回复' : '添加批注')}</button></div>
+      <p className="composer-hint" id={`${id}-hint`}>{bindings.saveComment ? t('草稿自动保留 · {shortcut} 保存', { shortcut: formatShortcut(bindings.saveComment) }) : t('草稿自动保留')}</p>
+      <div className="composer-actions">{discussion && <button className="button collapse-reply" type="button" aria-expanded="true" onClick={discussion.onCollapse}>{t(draft.replyTo ? '收起回复' : '收起输入')}</button>}<button className="button primary" type="submit" disabled={!draft.body.trim()} aria-keyshortcuts={ariaShortcut(bindings.saveComment) || undefined}><Plus size={14} />{t(draft.replyTo ? '保存回复' : '添加批注')}</button></div>
     </form>}
     </div>
     </div>

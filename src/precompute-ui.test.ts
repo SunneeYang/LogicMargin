@@ -50,7 +50,7 @@ function hookHost(component: (props: any) => any) {
   const refs = (element: any) => {
     if (!element || typeof element !== 'object') return
     const ref = element.props?.ref
-    if (ref && !ref.current) ref.current = { dataset: {}, removeAttribute() {}, querySelector() { return null } }
+    if (ref && !ref.current) ref.current = { dataset: {}, removeAttribute() {}, querySelector() { return null }, addEventListener() {}, removeEventListener() {} }
     for (const child of [element.props?.children].flat(Infinity)) refs(child)
   }
   const flush = () => {
@@ -110,6 +110,7 @@ Object.assign(runtime, { FakeView, FakeMerge, merge, getChunks: (state: EditorSt
   focus, localLayout: () => { runtime.localLayouts++; throw new Error('local Dagre must not run on the Go path') } })
 const mocks: Record<string, string> = {
   react, './i18n.ts': i18n,
+  './use-shortcuts.ts': moduleUrl(`import {DEFAULT_SHORTCUTS} from ${JSON.stringify(new URL('./shortcuts.ts', import.meta.url).href)}; export const useShortcutSettings = () => ({bindings: DEFAULT_SHORTCUTS});`),
   '@codemirror/view': moduleUrl(`export * from ${JSON.stringify(import.meta.resolve('@codemirror/view'))}; export const EditorView = globalThis.__precomputeTest.FakeView;`),
   '@codemirror/merge': moduleUrl(`export * from ${JSON.stringify(import.meta.resolve('@codemirror/merge'))}; export const MergeView = globalThis.__precomputeTest.FakeMerge, getChunks = globalThis.__precomputeTest.getChunks, mergeViewSiblings = () => null;`),
   './code-overview.ts': moduleUrl('export const codeOverview = () => ({update(){}, setRanges(){}, destroy(){}});'),

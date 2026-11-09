@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { closeSettings, openSettings } from './ui.ts'
 
 for (const locale of ['zh-CN', 'en'] as const) for (const status of [403, 429]) {
   test(`release denial explains retry without exposing a raw code ${locale} ${status}`, async ({ page }) => {
@@ -6,7 +7,7 @@ for (const locale of ['zh-CN', 'en'] as const) for (const status of [403, 429]) 
     await page.route('**/api/runtime', route => route.fulfill({ json: { version: '1.0.0', local: false, canUpdate: false } }))
     await page.route('**/api/releases/latest', route => route.fulfill({ status: 502, json: { error: `release_http_${status}` } }))
     await page.goto('/')
-    await page.locator('.appearance-menu > summary').click()
+    await openSettings(page, 'version')
     const check = page.getByRole('button', { name: locale === 'en' ? 'Check for updates' : '检查新版', exact: true })
     await check.click()
     const error = page.locator('.version-settings [role="alert"]')
@@ -25,9 +26,9 @@ test('version status is read only while settings are open', async ({ page }) => 
   await page.goto('/')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
   expect(reads).toBe(0)
-  await page.locator('.appearance-menu > summary').click()
+  await openSettings(page, 'version')
   await expect(page.locator('.runtime-version')).toHaveText('1.0.0')
-  await page.locator('.appearance-menu > summary').click()
+  await closeSettings(page)
   await expect(page.locator('.version-settings')).toHaveCount(0)
   const closedReads = reads
   await page.waitForTimeout(2300)
@@ -54,7 +55,7 @@ for (const locale of ['zh-CN', 'en'] as const) {
       await route.fulfill({ status: 202, json: { phase, version: '1.0.1' } })
     })
     await page.goto('/')
-    await page.locator('.appearance-menu > summary').click()
+    await openSettings(page, 'version')
     await expect(page.locator('.runtime-version')).toHaveText('1.0.0')
     expect(checkCount).toBe(0)
     await page.getByRole('button', { name: locale === 'en' ? 'Check for updates' : '检查新版', exact: true }).click()
@@ -81,7 +82,7 @@ test('remote update stays disabled and release errors remain retryable', async (
   let fail = true
   await page.route('**/api/releases/latest', route => route.fulfill({ status: fail ? 502 : 200, json: fail ? { error: 'release_unreachable' } : { version: '1.0.1', newer: true, url: 'https://github.com/SunneeYang/LogicMargin/releases/tag/v1.0.1' } }))
   await page.goto('/')
-  await page.locator('.appearance-menu > summary').click()
+  await openSettings(page, 'version')
   await expect(page.locator('.runtime-version')).toHaveText('1.0.0')
   const check = page.getByRole('button', { name: '检查新版', exact: true })
   await check.click()
@@ -102,7 +103,7 @@ test('manual release check exposes checking and up-to-date states', async ({ pag
     await route.fulfill({ json: { version: '1.0.1', newer: false, url: 'https://github.com/SunneeYang/LogicMargin/releases/tag/v1.0.1' } })
   })
   await page.goto('/')
-  await page.locator('.appearance-menu > summary').click()
+  await openSettings(page, 'version')
   await page.getByRole('button', { name: '检查新版', exact: true }).click()
   await expect(page.getByRole('button', { name: '正在检查新版…', exact: true })).toBeDisabled()
   releaseCheck()

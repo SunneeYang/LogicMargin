@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { closeSettings, openSettings } from './ui.ts'
 import { largeCodeReview } from './fixtures/large-code-review.ts'
 
 const demo = JSON.parse(readFileSync(new URL('../docs/examples/order-review.en.logic-margin.json', import.meta.url), 'utf8'))
@@ -18,10 +19,9 @@ async function openDemo(page: Page) {
 }
 
 async function language(page: Page, value: 'en' | 'zh-CN') {
-  const menu = page.locator('.appearance-menu')
-  if (!await menu.getAttribute('open').then(value => value !== null)) await menu.locator('summary').click()
+  const menu = await openSettings(page)
   await menu.locator(`#interface-language button[value="${value}"]`).click()
-  await menu.locator('summary').click()
+  await closeSettings(page)
   await expect(page.locator('html')).toHaveAttribute('lang', value)
 }
 

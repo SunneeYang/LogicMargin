@@ -21,7 +21,7 @@ import (
 	"logicmargin/internal/update"
 )
 
-var version = "0.9.5"
+var version = "0.9.6"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

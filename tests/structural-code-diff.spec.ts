@@ -225,7 +225,7 @@ for (const mode of modes) test(`${mode.name}: late structure preserves reader id
     await expect(gap).toHaveAttribute('data-line-count', String(count - 60))
     const menu = await openMenu(page, '.appearance-menu')
     await menu.locator('#interface-language button[value="en"]').click()
-    await menu.locator('summary').click()
+    await page.keyboard.press('Escape')
     await expect(gap.locator('[data-context-edge="start"]')).toHaveAccessibleName(/Expand \d+ lines below/)
     const scroll = panel.locator(mode.split ? '.cm-mergeView' : '.cm-scroller').first()
     const foldTop = await scroll.evaluate(element => element.scrollTop) + (await gap.boundingBox())!.y - (await scroll.boundingBox())!.y

@@ -16,16 +16,17 @@ for (const device of [
       await page.goto('/')
       await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
 
-      const appearance = page.locator('.appearance-menu > summary')
+      const appearance = page.locator('.settings-trigger')
       await appearance.tap()
       const language = page.locator('#interface-language')
+      await language.scrollIntoViewIfNeeded()
       await expect(language).toBeInViewport({ ratio: 1 })
       const languageBounds = (await language.boundingBox())!
       expect(languageBounds.height).toBeGreaterThanOrEqual(44)
       await language.locator(`button[value="${locale}"]`).tap()
       await expect(language.locator(`button[value="${locale}"]`)).toHaveAttribute('aria-pressed', 'true')
       await expect(page.locator('html')).toHaveAttribute('lang', locale)
-      await appearance.tap()
+      await page.keyboard.press('Escape')
 
       const toggle = page.locator('.display-settings-toggle')
       await toggle.tap()

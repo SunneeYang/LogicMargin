@@ -1,6 +1,6 @@
 # 插件安装与更新
 
-适用于具备本地命令执行能力的 Codex。0.9.5 默认运行 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。Git marketplace 需要 Git，首次启动需要联网；macOS/Linux 下载启动器还需要 `curl`、`unzip` 与 `shasum` 或 `sha256sum`，Windows 使用 PowerShell。用户已要求更新时直接执行。其他 Agent 可使用平台 ZIP 内的 CLI 或受支持的 HTTP MCP 客户端，ZIP 本身不会把 MCP 注册到其他宿主。
+适用于具备本地命令执行能力的 Codex。0.9.6 默认运行 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。Git marketplace 需要 Git，首次启动需要联网；macOS/Linux 下载启动器还需要 `curl`、`unzip` 与 `shasum` 或 `sha256sum`，Windows 使用 PowerShell。用户已要求更新时直接执行。其他 Agent 可使用平台 ZIP 内的 CLI 或受支持的 HTTP MCP 客户端，ZIP 本身不会把 MCP 注册到其他宿主。
 
 ## 首次安装或从本地目录迁移
 
@@ -11,11 +11,11 @@ codex plugin add logic-margin@logic-margin-local --json
 
 同名来源或 Git ref 不同时，Codex 可能拒绝直接添加。先记录并备份旧 marketplace 根目录，再用 `codex plugin marketplace remove logic-margin-local --json` 移除该来源注册，然后添加目标来源；原插件缓存保留，但新来源注册前不会出现在插件清单中。添加失败时从目录备份重新注册。不要删除评审数据或直接改写插件缓存。此路径包含 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，按插件固定版本从官方 GitHub Release 下载本平台 ZIP 并校验 SHA-256，再运行原生程序；不在用户机器编译，不追随浮动 latest。
 
-无需 Git 时，从 [Release v0.9.5](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.5) 选择 `logic-margin-agent-0.9.5-TARGET.zip` 和 `.zip.sha256`。TARGET 为 `darwin-arm64`（macOS Apple Silicon）、`darwin-x64`（macOS Intel）、`linux-arm64`、`linux-x64` 或 `win32-x64`（Windows x64）。校验 SHA-256 后解压到持久位置，以 ZIP 顶层目录执行 `codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.5-TARGET`，再添加插件。ZIP 内直接使用 `scripts/logic-margin` / `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI` 调用实际入口。
+无需 Git 时，从 [Release v0.9.6](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.6) 选择 `logic-margin-agent-0.9.6-TARGET.zip` 和 `.zip.sha256`。TARGET 为 `darwin-arm64`（macOS Apple Silicon）、`darwin-x64`（macOS Intel）、`linux-arm64`、`linux-x64` 或 `win32-x64`（Windows x64）。校验 SHA-256 后解压到持久位置，以 ZIP 顶层目录执行 `codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.6-TARGET`，再添加插件。ZIP 内直接使用 `scripts/logic-margin` / `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI` 调用实际入口。
 
 ## 检查与更新
 
-0.9.5 网页“设置 → 版本与更新”显示当前运行服务版本并手动检查官方新版。已有支持该功能的服务可在本机回环地址点击“一键更新本机插件与服务”；后台固定所选发行 tag、校验平台包、备份原数据、更新已有 Codex 安装并重启核实。远程页面只能检查，不能安装。更新完成后核对实际插件与服务版本，MCP 可能需宿主重连。旧版没有此入口时使用下方 CLI 步骤。
+0.9.6 网页“设置 → 版本与更新”显示当前运行服务版本并手动检查官方新版。已有支持该功能的服务可在本机回环地址点击“一键更新本机插件与服务”；后台固定所选发行 tag、校验平台包、备份原数据、更新已有 Codex 安装并重启核实。远程页面只能检查，不能安装。更新完成后核对实际插件与服务版本，MCP 可能需宿主重连。旧版没有此入口时使用下方 CLI 步骤。
 
 只检查时不停止服务。用户要求更新已有安装时，先按下一节识别并停止旧受管实例、备份实际数据，再替换插件文件：
 

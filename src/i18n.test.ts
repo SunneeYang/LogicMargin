@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { measureEdgeLabel } from './graph-label.ts'
 import { englishMessages, resolveLocale, translateError, translateForLocale } from './i18n.ts'
+import { SHORTCUT_ACTIONS } from './shortcuts.ts'
 
 test('explicit language wins; otherwise use the first supported browser preference', () => {
   assert.equal(resolveLocale('zh-CN', ['en-US']), 'zh-CN')
@@ -24,6 +25,13 @@ test('English messages retain every named interpolation value', () => {
   for (const [source, translation] of Object.entries(englishMessages)) {
     assert.ok(translation.trim(), `Empty translation: ${source}`)
     assert.deepEqual(parameters(translation), parameters(source), `Parameters differ: ${source}`)
+  }
+})
+
+test('every configurable shortcut has an English label and group', () => {
+  for (const action of SHORTCUT_ACTIONS) for (const key of [action.label, action.group]) {
+    assert.ok(englishMessages[key], `Missing shortcut translation: ${key}`)
+    assert.doesNotMatch(translateForLocale('en', key), /\p{Script=Han}/u)
   }
 })
 

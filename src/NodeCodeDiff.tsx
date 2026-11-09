@@ -7,6 +7,8 @@ import type { CodePair } from './code-diff.ts'
 import type { DiffContext } from './precompute.ts'
 import type CodeDiffEditor from './CodeDiffEditor.tsx'
 import { useI18n } from './i18n.ts'
+import { ariaShortcut, formatShortcut } from './shortcuts.ts'
+import { useShortcutSettings } from './use-shortcuts.ts'
 
 let loadedEditor: typeof CodeDiffEditor | null = null
 
@@ -115,13 +117,16 @@ function CodeSection({ pair, initialOpen, split, ...props }: { pair: CodePair; i
 
 export default function NodeCodeDiff({ before, after, targets, beforeLabel, afterLabel, precomputeContext, split, onSplitChange }: NodeCodeDiffProps) {
   const { t } = useI18n()
+  const { bindings } = useShortcutSettings()
+  const binding = bindings.toggleCodeLayout
+  const layoutShortcut = binding ? ` · ${formatShortcut(binding)}` : ''
   beforeLabel ??= t('修改前')
   afterLabel ??= t('当前版本')
   const pairs = useMemo(() => prioritizeCodePairs(pairCodeReferences(before ? collectCodeReferences(before, targets) : [], collectCodeReferences(after, targets))), [before, after, targets])
   if (!targets.length) return <div className="empty-state"><FileCode2 size={24} /><h3>{t('选择要核对的步骤')}</h3><p>{t('从节点打开代码页，查看它关联的源码片段。')}</p></div>
   if (!pairs.length) return <div className="empty-state"><FileCode2 size={24} /><h3>{t('尚未关联代码依据')}</h3><p>{t('请让代理为这些步骤补充源码位置，并在发布评审时保存对应版本的代码片段。')}</p></div>
   return <section className="node-code-diff" aria-label={t('相关代码 diff')}>
-    <header className="code-diff-heading"><p title={`${before ? `${beforeLabel} · ${before.revision} · ${before.snapshot.commit}\n` : ''}${afterLabel} · ${after.revision} · ${after.snapshot.commit}`}>{before ? `${beforeLabel} → ${afterLabel}` : afterLabel}</p><div className="code-diff-mode" role="group" aria-label={t('代码对照布局')}><span className="code-control-label">{t('布局')}</span><button className="button" title={t('统一：在同一窗口显示删除与新增')} aria-pressed={!split} onClick={() => onSplitChange(false)}>{t('统一')}</button><button className="button" title={t('并排：左侧原版，右侧新版')} aria-pressed={split} onClick={() => onSplitChange(true)}>{t('并排')}</button></div></header>
+    <header className="code-diff-heading"><p title={`${before ? `${beforeLabel} · ${before.revision} · ${before.snapshot.commit}\n` : ''}${afterLabel} · ${after.revision} · ${after.snapshot.commit}`}>{before ? `${beforeLabel} → ${afterLabel}` : afterLabel}</p><div className="code-diff-mode" role="group" aria-label={t('代码对照布局')}><span className="code-control-label">{t('布局')}</span><button className="button" title={t('统一：在同一窗口显示删除与新增') + layoutShortcut} aria-keyshortcuts={split && binding ? ariaShortcut(binding) : undefined} aria-pressed={!split} onClick={() => onSplitChange(false)}>{t('统一')}</button><button className="button" title={t('并排：左侧原版，右侧新版') + layoutShortcut} aria-keyshortcuts={!split && binding ? ariaShortcut(binding) : undefined} aria-pressed={split} onClick={() => onSplitChange(true)}>{t('并排')}</button></div></header>
     <p className="code-diff-note">{t(targets.some(target => target.kind === 'edge') ? '仅比较连线两端节点的关联片段，范围见行号。' : '仅比较节点关联片段，范围见行号。')}</p>
     {pairs.map((pair, index) => <CodeSection key={pair.key} pair={pair} initialOpen={index === 0} split={split} beforeLabel={beforeLabel} afterLabel={afterLabel} hasBaseline={!!before} precomputeContext={precomputeContext} />)}
   </section>

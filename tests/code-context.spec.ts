@@ -48,10 +48,10 @@ for (const sample of [
     await lineA.scrollIntoViewIfNeeded()
     await expect.poll(async () => Math.abs((await lineA.boundingBox())!.y - (await lineB.boundingBox())!.y)).toBeLessThan(2)
   }
-  const menu = page.locator('.appearance-menu')
-  await menu.locator('summary').click()
+  const menu = page.locator('.settings-dialog')
+  await page.locator('.settings-trigger').click()
   await menu.locator('#interface-language button[value="en"]').click()
-  await menu.locator('summary').click()
+  await page.keyboard.press('Escape')
   await expect(middle).toHaveAttribute('data-line-count', String(initial - 40))
   await expect(middle.getByRole('button', { name: /Expand \d+ lines above/ })).toBeVisible()
   if (sample.mobile) {

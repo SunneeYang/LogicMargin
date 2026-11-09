@@ -78,7 +78,7 @@ for (const target of ['sparse', 'replaced', 'deleted', 'multiple']) {
       await panel.getByRole('button', { name: '下一处差异', exact: true }).click()
       await panel.getByRole('button', { name: '下一处差异', exact: true }).click()
       await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeGreaterThan(800)
-      await page.keyboard.press('Shift+F7')
+      await page.keyboard.press('Shift+F8')
       await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeLessThan(500)
     }
     for (const split of [false, true]) {

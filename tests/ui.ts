@@ -2,11 +2,29 @@ import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
 export async function openMenu(page: Page, selector: string) {
+  if (selector === '.appearance-menu') return openSettings(page)
   const menu = page.locator(selector)
   const tools = page.locator('.canvas-tools')
   if (selector === '.scope-actions' && await tools.getAttribute('open') === null) await tools.locator(':scope > summary').click()
   if (await menu.getAttribute('open') === null) await menu.locator(':scope > summary').click()
   return menu
+}
+
+export async function openSettings(page: Page, section: 'interface' | 'shortcuts' | 'version' = 'interface') {
+  const dialog = page.locator('.settings-dialog')
+  if (!await dialog.isVisible()) await page.locator('.settings-trigger').click()
+  const english = await page.locator('html').getAttribute('lang') === 'en'
+  const label = {
+    interface: english ? 'Interface' : '界面',
+    shortcuts: english ? 'Keyboard shortcuts' : '快捷键',
+    version: english ? 'Version and updates' : '版本与更新',
+  }[section]
+  await dialog.getByRole('tab', { name: label, exact: true }).click()
+  return dialog
+}
+
+export async function closeSettings(page: Page) {
+  await page.locator('.settings-dialog').getByRole('button', { name: /^(关闭设置|Close settings)$/ }).click()
 }
 
 export async function openInspector(page: Page, tab: 'detail' | 'comments' | 'drafts' | 'changes' = 'comments') {

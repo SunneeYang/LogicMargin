@@ -22,6 +22,9 @@ import RevisionControls, { RevisionChangesPanel } from './RevisionControls.tsx'
 import CommentThreads from './CommentThreads.tsx'
 import AppearanceMenu from './AppearanceMenu.tsx'
 import { translateError, useI18n } from './i18n.ts'
+import { ariaShortcut, formatShortcut } from './shortcuts.ts'
+import type { ShortcutAction } from './shortcuts.ts'
+import { useShortcutSettings, useShortcuts } from './use-shortcuts.ts'
 
 type Message = string | { source: string; error: string }
 
@@ -76,6 +79,16 @@ function readWorkspace() {
 
 export default function App() {
   const { t, locale } = useI18n()
+  const { bindings } = useShortcutSettings()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  function shortcutProps(action: ShortcutAction, label: string) {
+    const binding = bindings[action]
+    return { title: binding ? `${label} · ${formatShortcut(binding)}` : label, 'aria-keyshortcuts': binding ? ariaShortcut(binding) : undefined }
+  }
+  function changeSettingsOpen(open: boolean) {
+    if (open) closeMenus()
+    setSettingsOpen(open)
+  }
   const renderMessage = (message: Message) => typeof message === 'string' ? translateError(message, locale) : t(message.source, { error: translateError(message.error, locale) })
   function displayTargetLabel(document: ReviewDocument, target: Target) {
     return targetLabel(document, target, t)
@@ -396,7 +409,8 @@ export default function App() {
   }, [discussionTargets, compactToolbar])
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || event.isComposing) return
+      if (settingsOpen || tasksOpen || document.querySelector('dialog[open]')) return
+      if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229 || event.repeat || event.defaultPrevented) return
       if (navOpen && compactToolbar) { setNavOpen(false); return }
       const menu = document.querySelector<HTMLDetailsElement>('details.workspace-menu[open]')
       if (menu) { closeMenus(); menu.querySelector('summary')?.focus(); return }
@@ -407,6 +421,7 @@ export default function App() {
       if (navOpen && matchMedia('(max-width: 900px)').matches) setNavOpen(false)
     }
     function outside(event: PointerEvent) {
+      if (settingsOpen || tasksOpen || document.querySelector('dialog[open]')) return
       if (!(event.target instanceof Element)) return
       document.querySelectorAll<HTMLDetailsElement>('details.workspace-menu[open]').forEach(menu => { if (!menu.contains(event.target as Node)) menu.open = false })
       if (!discussionTargets && composer && !docked && !event.target.closest('[data-composer], [data-keep-composer]')) setComposer(null)
@@ -414,7 +429,7 @@ export default function App() {
     window.addEventListener('keydown', keydown)
     document.addEventListener('pointerdown', outside)
     return () => { window.removeEventListener('keydown', keydown); document.removeEventListener('pointerdown', outside) }
-  }, [!!composer, discussionTargets, docked, focusMode, submitting, navOpen, compactToolbar])
+  }, [!!composer, discussionTargets, docked, focusMode, submitting, navOpen, compactToolbar, settingsOpen, tasksOpen])
   useEffect(() => {
     if (threadId && (discussionTargets || panelOpen)) document.getElementById(`${discussionTargets ? 'discussion-thread' : 'thread'}-${threadId}`)?.scrollIntoView({ block: 'nearest' })
   }, [threadId, discussionTargets, panelOpen, tab])
@@ -547,6 +562,41 @@ export default function App() {
     closeMenus()
     if (!focusMode && docked) setDocked(false)
     setFocusMode(current => !current)
+  }
+  function toggleNavigation() {
+    setNavOpen(current => focusMode || !current)
+    setFocusMode(false)
+  }
+  function toggleInspector() {
+    if (panelOpen && !focusMode) {
+      setPanelOpen(false)
+      if (docked) closeDiscussion(false)
+    } else openPanel(tab)
+  }
+  function showInspection(nextTab: InspectionTab) {
+    const targets = windowTargets?.length ? windowTargets : selection
+    if (!targets.length) {
+      if (nextTab === 'code') return false
+      openPanel(nextTab); return
+    }
+    if (windowTargets?.length) {
+      setWindowTab(nextTab)
+      if (docked) { setFocusMode(false); setPanelOpen(true) }
+    } else openInspection(targets, undefined, nextTab)
+  }
+  function codeShortcut(action: 'nextDifference' | 'previousDifference' | 'toggleFullCode' | 'toggleCodeLayout') {
+    if (windowTab !== 'code' || !windowTargets || docked && (!panelOpen || focusMode)) return false
+    const panel = document.querySelector<HTMLElement>('[data-composer][data-state="open"][data-tab="code"] .inspection-code:not([hidden])')
+    if (!panel || panel.closest('[inert], [hidden], [aria-hidden="true"]')) return false
+    const bounds = panel.getBoundingClientRect()
+    const visible = [...panel.querySelectorAll<HTMLElement>('.code-editor')].filter(editor => {
+      const rect = (editor.querySelector(':scope > .code-editor-host') ?? editor).getBoundingClientRect()
+      return editor.checkVisibility() && rect.width > 0 && rect.height > 0 && rect.bottom > Math.max(0, bounds.top) && rect.top < Math.min(innerHeight, bounds.bottom)
+        && rect.right > Math.max(0, bounds.left) && rect.left < Math.min(innerWidth, bounds.right)
+    })
+    const focused = document.activeElement?.closest<HTMLElement>('.code-editor')
+    const editor = focused && visible.includes(focused) ? focused : visible[0]
+    return editor ? !editor.dispatchEvent(new CustomEvent('logic-margin:code-shortcut', { cancelable: true, detail: action })) : false
   }
   async function switchRound(round: number) {
     if (round === activeRound && !viewBaseline) return
@@ -795,6 +845,56 @@ export default function App() {
     } catch (error) { setNotice(error instanceof Error ? error.message : '通过记录生成失败') }
     finally { setSessionAction(false) }
   }
+  function reviewRound() {
+    if (historical || approved || sessionBlocked || sessionAction || (!hasFeedback && !unresolved.length && !canApprove)) return false
+    closeComposer(false)
+    if (!hasFeedback && unresolved.length) startReview()
+    else setSubmitting(true)
+  }
+  useShortcuts(settingsOpen || tasksOpen || submitting ? {} : {
+    taskManager: openTasks,
+    ...(!SESSION_ID || session.ready && session.availability === 'active' ? {
+      settings: () => changeSettingsOpen(true),
+      toggleNavigation,
+      toggleInspector,
+      previousScene: () => {
+        const previous = displayReview.scenes[displayReview.scenes.findIndex(item => item.id === scene.id) - 1]
+        if (!previous) return false
+        switchScene(previous.id)
+      },
+      nextScene: () => {
+        const next = displayReview.scenes[displayReview.scenes.findIndex(item => item.id === scene.id) + 1]
+        if (!next) return false
+        switchScene(next.id)
+      },
+      panMode: () => setMode('pan'),
+      selectMode: () => setMode('select'),
+      fitGraph: () => graph.current?.fitGraph(),
+      readingView: () => graph.current?.readingView(),
+      zoomIn: () => graph.current?.zoomIn(),
+      zoomOut: () => graph.current?.zoomOut(),
+      focusCanvas: toggleFocus,
+      locateSelection: () => {
+        if (!selection.length) return false
+        graph.current?.focusTargets(selection)
+      },
+      addComment: () => {
+        if (historical || sessionBlocked) return false
+        openComposer(windowTargets?.length ? windowTargets : selection.length ? selection : [{ kind: 'scene', id: scene.id }])
+      },
+      showDiscussion: () => showInspection('comments'),
+      showDetails: () => showInspection('detail'),
+      showCode: () => showInspection('code'),
+      toggleCodeLayout: () => {
+        if (!codeShortcut('toggleCodeLayout')) return false
+        changeCodeSplit(!codeSplit)
+      },
+      nextDifference: () => codeShortcut('nextDifference'),
+      previousDifference: () => codeShortcut('previousDifference'),
+      toggleFullCode: () => codeShortcut('toggleFullCode'),
+      reviewRound,
+    } : {}),
+  })
 
   const taskManager = <dialog ref={tasksDialog} className="task-manager" aria-labelledby="task-manager-title" onCancel={event => { event.preventDefault(); setTasksOpen(false) }}>
     <header className="task-manager-heading"><h2 id="task-manager-title">{t('评审任务')}</h2><button className="button icon-button" aria-label={t('关闭评审任务')} onClick={() => setTasksOpen(false)}><X size={16} /></button></header>
@@ -840,7 +940,7 @@ export default function App() {
 
   return <div className={`app-shell ${focusMode ? 'is-focused' : ''}`}>
     <header className="topbar">
-      <button className="button icon-button nav-toggle" data-keep-composer aria-label={navOpen ? t('收起场景导航') : t('展开场景导航')} aria-expanded={navOpen} aria-controls="scene-navigation" onClick={() => setNavOpen(current => !current)}>{navOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}</button>
+      <button className="button icon-button nav-toggle" data-keep-composer {...shortcutProps('toggleNavigation', navOpen ? t('收起场景导航') : t('展开场景导航'))} aria-label={navOpen ? t('收起场景导航') : t('展开场景导航')} aria-expanded={navOpen} aria-controls="scene-navigation" onClick={toggleNavigation}>{navOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}</button>
       <span className="brand-mark" title={t('LogicMargin · 逻辑旁批')}><img src={logoUrl} alt="LogicMargin" width="28" height="28" /></span>
       <h1 className="review-title" title={review.title}>{review.title}</h1>
       <details ref={infoRef} className="workspace-menu review-tools"><summary className="button" aria-label={t('评审信息')}><Info size={15} /><span className="button-text">{t('评审信息')}</span><ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
@@ -853,19 +953,19 @@ export default function App() {
         </div>
       </details>
       <div className="topbar-actions"><span className={`save-state ${displaySaveState.includes('失败') ? 'save-error' : ''}`} role="status"><Circle size={7} fill="currentColor" />{translateError(displaySaveState, locale)}</span>
-        <AppearanceMenu codeSplit={codeSplit} onCodeSplitChange={changeCodeSplit} />
+        <AppearanceMenu codeSplit={codeSplit} onCodeSplitChange={changeCodeSplit} open={settingsOpen} onOpenChange={changeSettingsOpen} />
         <input className="screen-reader-only" ref={inputRef} type="file" accept=".json,application/json" aria-label={t('导入评审文件')} onChange={event => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = '' }} />
         <details className="workspace-menu file-menu"><summary className="button">{t('文件')}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">
           {!SESSION_ID && <button className="button" onClick={() => { closeMenus(); inputRef.current?.click() }}><Upload size={15} />{t('导入评审')}</button>}
           <button className="button" onClick={() => void exportReview()}><ArrowDownToLine size={15} />{t('导出评审')}</button>
           {!SESSION_ID && HAS_BUNDLED_SPIRIT_REVIEW && <button className="button" disabled={loadingSpiritSanctum} aria-busy={loadingSpiritSanctum} onClick={() => { closeMenus(); void openSpiritSanctum() }}>{loadingSpiritSanctum ? t('正在打开魔灵秘境…') : t('打开魔灵秘境评审')}</button>}
           {!SESSION_ID && review.id !== sampleReview.id && <button className="button" onClick={() => { closeMenus(); void importFile(new File([JSON.stringify(sampleReview)], 'sample.json')) }}>{t('打开 Vast 样例')}</button>}
-          <button className="button" onClick={openTasks}>{t('评审任务')}</button>
+          <button className="button" {...shortcutProps('taskManager', t('评审任务'))} onClick={openTasks}>{t('评审任务')}</button>
           {SESSION_ID && <button className="button" onClick={() => { closeMenus(); void backupFullSession() }}>{t('备份完整会话')}</button>}
           {!SESSION_ID && !!history.length && <button className="button" onClick={() => { closeMenus(); archiveHistory() }}>{t('导出并归档全部历史')}</button>}
           {SESSION_ID && <a className="button" href="/">{t('返回本机评审')}</a>}
         </div></details>
-        {approved ? <span className="badge approval-state" role="status">{t('本轮已通过')}</span> : !historical && <button className="button primary" disabled={sessionBlocked || sessionAction || (!hasFeedback && !unresolved.length && !canApprove)} onClick={() => { closeComposer(false); if (!hasFeedback && unresolved.length) startReview(); else setSubmitting(true) }}>{pending.length ? t('{label}（{count}）', { label: t(finishLabel), count: pending.length }) : t(finishLabel)}</button>}
+        {approved ? <span className="badge approval-state" role="status">{t('本轮已通过')}</span> : !historical && <button className="button primary" {...shortcutProps('reviewRound', t(finishLabel))} disabled={sessionBlocked || sessionAction || (!hasFeedback && !unresolved.length && !canApprove)} onClick={reviewRound}>{pending.length ? t('{label}（{count}）', { label: t(finishLabel), count: pending.length }) : t(finishLabel)}</button>}
       </div>
     </header>
     {taskManager}
@@ -884,24 +984,27 @@ export default function App() {
       {panelOpen && !compactToolbar && !focusMode && <SidebarResize side="right" width={sidebarWidths.right} max={sidebarWidths.rightMax} onChange={width => sidebarWidths.change('right', width)} />}
       <button className="nav-shade" aria-label={t('关闭场景导航')} onClick={() => setNavOpen(false)} />
       <aside id="scene-navigation" className="sidebar" aria-label={t('评审场景')}><button className="button sidebar-close" aria-label={t('收起场景列表')} onClick={() => setNavOpen(false)}><X size={16} />{t('收起场景')}</button><div className="navigation-heading"><span>{t('流程场景')}</span><span>{displayReview.scenes.length}</span></div>
-        <nav>{displayReview.scenes.map((item, index) => <button key={item.id} className={`scene-button ${scene.id === item.id ? 'active' : ''}`} onClick={() => switchScene(item.id)} aria-current={scene.id === item.id ? 'page' : undefined}><span className="scene-number">{String(index + 1).padStart(2, '0')}</span><span><strong>{item.title}</strong><small>{t('{count} 个步骤', { count: displayReview.nodes.filter(node => node.sceneId === item.id).length })}</small></span><ChevronRight size={14} /></button>)}</nav>
+        <nav>{displayReview.scenes.map((item, index) => {
+          const offset = index - displayReview.scenes.findIndex(item => item.id === scene.id)
+          return <button key={item.id} className={`scene-button ${scene.id === item.id ? 'active' : ''}`} {...(offset === -1 ? shortcutProps('previousScene', item.title) : offset === 1 ? shortcutProps('nextScene', item.title) : {})} onClick={() => switchScene(item.id)} aria-current={scene.id === item.id ? 'page' : undefined}><span className="scene-number">{String(index + 1).padStart(2, '0')}</span><span><strong>{item.title}</strong><small>{t('{count} 个步骤', { count: displayReview.nodes.filter(node => node.sceneId === item.id).length })}</small></span><ChevronRight size={14} /></button>
+        })}</nav>
       </aside>
       <main className="review-main">
         <div className="graph-toolbar">
           <div className="scene-context"><h2 className="scene-title" title={`${scene.title} · ${scene.description}`}>{scene.title}</h2><label className="mobile-scene-select"><select aria-label={t('场景')} value={scene.id} onChange={event => switchScene(event.target.value)}>{displayReview.scenes.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
-          <button className={`button panel-toggle ${panelOpen ? 'active' : ''}`} data-keep-composer aria-label={review.comments.length ? t('评审面板 {count}', { count: review.comments.length }) : t('评审面板')} aria-expanded={panelOpen} aria-controls="node-inspector" onClick={() => { if (panelOpen) { setPanelOpen(false); if (docked) closeDiscussion(false) } else openPanel(tab) }}><MessageSquare size={14} /><span className="panel-label">{t('评审面板')}</span>{review.comments.length > 0 && <span className="panel-count">{review.comments.length}</span>}</button>
+          <button className={`button panel-toggle ${panelOpen ? 'active' : ''}`} data-keep-composer {...shortcutProps('toggleInspector', t('评审面板'))} aria-label={review.comments.length ? t('评审面板 {count}', { count: review.comments.length }) : t('评审面板')} aria-expanded={panelOpen} aria-controls="node-inspector" onClick={toggleInspector}><MessageSquare size={14} /><span className="panel-label">{t('评审面板')}</span>{review.comments.length > 0 && <span className="panel-count">{review.comments.length}</span>}</button>
           <details className={`canvas-tools${compactCanvasTools ? ' workspace-menu is-compact' : ''}`} open={!compactCanvasTools}>
             <summary className="button" aria-label={t('画布工具')}><SlidersHorizontal size={15} />{t('工具')}{mode === 'select' && <span className="badge">{t('框选中')}</span>}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
             <div className="canvas-tool-content" onClick={event => { if (compactCanvasTools && (event.target as Element).closest('button')) closeMenus() }}>
               <RevisionControls session={session.session ?? undefined} viewRound={activeRound} onViewRound={round => void switchRound(round)} onOpenChanges={() => openPanel('changes')}
                 baseline={hasTaskBaseline ? { showing: viewBaseline, source: comparisonSource, onSourceChange: changeComparison, onShow: () => void showBaseline() } : undefined} />
-              <div className="tool-group canvas-mode-switch" role="group" aria-label={t('画布操作模式')}><button className={`button ${mode === 'pan' ? 'active' : ''}`} aria-label={t('浏览')} aria-pressed={mode === 'pan'} onClick={() => setMode('pan')}><Hand size={14} /><span className="tool-label">{t('浏览')}</span></button><button className={`button ${mode === 'select' ? 'active' : ''}`} aria-label={t('框选')} aria-pressed={mode === 'select'} onClick={() => setMode('select')}><Scan size={14} /><span className="tool-label">{t('框选')}</span></button></div>
+              <div className="tool-group canvas-mode-switch" role="group" aria-label={t('画布操作模式')}><button className={`button ${mode === 'pan' ? 'active' : ''}`} {...shortcutProps('panMode', t('浏览'))} aria-label={t('浏览')} aria-pressed={mode === 'pan'} onClick={() => setMode('pan')}><Hand size={14} /><span className="tool-label">{t('浏览')}</span></button><button className={`button ${mode === 'select' ? 'active' : ''}`} {...shortcutProps('selectMode', t('框选'))} aria-label={t('框选')} aria-pressed={mode === 'select'} onClick={() => setMode('select')}><Scan size={14} /><span className="tool-label">{t('框选')}</span></button></div>
               <div className="tool-group toolbar-actions">
                 {!historical && (compactCanvasTools
                   ? <div className="scope-actions-inline" role="group" aria-label={t('批注范围')}><span className="project-label">{t('范围批注')}</span>{scopeButtons}</div>
-                  : <details className="workspace-menu scope-actions"><summary className="button">{t('添加批注')}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">{scopeButtons}</div></details>)}
-                {!!selection.length && <><button className="button icon-button locate-selection" data-keep-composer aria-label={t('定位当前选择')} title={t('定位当前选择')} onClick={() => graph.current?.focusTargets(selection)}><Focus size={16} /></button><button className="button mobile-clear-selection" onClick={() => setSelection([])}><X size={14} />{t('清除选择')}</button></>}
-                <button className="button focus-toggle" data-keep-composer aria-label={focusMode ? t('退出专注') : t('专注画布')} aria-pressed={focusMode} onClick={toggleFocus}><Maximize2 size={15} /><span className="focus-label">{focusMode ? t('退出专注') : t('专注画布')}</span></button>
+                  : <details className="workspace-menu scope-actions"><summary className="button" {...shortcutProps('addComment', t('添加批注'))}>{t('添加批注')}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">{scopeButtons}</div></details>)}
+                {!!selection.length && <><button className="button icon-button locate-selection" data-keep-composer {...shortcutProps('locateSelection', t('定位当前选择'))} aria-label={t('定位当前选择')} onClick={() => graph.current?.focusTargets(selection)}><Focus size={16} /></button><button className="button mobile-clear-selection" onClick={() => setSelection([])}><X size={14} />{t('清除选择')}</button></>}
+                <button className="button focus-toggle" data-keep-composer {...shortcutProps('focusCanvas', focusMode ? t('退出专注') : t('专注画布'))} aria-label={focusMode ? t('退出专注') : t('专注画布')} aria-pressed={focusMode} onClick={toggleFocus}><Maximize2 size={15} /><span className="focus-label">{focusMode ? t('退出专注') : t('专注画布')}</span></button>
               </div>
             </div>
           </details>
@@ -933,7 +1036,7 @@ export default function App() {
         <div className="canvas-caption"><span className="selection-count">{selection.length ? t('已选 {count} 项', { count: selection.length }) : t('选择步骤或连线')}</span><span className="canvas-help">{baselinePlanning ? t('基线评审 · 提出改造要求') : viewBaseline ? t('基线 B · 原版流程') : baseline && sessionChanges ? t('{before} → {after} · 新增 {added}，修改 {changed}，移除 {removed}', { before: baseline.label, after: session.session ? roundLabel(session.session.round) : t('当前'), added: changes.added.length, changed: changes.changed.length, removed: changes.removed.length }) : t('滚轮平移，Ctrl/⌘＋滚轮缩放。更多操作见图例')}</span><span>{t('{count} 条待处理意见', { count: unresolved.length })}</span></div>
       </main>
       <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}${windowDocked ? ' node-window-docked' : ''}`} aria-label={t('步骤详情与批注')}>
-        <div className="inspector-tabs" role="group" aria-label={t('评审面板内容')} data-keep-composer><button className={tab === 'comments' ? 'active' : ''} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>{t('讨论 {count}', { count: review.comments.length })}</button><button className={tab === 'detail' ? 'active' : ''} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>{t('详情')}</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>{t('草稿 {count}', { count: drafts.length })}</button>}<button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>{t('变化')}</button><button className="button icon-button" aria-label={t('收起侧栏')} onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
+        <div className="inspector-tabs" role="group" aria-label={t('评审面板内容')} data-keep-composer><button className={tab === 'comments' ? 'active' : ''} {...shortcutProps('showDiscussion', t('讨论'))} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>{t('讨论 {count}', { count: review.comments.length })}</button><button className={tab === 'detail' ? 'active' : ''} {...shortcutProps('showDetails', t('详情'))} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>{t('详情')}</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>{t('草稿 {count}', { count: drafts.length })}</button>}<button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>{t('变化')}</button><button className="button icon-button" aria-label={t('收起侧栏')} onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
         <div className="inspector-body" hidden={windowDocked}>
           {tab === 'changes' && !baseline && <div className="empty-state">
             {hasTaskBaseline || previousRound >= 1 ? <><p role={comparisonError ? 'alert' : 'status'}>{comparisonError ? translateError(comparisonError, locale) : t('正在读取修改前流程…')}</p><button className="button" onClick={() => void loadComparison()}>{t('重新读取')}</button></>
@@ -992,7 +1095,7 @@ export default function App() {
             key: discussionTargets.map(keyOf).join('|'),
             title: discussionTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、') || t('选择一个步骤'),
             context: `${viewBaseline ? `${t('基线 B')} · ` : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? t(' · 只读') : ''}`,
-            content: <>{historical && <p className="muted">{t('历史流程只读，讨论显示当前处理状态。')}</p>}{!discussionComments.length && <p className="muted">{t(discussionTargets.length ? '这个步骤还没有批注。' : '选择步骤后，可在这里继续查看讨论、详情和代码。')}</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" chronological comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!!discussionTargets.length && !composer && !historical && <button className="button node-window-new-comment" disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>{t('添加新批注')}</button>}</>,
+            content: <>{historical && <p className="muted">{t('历史流程只读，讨论显示当前处理状态。')}</p>}{!discussionComments.length && <p className="muted">{t(discussionTargets.length ? '这个步骤还没有批注。' : '选择步骤后，可在这里继续查看讨论、详情和代码。')}</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" chronological comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!!discussionTargets.length && !composer && !historical && <button className="button node-window-new-comment" {...shortcutProps('addComment', t('添加新批注'))} disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>{t('添加新批注')}</button>}</>,
             replyLabel: composer?.replyTo ? t('回复意见 #{number}', { number: review.comments.findIndex(comment => comment.id === composer.replyTo) + 1 }) : undefined,
             onCollapse: () => closeComposer(false),
           } : undefined}

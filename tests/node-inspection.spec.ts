@@ -99,7 +99,7 @@ test('code layout defaults to side by side and persists with settings across sce
   await expect(settings.getByLabel('代码对照布局', { exact: true })).toHaveValue('unified')
   await settings.getByLabel('界面主题', { exact: true }).selectOption('glass')
   await settings.getByLabel('代码对照布局', { exact: true }).selectOption('split')
-  await settings.locator('summary').click()
+  await page.keyboard.press('Escape')
   await expect(window.getByRole('button', { name: '并排', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(window.locator('.cm-editor')).toHaveCount(2)
   await page.reload()
@@ -249,12 +249,12 @@ test('professional diff highlights words, navigates changes, shares scrolling an
   await content.focus(); await page.keyboard.type('doNotEdit')
   await expect(content).not.toContainText('doNotEdit')
   await expect(window.locator('.cm-chunkButtons')).toHaveCount(0)
-  await page.keyboard.press('Shift+F7')
+  await page.keyboard.press('Shift+F8')
   await expect.poll(() => merge.evaluate(element => element.scrollTop)).toBeLessThan(500)
   const stored = await page.evaluate(id => JSON.parse(localStorage.getItem(`logic-margin:review:${id}`)!), 'node-inspection-fixture')
   expect(stored.nodes[0].evidence[0].code).toBe(after)
   await merge.locator('.cm-merge-a .cm-line').filter({ hasText: /^const item10 =/ }).click()
-  await page.keyboard.press('F7')
+  await page.keyboard.press('F8')
   await expect.poll(() => page.evaluate(() => {
     const node = getSelection()?.focusNode
     return (node instanceof Element ? node : node?.parentElement)?.closest('.cm-line')?.textContent

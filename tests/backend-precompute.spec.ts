@@ -157,7 +157,7 @@ for (const mode of modes) test(`${mode.name}: saved-source POST, ranges and read
   stage = 'language'
   const menu = await openMenu(page, '.appearance-menu')
   await menu.locator('#interface-language button[value="en"]').click()
-  await menu.locator('summary').click()
+  await page.keyboard.press('Escape')
   await expect(gap.locator('[data-context-edge="start"]')).toHaveAccessibleName(/Expand \d+ lines below/)
   await expect(gap).toHaveAttribute('data-line-count', String(originalCount - 20))
   await panel.getByRole('button', { name: 'Expand all', exact: true }).click()

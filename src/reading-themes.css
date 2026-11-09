@@ -23,12 +23,8 @@ html { background: var(--color-paper); scrollbar-color: var(--color-control-bord
 .react-flow__edge.is-related .react-flow__edge-text { fill: var(--color-edge-selected); }
 .react-flow__controls { box-shadow: var(--shadow-node); }
 .react-flow__attribution { font-size: var(--text-xs); }
-.appearance-menu { position: relative; }
-.appearance-menu > summary { list-style: none; border-color: var(--color-clear); background: var(--color-clear); }
-.appearance-menu > summary::-webkit-details-marker { display: none; }
-.appearance-menu[open] > summary, .appearance-menu > summary:hover { background: var(--color-surface-hover); }
-.app-shell .topbar:has(.appearance-menu[open]) { z-index: 96; }
-.appearance-panel { position: absolute; z-index: 96; right: 0; top: calc(100% + 8px); display: grid; gap: var(--space-lg); width: 264px; max-width: calc(100dvw - 24px); max-height: calc(var(--app-height, 100dvh) - 80px); overflow-y: auto; overscroll-behavior: contain; padding: var(--space-lg); border: 1px solid var(--color-rule); border-radius: var(--panel-radius); background: var(--color-surface-solid); box-shadow: var(--shadow-popover); }
+.settings-trigger { border-color: var(--color-clear); background: var(--color-clear); }
+.settings-trigger[aria-expanded="true"], .settings-trigger:hover { background: var(--color-surface-hover); }
 .appearance-field { display: grid; gap: var(--space-sm); min-width: 0; }
 .appearance-field-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-ink); }
 .settings-section-title { margin: 0; color: var(--color-ink); font: inherit; font-size: var(--text-sm); font-weight: 600; }
@@ -63,9 +59,8 @@ html { background: var(--color-paper); scrollbar-color: var(--color-control-bord
 @media (max-width: 900px) {
   .app-shell .sidebar { bottom: max(0px, calc(100dvh - var(--app-height) - var(--viewport-top))); }
   .sidebar-close { display: inline-flex; align-self: flex-start; margin-bottom: var(--space-lg); }
-  .appearance-menu > summary { min-width: 44px; }
-  .appearance-menu > summary > span { display: none; }
-  .appearance-panel { position: fixed; top: 64px; right: 8px; }
+  .settings-trigger { min-width: 44px; }
+  .settings-trigger > span { display: none; }
   .canvas-tool-content, .app-shell .sidebar { background: var(--color-surface-solid); }
 }
 @media (pointer: coarse), (max-width: 900px) {
@@ -86,6 +81,5 @@ html { background: var(--color-paper); scrollbar-color: var(--color-control-bord
 
 .version-settings { padding-block-start: var(--space-md); border-block-start: 1px solid var(--color-rule); }
 .runtime-version { font-variant-numeric: tabular-nums; }
-.app-shell .version-settings > .button { min-height: 44px; white-space: normal; line-height: 1.4; }
 .version-status { display: grid; gap: var(--space-sm); }
 .version-error code { overflow-wrap: anywhere; color: var(--color-ink); }

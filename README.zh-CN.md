@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.5-2563eb?style=flat-square" alt="版本 0.9.5" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.6-2563eb?style=flat-square" alt="版本 0.9.6" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 原生程序；用户无需安装 Node.js 或 Go" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -91,7 +91,9 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 提供“纸页审阅、柔光浮雕、清透玻璃”三种主题，均可选择浅色、深色或跟随系统，支持桌面与手机浏览。代码对照默认并排，可在代码页或“设置”中改为统一；布局偏好保存在当前浏览器，切换节点、场景或刷新后继续沿用。桌面左右侧栏可拖动调宽，右侧栏可继续展开覆盖画布，方便阅读较长讨论和并排代码。
 
-界面支持**简体中文和英文**，首次使用根据浏览器语言选择，也可在**设置 → 界面语言**中切换并保存偏好。流程、代码和批注保留原文；切换语言会保留当前选择与草稿。
+界面支持**简体中文和英文**，首次使用根据浏览器语言选择，也可在**设置 → 界面 → 界面语言**中切换并保存偏好。流程、代码和批注保留原文；切换语言会保留当前选择与草稿。
+
+“设置”使用居中独立窗口，分为“界面、快捷键、版本与更新”。常用审查操作可录制新快捷键、停用或恢复默认；文字输入与输入法组合保持原有操作。默认键位和修改方法见[快捷键说明](docs/keyboard-shortcuts.md)。
 
 代码 diff 比较的是评审固定基线 B 与轮次 R 中保存且能匹配的相关源码片段。缺少历史片段或无法确定对应关系时，界面显示已有原文和原因；不会用当前代码推测旧版本，也不提供全仓库 diff。 Go CLI 在本机核验来源时还会将经版本核验的完整文件保存到可选的后端分析缓存；结构分析使用全文上下文，再把结果映射回原片段。全文不进入评审 JSON 或浏览器；缓存缺失或淘汰时保留原片段分析和文本回退。
 
@@ -99,7 +101,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 ## 快速开始
 
-**0.9.5 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
+**0.9.6 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
 
 ### 交给 Agent 使用
 
@@ -128,7 +130,7 @@ codex plugin add logic-margin@logic-margin-local
 
 沿用原 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`、端口和 session ID。更新后加载新版技能和 CLI 路径，重启服务、重连 MCP；需要修复注册时用 `server setup`。评审数据独立于插件缓存，升级不删除会话。完整步骤见 [升级与数据连续性](docs/agent-plugin.md#升级与数据连续性)。marketplace 跟随注册的 ref，评审过程中不会后台轮询升级。
 
-不依赖 Git 时，从 [Release v0.9.5](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.5) 选择 `logic-margin-agent-0.9.5-TARGET.zip` 及同名 `.zip.sha256`：
+不依赖 Git 时，从 [Release v0.9.6](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.6) 选择 `logic-margin-agent-0.9.6-TARGET.zip` 及同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |

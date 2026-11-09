@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Compartment, EditorState, StateEffect, StateField, Text } from '@codemirror/state'
 import type { Range } from '@codemirror/state'
-import { Decoration, EditorView, GutterMarker, ViewPlugin, WidgetType, gutter, keymap, lineNumbers } from '@codemirror/view'
+import { Decoration, EditorView, GutterMarker, ViewPlugin, WidgetType, gutter, lineNumbers } from '@codemirror/view'
 import type { ViewUpdate } from '@codemirror/view'
 import { StreamLanguage, syntaxHighlighting } from '@codemirror/language'
 import { classHighlighter } from '@lezer/highlight'
@@ -23,6 +23,9 @@ import type { ContextEdge, ContextFold } from './code-context.ts'
 import { codeOverview } from './code-overview.ts'
 import type { OverviewRange } from './code-overview.ts'
 import { useI18n } from './i18n.ts'
+import { ariaShortcut, formatShortcut } from './shortcuts.ts'
+import type { ShortcutAction } from './shortcuts.ts'
+import { useShortcutSettings } from './use-shortcuts.ts'
 
 const unfoldCode = StateEffect.define<{ id: number; edge: ContextEdge }>()
 
@@ -162,6 +165,12 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
   precomputedDiff?: ComputedDiff; inlineStructure?: InlineStructure
 }) {
   const { t, locale } = useI18n()
+  const { bindings } = useShortcutSettings()
+  function shortcutProps(action: ShortcutAction, label: string) {
+    const binding = bindings[action]
+    return { title: binding ? `${label} · ${formatShortcut(binding)}` : label, 'aria-keyshortcuts': binding ? ariaShortcut(binding) : undefined }
+  }
+  const root = useRef<HTMLDivElement>(null)
   const container = useRef<HTMLDivElement>(null)
   const overviewHost = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
@@ -235,8 +244,6 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
       }),
       lineNumbers({ formatNumber: number }),
       syntaxHighlighting(classHighlighter), language(evidence.path),
-      keymap.of([{ key: 'F7', run: target => navigate.current(1, target) },
-        { key: 'Shift-F7', run: target => navigate.current(-1, target) }]),
     ]
     const options = { highlightChanges: true, gutter: true, diffConfig: codeDiffConfig(result) }
     let editor: EditorView | MergeView
@@ -380,6 +387,23 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
   }, [requestKey, before.code, after.code])
   useEffect(() => updateExpanded.current(expanded), [expanded])
   useEffect(() => {
+    const element = root.current
+    if (!element) return
+    const handle = (event: Event) => {
+      if (event.target !== element || !element.checkVisibility() || element.closest('[inert], [hidden], [aria-hidden="true"]') || !editors.current) return
+      const action = (event as CustomEvent).detail
+      if (action === 'toggleFullCode') setExpanded(current => !current)
+      else if (action === 'nextDifference' || action === 'previousDifference') {
+        const editor = editors.current
+        const current = editor instanceof MergeView ? editor.a.hasFocus ? editor.a : editor.b : editor
+        if (!navigate.current(action === 'nextDifference' ? 1 : -1, current)) return
+      } else if (action !== 'toggleCodeLayout') return
+      event.preventDefault()
+    }
+    element.addEventListener('logic-margin:code-shortcut', handle)
+    return () => element.removeEventListener('logic-margin:code-shortcut', handle)
+  }, [])
+  useEffect(() => {
     const editor = editors.current
     if (!editor) return
     // Reconfigure wording in place so language changes preserve reading position and expanded chunks.
@@ -406,13 +430,13 @@ export default function CodeDiffEditor({ before, after, beforeLabel, afterLabel,
     if (editor instanceof MergeView) { localize(editor.a, beforeLabel); localize(editor.b, afterLabel) }
     else localize(editor, afterLabel)
   }, [t, locale, beforeLabel, afterLabel, before.code, before.path, before.startLine, before.endLine, after.code, after.path, after.startLine, after.endLine, split, requestKey, ready, computedKey])
-  return <div data-diff-mode={activeStructure ? 'structural' : 'text'} className={`code-editor ${split ? 'is-split' : 'is-unified'}`}>
+  return <div ref={root} data-diff-mode={activeStructure ? 'structural' : 'text'} className={`code-editor ${split ? 'is-split' : 'is-unified'}`}>
     <div className="code-editor-tools">
       <span role="status">{!ready ? t('正在加载代码对照…') : summary.count ? t('{count} 处差异', { count: summary.count }) : t('片段内容相同')}</span>
       <span className="code-control-label" role="status">{t(associationOnly ? '高亮：关联片段增减' : activeStructure ? '高亮：结构重点' : '高亮：文本差异')}</span>
-      <div className="tool-group"><button className="button icon-button" disabled={!ready || !summary.count} aria-label={t('上一处差异')} title={t('上一处差异 · Shift+F7')} onClick={() => navigate.current(-1)}><ArrowUp size={14} /></button>
-        <button className="button icon-button" disabled={!ready || !summary.count} aria-label={t('下一处差异')} title={t('下一处差异 · F7')} onClick={() => navigate.current(1)}><ArrowDown size={14} /></button>
-        <button className="button" aria-pressed={expanded} onClick={() => setExpanded(!expanded)}>{t(expanded ? '折叠未变' : '展开全文')}</button></div>
+      <div className="tool-group"><button className="button icon-button" {...shortcutProps('previousDifference', t('上一处差异'))} disabled={!ready || !summary.count} aria-label={t('上一处差异')} onClick={() => navigate.current(-1)}><ArrowUp size={14} /></button>
+        <button className="button icon-button" {...shortcutProps('nextDifference', t('下一处差异'))} disabled={!ready || !summary.count} aria-label={t('下一处差异')} onClick={() => navigate.current(1)}><ArrowDown size={14} /></button>
+        <button className="button" {...shortcutProps('toggleFullCode', t(expanded ? '折叠未变' : '展开全文'))} aria-pressed={expanded} onClick={() => setExpanded(!expanded)}>{t(expanded ? '折叠未变' : '展开全文')}</button></div>
     </div>
     {activeStructure?.formattingOnly && <p className="code-diff-note">{t('仅排版变化')}</p>}
     {!activeStructure && <p className="code-diff-note code-structure-reason" role="status">{t(structureExplanation)}</p>}

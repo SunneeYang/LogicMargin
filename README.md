@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.5-2563eb?style=flat-square" alt="Version 0.9.5" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.6-2563eb?style=flat-square" alt="Version 0.9.6" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -91,7 +91,9 @@ Screenshots from the 0.9.0 Go build use fictional order data and sample code. Th
 
 Choose from three themes—paper, soft relief, and glass—with light, dark, or system appearance. Code comparison defaults to side by side; choose unified or side by side in the code view or Settings. The layout is saved in the browser and retained across nodes, scenarios, and reloads. The interface works on desktop and mobile. On desktop, drag either sidebar's boundary to resize it; the right sidebar can expand over the canvas for longer discussions and side-by-side code.
 
-The interface supports **English and Simplified Chinese**. It initially follows the browser’s supported language; choose **Settings → Interface language** to save a different preference. Flows, source code, and comments stay in their original language, and switching languages keeps your current selection and drafts.
+The interface supports **English and Simplified Chinese**. It initially follows the browser’s supported language; choose **Settings → Interface → Interface language** to save a different preference. Flows, source code, and comments stay in their original language, and switching languages keeps your current selection and drafts.
+
+Settings opens in a centered window with **Interface**, **Keyboard shortcuts**, and **Version and updates** tabs. Common review actions have configurable shortcuts: record a replacement, disable a binding, or restore defaults. Typing and IME composition keep their normal behavior. See the [default keys and customization guide](docs/keyboard-shortcuts.md).
 
 Code diffs compare related source snippets saved in the review’s fixed baseline B and revision R when their correspondence can be established. If a historical snippet is missing or the pairing is ambiguous, the interface shows the available source and an explanation. It does not infer old code from the current workspace or provide a repository-wide diff. During local source verification, the Go CLI also captures version-verified full files in an optional backend analysis cache. Structural analysis uses that context and projects results back into the saved snippets; full files are not included in review JSON or sent to the browser. Missing or evicted context retains the existing snippet/text fallback.
 
@@ -99,7 +101,7 @@ Structural focus is applied automatically for supported Go and JavaScript/TypeSc
 
 ## Quickstart
 
-**0.9.5 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
+**0.9.6 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
 
 ### Use it with an agent
 
@@ -129,7 +131,7 @@ codex plugin add logic-margin@logic-margin-local
 
 Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, use [Release v0.9.5](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.5). Choose `logic-margin-agent-0.9.5-TARGET.zip` and its `.zip.sha256`:
+For installation without Git, use [Release v0.9.6](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.6). Choose `logic-margin-agent-0.9.6-TARGET.zip` and its `.zip.sha256`:
 
 | Platform | TARGET |
 | --- | --- |

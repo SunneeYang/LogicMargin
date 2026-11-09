@@ -4,7 +4,7 @@ import {
   MarkerType, useNodesState, useEdgesState, useUpdateNodeInternals,
 } from '@xyflow/react'
 import type { AriaLabelConfig, EdgeChange, Node, NodeChange, NodeProps, OnSelectionChangeParams, ReactFlowInstance, Viewport } from '@xyflow/react'
-import { Diamond, Flag, Focus, Info, LogOut, MessageSquare, Scan, Square, X } from 'lucide-react'
+import { Diamond, Flag, Focus, Info, LogOut, MessageSquare, Minus, Plus, Scan, Square, X } from 'lucide-react'
 import type { ReviewChanges, ReviewComment, ReviewDocument, ReviewEdge, ReviewNode, Target } from './types.ts'
 import { indexGraph, indexGraphComments, targetKey as keyOf } from './graph-index.ts'
 import { layoutGraph } from './graph-layout.ts'
@@ -17,6 +17,9 @@ import type { FlowEdge, FlowRelation } from './GraphEdge.tsx'
 import GraphLegend from './GraphLegend.tsx'
 import type { NodeAppearance } from './GraphLegend.tsx'
 import { useI18n } from './i18n.ts'
+import { ariaShortcut, formatShortcut } from './shortcuts.ts'
+import type { ShortcutAction } from './shortcuts.ts'
+import { useShortcutSettings } from './use-shortcuts.ts'
 
 type Point = { x: number; y: number }
 type TargetRect = { left: number; right: number; top: number; bottom: number }
@@ -53,6 +56,10 @@ export interface GraphCanvasHandle {
   focusTargets: (targets: Target[]) => void
   focusRelated: (targets: Target[]) => void
   revealTargets: (targets: Target[], bottom: number) => void
+  fitGraph: () => void
+  readingView: () => void
+  zoomIn: () => void
+  zoomOut: () => void
 }
 
 type FlowNode = Node<{
@@ -143,6 +150,11 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey, precomputeSessionId,
 }, ref) {
   const { t, locale } = useI18n()
+  const { bindings } = useShortcutSettings()
+  function shortcutProps(action: ShortcutAction, label: string) {
+    const binding = bindings[action]
+    return { title: binding ? `${label} · ${formatShortcut(binding)}` : label, 'aria-keyshortcuts': binding ? ariaShortcut(binding) : undefined }
+  }
   const graphAriaLabels = useMemo<AriaLabelConfig>(() => ({
     'controls.ariaLabel': t('流程图控制'),
     'controls.zoomIn.ariaLabel': t('放大流程'),
@@ -160,6 +172,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<FlowEdge>([])
   const [readyHandles, setReadyHandles] = useState(new Map<string, ReadonlySet<string>>())
   const [nodeSizes, setNodeSizes] = useState(new Map<string, { width: number; height: number }>())
+  const [zoom, setZoom] = useState(0.85)
   const [readingNodeIds, setReadingNodeIds] = useState<string[] | null>(() => {
     const nodes = review.nodes.filter(node => node.sceneId === sceneId)
     const saved = readingScopeKey ? savedReadingScopes.get(readingScopeKey) : undefined
@@ -602,6 +615,10 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     getCanvasRect: () => canvasRef.current?.getBoundingClientRect() ?? null,
     getTargetRect,
     focusRelated,
+    fitGraph: () => { void fitCompleteGraph() },
+    readingView: () => { void focusReading() },
+    zoomIn: () => { void flowRef.current?.zoomIn({ duration: 0 }).then(saveViewport) },
+    zoomOut: () => { void flowRef.current?.zoomOut({ duration: 0 }).then(saveViewport) },
     revealTargets: (targets, bottom) => {
       const rect = getTargetRect(targets)
       const canvas = canvasRef.current?.getBoundingClientRect()
@@ -640,7 +657,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         else { pendingFocus.current = [...nodeIds]; scheduleLayout() }
       }
     },
-  }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, getTargetRect, saveViewport, focusRelated])
+  }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, fitCompleteGraph, getTargetRect, saveViewport, focusRelated])
 
   return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label={t('业务流程画布')} aria-busy={layoutPending || undefined} data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} data-reading-focus={readingNodeIds ? 'related' : undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
     onTouchStartCapture={event => {
@@ -658,7 +675,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     }}
     onKeyDownCapture={event => { if ((event.key === 'Enter' || event.key === ' ') && (event.target as Element).matches('.react-flow__node, .react-flow__edge')) onSelectIntent?.() }}>
     <ReactFlow<FlowNode, FlowEdge> nodes={nodes} edges={visibleEdges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} colorMode="system"
-      onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={() => { saveViewport(); onViewportChange?.() }}
+      onInit={instance => { flowRef.current = instance; scheduleLayout() }} onMove={(_, viewport) => { setZoom(viewport.zoom); saveViewport(); onViewportChange?.() }}
       onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onSelectionChange={onSelectionChange}
       onNodeClick={event => { if (!(event.target as Element).closest('button')) onSelectIntent?.() }} onEdgeClick={() => onSelectIntent?.()}
       onNodeMouseEnter={(_, node) => { if (node.selected) onHoverIntent?.() }}
@@ -674,9 +691,11 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       ariaLabelConfig={readingNodeIds ? { ...graphAriaLabels, 'controls.fitView.ariaLabel': t('显示关联流程总览') } : graphAriaLabels}>
       <NodeMeasurements nodes={nodes} onReady={onPortsReady} />
       <Background gap={24} size={1} />
-      <Controls showInteractive={false} showFitView={false}>
-        <ControlButton className="react-flow__controls-fitview" aria-label={t(readingNodeIds ? '显示关联流程总览' : '显示完整流程')} title={t(readingNodeIds ? '显示关联流程总览' : '显示完整流程')} onClick={() => void fitCompleteGraph()}><Scan size={14} /></ControlButton>
-        <ControlButton className="reading-view-control" aria-label={t('恢复阅读视图')} title={t('恢复阅读视图')} onClick={() => void focusReading()}>{t('阅读')}</ControlButton>
+      <Controls showInteractive={false} showFitView={false} showZoom={false}>
+        <ControlButton className="react-flow__controls-zoomin" {...shortcutProps('zoomIn', t('放大流程'))} aria-label={t('放大流程')} disabled={zoom >= 1.6} onClick={() => { void flowRef.current?.zoomIn({ duration: 0 }).then(saveViewport) }}><Plus size={14} /></ControlButton>
+        <ControlButton className="react-flow__controls-zoomout" {...shortcutProps('zoomOut', t('缩小流程'))} aria-label={t('缩小流程')} disabled={zoom <= 0.05} onClick={() => { void flowRef.current?.zoomOut({ duration: 0 }).then(saveViewport) }}><Minus size={14} /></ControlButton>
+        <ControlButton className="react-flow__controls-fitview" {...shortcutProps('fitGraph', t(readingNodeIds ? '显示关联流程总览' : '显示完整流程'))} aria-label={t(readingNodeIds ? '显示关联流程总览' : '显示完整流程')} onClick={() => void fitCompleteGraph()}><Scan size={14} /></ControlButton>
+        <ControlButton className="reading-view-control" {...shortcutProps('readingView', t('恢复阅读视图'))} aria-label={t('恢复阅读视图')} onClick={() => void focusReading()}>{t('阅读')}</ControlButton>
       </Controls>
     </ReactFlow>
     <GraphLegend nodeAppearance={nodeAppearance} onNodeAppearanceChange={onNodeAppearanceChange} />
@@ -711,12 +730,12 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       </div></details>}
     </div>}
     {!!selection.length && <div className={`canvas-selection-actions${selection.length === 1 && selection[0].kind === 'node' ? ' is-single-node' : ''}`}>
-      {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer onClick={event => {
+      {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer {...shortcutProps('showDetails', t('查看详情'))} onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
         onOpenInspection(selection, { x: rect.left, y: rect.bottom }, 'detail')
       }}><Info size={14} />{t('查看详情')}</button>}
       {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />{t('聚焦关联流程')}</button>}
-      {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" onClick={event => {
+      {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" {...shortcutProps('addComment', t('批注所选（{count}）', { count: selection.length }))} onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
         openComposer(selection, { x: rect.left, y: rect.bottom })
       }}><MessageSquare size={14} />{t('批注所选（{count}）', { count: selection.length })}</button>}
