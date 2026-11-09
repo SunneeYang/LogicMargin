@@ -88,7 +88,8 @@ func TestBackgroundParserLimits(t *testing.T) {
 	for _, language := range []string{"go", "ts"} {
 		t.Run(language, func(t *testing.T) {
 			source := strings.Repeat(" ", maxSourceUnits-maxSourceLines+1) + strings.Repeat("\n", maxSourceLines-1)
-			doc, err := Parse(t.Context(), source, language)
+			// Exact-size syntax acceptance must not depend on the host's five-second throughput.
+			doc, err := parseSyntax(t, source, language)
 			if err != nil {
 				t.Fatalf("exact UTF-16/line boundary: %v", err)
 			}

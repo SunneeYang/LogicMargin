@@ -93,8 +93,9 @@ isolated VMs. Non-race large-source correctness tests use a test-owned deadline
 for complete Go/TS/TSX files larger than 100,000 UTF-16 units and 2,000 lines,
 retaining content/ASI distinctions and rejecting real syntax errors. A successful
 large parse within the production deadline depends on host speed; `ErrBudget`
-remains a valid runtime fallback. Boundary tests
-cover exactly 500,000 units/10,000 lines, over-limit surrogate pairs, independent
+remains a valid runtime fallback. Boundary tests use the adapter deadline for
+exactly 500,000 units/10,000 lines and public `Parse` for over-limit rejection;
+they also cover over-limit surrogate pairs, independent
 token/node exhaustion, and the bundle's own source guards. Native cancellation
 checks cover offset mapping, scanning, and AST work; VM cancellation remains
 interruptible. The cross-compile check builds test executables with
