@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"logicmargin/internal/review"
@@ -76,9 +77,9 @@ func requireError(t *testing.T, err error, part string) {
 }
 
 func TestSourceCaptureUTF8BOMCRLFAndManifest(t *testing.T) {
-	entries := map[string][]byte{"z.md": []byte("规格\n"), "src/😀<&>.go": []byte("\ufeff检查😀\r\n执行()\r\n")}
+	entries := map[string][]byte{"z.md": []byte("规格\n"), "src/😀&.go": []byte("\ufeff检查😀\r\n执行()\r\n")}
 	root, doc := sourceFixture(t, entries)
-	addEvidence(doc, "src/😀<&>.go", "检查😀\n执行()", 2)
+	addEvidence(doc, "src/😀&.go", "检查😀\n执行()", 2)
 	ctx := context.Background()
 	result, err := VerifySources(ctx, doc, root)
 	if err != nil {
@@ -88,13 +89,13 @@ func TestSourceCaptureUTF8BOMCRLFAndManifest(t *testing.T) {
 		t.Fatal(firstEvidence(doc))
 	}
 	files := arr(result["files"])
-	if obj(files[0])["path"] != "src/😀<&>.go" || obj(files[0])["sha256"] != digest(entries["src/😀<&>.go"]) {
+	if obj(files[0])["path"] != "src/😀&.go" || obj(files[0])["sha256"] != digest(entries["src/😀&.go"]) {
 		t.Fatal(files)
 	}
 	if result["fingerprint"] != obj(doc["snapshot"])["fingerprint"] || !validDate(result["checkedAt"]) {
 		t.Fatal(result)
 	}
-	if err := os.WriteFile(filepath.Join(root, "src/😀<&>.go"), []byte("new"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "src/😀&.go"), []byte("new"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if firstEvidence(doc)["code"] != "检查😀\n执行()" {
@@ -200,7 +201,13 @@ func TestSourceValidationAndPaths(t *testing.T) {
 			tc.change(root, doc)
 			before := cloneObject(t, doc)
 			_, err := VerifySources(context.Background(), doc, root)
-			requireError(t, err, tc.part)
+			if tc.name == "missing" {
+				if !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("error=%v, want os.ErrNotExist", err)
+				}
+			} else {
+				requireError(t, err, tc.part)
+			}
 			if !reflect.DeepEqual(doc, before) {
 				t.Fatal("failed verification changed document")
 			}

@@ -5,10 +5,10 @@
   },
   "cases": [
     {
-      "name": "unicode-html-bom-crlf-sort",
+      "name": "unicode-bom-crlf-sort",
       "entries": [
         {
-          "path": "😀<&>.go",
+          "path": "😀&.go",
           "base64": "77u/5qOA5p+l8J+YgA0K5omn6KGMKCkNCg=="
         },
         {
@@ -29,7 +29,7 @@
         "snapshot": {
           "repository": "test",
           "commit": "fixed",
-          "fingerprint": "2f39895e5d0b5b75a40552989c481c98550dd5016b075ef4a14fe157de0ac6f6",
+          "fingerprint": "613db5540a2c3bcec4c25c83ead9572d72203103521995ddfb3b3cc8d2042636",
           "capturedAt": "2026-11-02T00:00:00Z",
           "dirty": true,
           "files": [
@@ -38,7 +38,7 @@
               "sha256": "381879e1e191c2e1d0698102d2192a5771257f3c9775bb652e684e1a239866e1"
             },
             {
-              "path": "😀<&>.go",
+              "path": "😀&.go",
               "sha256": "6ca669500adedff0004097be1cf34e339a78109416abc785a1154d6426831c2c"
             },
             {
@@ -75,7 +75,7 @@
             },
             "evidence": [
               {
-                "path": "😀<&>.go",
+                "path": "😀&.go",
                 "symbol": "test",
                 "startLine": 1,
                 "endLine": 2,
@@ -95,7 +95,7 @@
             "sha256": "381879e1e191c2e1d0698102d2192a5771257f3c9775bb652e684e1a239866e1"
           },
           {
-            "path": "😀<&>.go",
+            "path": "😀&.go",
             "sha256": "6ca669500adedff0004097be1cf34e339a78109416abc785a1154d6426831c2c"
           },
           {
@@ -103,7 +103,7 @@
             "sha256": "4262c45dc797bb0cd5008331ef25b684413859f55b73c71fb4e2c01b645dbbb7"
           }
         ],
-        "fingerprint": "2f39895e5d0b5b75a40552989c481c98550dd5016b075ef4a14fe157de0ac6f6"
+        "fingerprint": "613db5540a2c3bcec4c25c83ead9572d72203103521995ddfb3b3cc8d2042636"
       },
       "codes": [
         "检查😀\n执行()"

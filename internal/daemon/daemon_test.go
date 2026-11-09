@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -199,7 +200,30 @@ func TestReleaseIsBoundToTheAcquiredDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer old()
-	if err := os.Rename(path, path+".previous"); err != nil {
+	before, err := os.ReadDir(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.Rename(path, path+".previous")
+	if runtime.GOOS == "windows" {
+		if err == nil {
+			t.Fatal("open lock directory did not prevent replacement")
+		}
+		after, readErr := os.ReadDir(path)
+		if readErr != nil || len(after) != 1 || after[0].Name() != before[0].Name() {
+			t.Fatal("refused replacement changed the lock owner", after, readErr)
+		}
+		if err := old(); err != nil {
+			t.Fatal(err)
+		}
+		release, err := AcquireLock(context.Background(), path, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer release()
+		return
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	current, err := AcquireLock(context.Background(), path, 0)
@@ -207,7 +231,7 @@ func TestReleaseIsBoundToTheAcquiredDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer current()
-	before, err := os.ReadDir(path)
+	before, err = os.ReadDir(path)
 	if err != nil {
 		t.Fatal(err)
 	}

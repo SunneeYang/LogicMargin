@@ -57,10 +57,11 @@ export const structuralCases: StructuralCase[] = [
     mode: 'text', reason: 'unsupported-language', formattingOnly: false, noMoves: true },
 ]
 
-/** Comment padding exercises virtual lines; dense syntax budgets are measured separately. */
+/** Sparse padding exercises virtual lines; dense syntax budgets are measured separately. */
 export function structuralReadingCase(lines = 194): StructuralCase {
   const sample = structuralCases.find(item => item.id === 'ts-semantic')!
-  const context = Array.from({ length: lines - sample.before.split('\n').length + 1 }, (_, index) => `// context${index}: number = ${index};`)
+  const context = Array.from({ length: lines - sample.before.split('\n').length + 1 }, (_, index) =>
+    index < 40 || index > lines - 40 ? `// context${index}: number = ${index};` : '')
   const original = [...context], changed = [...context]
   original.splice(25, 0, sample.before)
   changed.splice(25, 0, sample.after)

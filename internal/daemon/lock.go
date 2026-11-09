@@ -50,6 +50,20 @@ func ownerFS(directory fs.FS) (name string, pid int, err error) {
 	return entries[0].Name(), pid, nil
 }
 
+func directoryIdentity(path string) (os.FileInfo, error) {
+	directory, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, err
+	}
+	// Windows path stats load IDs lazily; rename or another open handle can invalidate that lookup.
+	info, err := directory.Stat(".")
+	closeErr := directory.Close()
+	if err != nil {
+		return nil, err
+	}
+	return info, closeErr
+}
+
 func staleLock(path string) (bool, error) {
 	directory, err := os.OpenRoot(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -81,7 +95,7 @@ func staleLock(path string) (bool, error) {
 		}
 	}
 	_ = directory.Close()
-	current, err := os.Stat(path)
+	current, err := directoryIdentity(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return true, nil
 	}
@@ -122,7 +136,7 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 	if err := file.Close(); err != nil {
 		return nil, err
 	}
-	identity, err := os.Stat(prepared)
+	identity, err := directoryIdentity(prepared)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +193,7 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 					return
 				}
 				_ = directory.Close()
-				info, err := os.Stat(path)
+				info, err := directoryIdentity(path)
 				if errors.Is(err, os.ErrNotExist) {
 					return
 				}
