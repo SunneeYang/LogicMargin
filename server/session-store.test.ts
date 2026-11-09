@@ -439,6 +439,26 @@ test('Windows revalidates same-size external corruption when file metadata colli
   }
 })
 
+for (const mode of ['delete', 'archive'] as const) test(`${mode} between file read and metadata validation returns its lifecycle status instead of corruption`, async t => {
+  const { store, directory, session } = await setup(t)
+  const reader = new SessionStore(directory)
+  const path = join(directory, `${session.id}.json`)
+  const originalStat = fs.stat
+  let reads = 0
+  t.mock.method(fs, 'stat', async (...args: Parameters<typeof stat>) => {
+    if (args[0] === path && ++reads === 2) await store.cleanup(session.id, { mode, expectedVersion: session.version, allowUnfinished: true })
+    return originalStat(...args)
+  })
+  try {
+    syncBuiltinESMExports()
+    await assert.rejects(reader.get(session.id), { status: mode === 'delete' ? 404 : 410 })
+    await assert.rejects(readFile(path), { code: 'ENOENT' })
+  } finally {
+    t.mock.restoreAll()
+    syncBuiltinESMExports()
+  }
+})
+
 test('Finish packages only new human feedback, and does not resubmit unchanged open opinions', async t => {
   const { store, session } = await setup(t)
   const first = await store.mutate(session.id, commentBatch(session, '第一条意见'))

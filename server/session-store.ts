@@ -113,6 +113,12 @@ export class SessionStore {
     // Serialized bytes estimate the cache budget; parsed objects can use more heap.
     while (this.cacheBytes > MAX_CACHE_BYTES || this.cache.size > MAX_CACHE_ENTRIES) this.forget(this.cache.keys().next().value!)
   }
+  private async missing(session: string): Promise<never> {
+    this.forget(session)
+    try { await stat(this.archivePath(session)) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new SessionError('找不到审查任务，可能已被清理', 404); throw error }
+    throw new SessionError('评审任务已归档，可从任务列表恢复', 410)
+  }
   private async load(session: string): Promise<ReviewSession> {
     const path = this.path(session)
     let metadata: BigIntStats
@@ -120,9 +126,7 @@ export class SessionStore {
     catch (error) {
       this.forget(session)
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      try { await stat(this.archivePath(session)) }
-      catch (archiveError) { if ((archiveError as NodeJS.ErrnoException).code === 'ENOENT') throw new SessionError('找不到审查任务，可能已被清理', 404); throw archiveError }
-      throw new SessionError('评审任务已归档，可从任务列表恢复', 410)
+      return this.missing(session)
     }
     const cached = this.cache.get(session)
     if (cached?.signature === signature(metadata)) {
@@ -145,7 +149,10 @@ export class SessionStore {
           return parsed
         }
         throw new Error('会话文件正在被其他进程修改，请稍后重试')
-      } catch (error) { throw new SessionError(`会话文件损坏，原文件已保留：${error instanceof Error ? error.message : '格式无效'}`, 500) }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return this.missing(session)
+        throw new SessionError(`会话文件损坏，原文件已保留：${error instanceof Error ? error.message : '格式无效'}`, 500)
+      }
     })()
     this.loading.set(session, operation)
     try { return await operation } finally { if (this.loading.get(session) === operation) this.loading.delete(session) }
