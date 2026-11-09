@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"logicmargin/internal/review"
@@ -31,6 +32,76 @@ type mcpConnection struct {
 	active  int
 	idle    *time.Timer
 	closing bool
+}
+
+type mcpResponseWriter struct {
+	http.ResponseWriter
+	mu      sync.Mutex
+	pending map[jsonrpc.ID]bool
+	failed  bool
+}
+
+func newMCPResponseWriter(w http.ResponseWriter, body []byte) *mcpResponseWriter {
+	var requests []struct {
+		ID     any
+		Method string
+	}
+	if bytes.HasPrefix(bytes.TrimSpace(body), []byte("[")) {
+		_ = json.Unmarshal(body, &requests)
+	} else {
+		requests = make([]struct {
+			ID     any
+			Method string
+		}, 1)
+		_ = json.Unmarshal(body, &requests[0])
+	}
+	writer := &mcpResponseWriter{ResponseWriter: w, pending: make(map[jsonrpc.ID]bool)}
+	for _, request := range requests {
+		if request.Method == "" {
+			continue
+		}
+		if id, err := jsonrpc.MakeID(request.ID); err == nil && id.IsValid() {
+			writer.pending[id] = true
+		}
+	}
+	return writer
+}
+
+func (w *mcpResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *mcpResponseWriter) Write(body []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	n, err := w.ResponseWriter.Write(body)
+	if err != nil || n != len(body) {
+		w.failed = true
+		return n, err
+	}
+	// The pinned SDK writes each complete SSE event in one call; notifications are not replies.
+	data := body
+	if _, payload, ok := bytes.Cut(body, []byte("\ndata: ")); ok {
+		data = payload
+	}
+	if message, err := jsonrpc.DecodeMessage(bytes.TrimSpace(data)); err == nil {
+		if response, ok := message.(*jsonrpc.Response); ok {
+			delete(w.pending, response.ID)
+		}
+	}
+	return n, err
+}
+
+func (w *mcpResponseWriter) FlushError() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	err := http.NewResponseController(w.ResponseWriter).Flush()
+	w.failed = w.failed || err != nil
+	return err
+}
+
+func (w *mcpResponseWriter) complete() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return len(w.pending) == 0 && !w.failed
 }
 
 func (s *Server) mcpSession(id string) *mcp.ServerSession {
@@ -191,6 +262,7 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var message review.Object
+	var response *mcpResponseWriter
 	if r.Method == http.MethodPost {
 		body, err := readJSON(r, true)
 		if err != nil {
@@ -208,6 +280,7 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 		_ = r.Body.Close()
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		_ = json.Unmarshal(body, &message)
+		response = newMCPResponseWriter(w, body)
 	}
 	if len(ids) == 0 && (r.Method != http.MethodPost || message["method"] != "initialize" || message["id"] == nil) {
 		mcpFailure(w, 400, "MCP 连接需要先初始化", -32600)
@@ -274,7 +347,11 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 	s.requests.Store(token, ctx)
 	defer s.requests.Delete(token)
 	// shortcut: the SDK rejects batches for 2025-06-18+; add verified compatibility if callers need the TS extension.
-	s.mcpHTTP.ServeHTTP(w, r)
+	if response != nil {
+		s.mcpHTTP.ServeHTTP(response, r)
+	} else {
+		s.mcpHTTP.ServeHTTP(w, r)
+	}
 	if len(ids) == 0 {
 		if id := w.Header().Get("Mcp-Session-Id"); id != "" && s.mcpSession(id) != nil {
 			if created, ok := s.beginMCPRequest(id); ok {
@@ -282,7 +359,7 @@ func (s *Server) serveMCP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if r.Method == http.MethodPost && r.Context().Err() != nil && len(ids) == 1 {
+	if r.Method == http.MethodPost && r.Context().Err() != nil && len(ids) == 1 && !response.complete() {
 		// Preserve the TS transport's session disposal on a lost POST response.
 		s.disposeMCPSession(ids[0], connection, false)
 	}

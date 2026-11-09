@@ -36,6 +36,7 @@ jobs:
       - run: node scripts/build-graph-precompute.mjs --check
       - run: node scripts/build-structure-parser.mjs --check
       - run: npm run build:go
+      - run: go test ./... -count=1
       - run: go test -race ./... -count=1
       - run: npm run test:agent
       - run: node --test scripts/native-launcher.test.mjs

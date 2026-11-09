@@ -13,9 +13,20 @@ import (
 	"unicode/utf16"
 )
 
+func parseSyntax(t testing.TB, source, language string) (Document, error) {
+	t.Helper()
+	// Race instrumentation slows VM initialization; syntax checks use a test-owned deadline.
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	if language == "go" {
+		return parseGo(ctx, source)
+	}
+	return parseJavaScript(ctx, source, language)
+}
+
 func mustParse(t testing.TB, source, language string) Document {
 	t.Helper()
-	doc, err := Parse(context.Background(), source, language)
+	doc, err := parseSyntax(t, source, language)
 	if err != nil {
 		t.Fatalf("Parse(%s, %q): %v", language, source, err)
 	}
@@ -287,7 +298,7 @@ func TestErrorsAndBudgets(t *testing.T) {
 		{"js", "const x=a!"}, {"js", "function f(){throw\nx}"},
 		{"js", "const f = x\n=>x"}, {"js", "const f = async\n(x)=>x"}, {"js", "function* f(){yield\n* x}"},
 	} {
-		if _, err := Parse(context.Background(), test.source, test.language); !errors.Is(err, ErrSyntax) {
+		if _, err := parseSyntax(t, test.source, test.language); !errors.Is(err, ErrSyntax) {
 			t.Errorf("Parse(%s,%q) = %v, want ErrSyntax", test.language, test.source, err)
 		}
 	}

@@ -384,6 +384,101 @@ func TestMCPWaitCancellationDisconnectAndShutdown(t *testing.T) {
 	}
 }
 
+type cancelAfterMCPResponse struct {
+	*httptest.ResponseRecorder
+	cancel context.CancelFunc
+}
+
+func (w *cancelAfterMCPResponse) Write(body []byte) (int, error) {
+	n, err := w.ResponseRecorder.Write(body)
+	if strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
+		w.cancel()
+	}
+	return n, err
+}
+
+func (w *cancelAfterMCPResponse) Flush() {
+	w.ResponseRecorder.Flush()
+	if strings.Contains(w.Body.String(), `"result"`) || strings.Contains(w.Body.String(), `"error"`) {
+		w.cancel()
+	}
+}
+
+func TestMCPCompletedResponseKeepsSession(t *testing.T) {
+	for _, method := range []string{"tools/list", "tools/call"} {
+		t.Run(method, func(t *testing.T) {
+			s := testServer(t)
+			client := connectMCP(t, s)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			request := httptest.NewRequest(http.MethodPost, s.URL+"/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":40,"method":"`+method+`","params":{}}`)).WithContext(ctx)
+			request.RemoteAddr = "127.0.0.1:12345"
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("Accept", "application/json, text/event-stream")
+			request.Header.Set("Mcp-Session-Id", client.ID())
+			request.Header.Set("Mcp-Protocol-Version", "2025-11-25")
+			writer := &cancelAfterMCPResponse{httptest.NewRecorder(), cancel}
+			s.serveMCP(writer, request)
+			if ctx.Err() == nil {
+				t.Fatal("probe did not cancel after the final response")
+			}
+			if s.mcpSession(client.ID()) == nil {
+				t.Fatal("completed response incorrectly disposed session when client closed its request")
+			}
+			if err := client.Ping(t.Context(), nil); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestMCPResponseCompletion(t *testing.T) {
+	for _, body := range []string{
+		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		`{"jsonrpc":"2.0","id":1,"result":{}}`,
+	} {
+		if !newMCPResponseWriter(httptest.NewRecorder(), []byte(body)).complete() {
+			t.Fatal("notification or client response must not wait for a reply")
+		}
+	}
+	writer := newMCPResponseWriter(httptest.NewRecorder(), []byte(`[{"jsonrpc":"2.0","id":1,"method":"ping"},{"jsonrpc":"2.0","id":"two","method":"ping"}]`))
+	for _, message := range []string{
+		`{"jsonrpc":"2.0","method":"notifications/message","params":{"data":"result"}}`,
+		`{"jsonrpc":"2.0","id":3,"result":{}}`,
+		`{"jsonrpc":"2.0","id":1,"result":{}}`,
+		`{"jsonrpc":"2.0","id":1,"result":{}}`,
+	} {
+		if _, err := writer.Write([]byte("event: message\ndata: " + message + "\n\n")); err != nil {
+			t.Fatal(err)
+		}
+		if writer.complete() {
+			t.Fatal("notification, unrelated ID or partial batch completed the response")
+		}
+	}
+	if _, err := writer.Write([]byte("event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":\"two\",\"error\":{\"code\":-32601,\"message\":\"unknown method\"}}\n\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.FlushError(); err != nil || !writer.complete() {
+		t.Fatalf("all batch results and errors must complete the response: %v", err)
+	}
+}
+
+type failedMCPResponse struct{ *httptest.ResponseRecorder }
+
+func (*failedMCPResponse) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+func (*failedMCPResponse) FlushError() error         { return io.ErrClosedPipe }
+
+func TestMCPFailedResponseStaysIncomplete(t *testing.T) {
+	writer := newMCPResponseWriter(&failedMCPResponse{httptest.NewRecorder()}, []byte(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+	if _, err := writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{}}`)); !errors.Is(err, io.ErrClosedPipe) || writer.complete() {
+		t.Fatal("failed write must not complete the reply")
+	}
+	writer = newMCPResponseWriter(&failedMCPResponse{httptest.NewRecorder()}, []byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`))
+	if err := writer.FlushError(); !errors.Is(err, io.ErrClosedPipe) || writer.complete() {
+		t.Fatal("failed flush must not complete the response")
+	}
+}
+
 func TestMCPActualWaitShutdownReturnsRPCError(t *testing.T) {
 	s := testServer(t)
 	started := observeTool(s, "wait_review")

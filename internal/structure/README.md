@@ -102,7 +102,10 @@ or overall diff speedups.
 
 The dense JS result measures work until interruption, not a completed parse.
 The 750ms production budget has not been increased to accommodate that input.
-Race instrumentation can make even small inputs reach the same fixed budget;
-performance assertions therefore permit a budget fallback. The tree-packing
+Race instrumentation can make VM initialization alone reach the same fixed
+budget. Syntax correctness tests use adapter calls with a separate test deadline;
+non-race tests also require public `Parse` success under the production budget.
+Cancellation and resource-limit tests still exercise public `Parse` under race.
+Large-input measurements permit a budget fallback. The tree-packing
 regression fixture uses eight statements and long safe whitespace to exercise
 the boundary without requiring a large parse under race instrumentation.
