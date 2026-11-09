@@ -6,6 +6,12 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
+    "build:go": "node scripts/build-go.mjs",
+    "test:go": "go test ./... -count=1",
+    "package:go": "node scripts/package-go-agent.mjs",
+    "test:go:agent": "node --test scripts/go-agent.test.mjs",
+    "test:go:compat": "node --test scripts/go-compat.test.mjs",
+    "test:go:e2e": "node scripts/go-e2e.mjs",
     "test": "node --test src/*.test.ts server/*.test.ts bin/*.test.ts",
     "review": "node bin/entry.ts",
     "package:agent": "node scripts/package-agent.mjs",

@@ -10,6 +10,8 @@ import { indexGraph, indexGraphComments, targetKey as keyOf } from './graph-inde
 import { layoutGraph } from './graph-layout.ts'
 import { availableScopeNodeIds, comparisonLayout, graphBounds, relatedNodeIds } from './graph-focus.ts'
 import type { LayoutNode } from './graph-layout.ts'
+import { layoutInput } from './precompute.ts'
+import { usePrecomputedLayout } from './use-precomputed-layout.ts'
 import GraphEdge, { relationColors } from './GraphEdge.tsx'
 import type { FlowEdge, FlowRelation } from './GraphEdge.tsx'
 import GraphLegend from './GraphLegend.tsx'
@@ -42,6 +44,7 @@ export interface GraphCanvasProps {
   comparisonReview?: ReviewDocument
   focusTargets?: Target[]
   readingScopeKey?: string
+  precomputeSessionId?: string
 }
 
 export interface GraphCanvasHandle {
@@ -70,6 +73,7 @@ const savedReadingScopes = new Map<string, string[]>()
 const EMPTY_NODES: ReviewNode[] = []
 const EMPTY_EDGES: ReviewEdge[] = []
 const EMPTY_COMMENTS: ReviewComment[] = []
+const EMPTY_LAYOUT: ReturnType<typeof layoutGraph> = { nodes: new Map(), edges: new Map(), usesAuthoredPositions: false }
 
 const portSides = { top: Position.Top, right: Position.Right, bottom: Position.Bottom, left: Position.Left }
 
@@ -136,7 +140,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   nodeAppearance, onNodeAppearanceChange,
   onOpenComposer, onOpenInspection, onOpenThread, onViewportChange, readOnly = false,
   viewportKey, changeSide = 'after', commentOrder,
-  flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey,
+  flowPulse = 0, onSelectIntent, onHoverIntent, comparisonReview, focusTargets, readingScopeKey, precomputeSessionId,
 }, ref) {
   const { t, locale } = useI18n()
   const graphAriaLabels = useMemo<AriaLabelConfig>(() => ({
@@ -189,15 +193,22 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   displayedIds.current = new Set(displayedNodes.map(node => node.id))
   const comparisonKey = comparisonReview ? [review.snapshot.fingerprint, comparisonReview.snapshot.fingerprint].sort().join(':') : ''
   const savedViewportKey = viewportKey && comparisonKey ? `${viewportKey}:comparison:${comparisonKey}` : viewportKey
-  const layout = useMemo(() => {
-    if (!comparisonReview) return layoutGraph(displayedNodes, displayedEdges, nodeSizes)
+  const reference = useMemo(() => {
+    if (!comparisonReview) return undefined
     const sharedScope = readingScopeKey ? savedReadingScopes.get(readingScopeKey) : undefined
     const comparisonScope = readingSet && sharedScope ? new Set(sharedScope) : readingSet
     const referenceNodes = comparisonReview.nodes.filter(node => node.sceneId === sceneId && (!comparisonScope || comparisonScope.has(node.id)))
     const referenceIds = new Set(referenceNodes.map(node => node.id))
     const referenceEdges = comparisonReview.edges.filter(edge => edge.sceneId === sceneId && referenceIds.has(edge.source) && referenceIds.has(edge.target))
-    return comparisonLayout(displayedNodes, displayedEdges, referenceNodes, referenceEdges, nodeSizes)
-  }, [displayedNodes, displayedEdges, nodeSizes, comparisonReview, sceneId, readingSet, readingScopeKey])
+    return { nodes: referenceNodes, edges: referenceEdges }
+  }, [comparisonReview, sceneId, readingSet, readingScopeKey])
+  const { layout: computedLayout, pending: layoutPending } = usePrecomputedLayout(precomputeSessionId,
+    layoutInput(displayedNodes, displayedEdges, nodeSizes, reference), () => reference
+      ? comparisonLayout(displayedNodes, displayedEdges, reference.nodes, reference.edges, nodeSizes)
+      : layoutGraph(displayedNodes, displayedEdges, nodeSizes))
+  const layout = computedLayout ?? EMPTY_LAYOUT
+  const layoutPendingRef = useRef(layoutPending)
+  layoutPendingRef.current = layoutPending
   const layoutRef = useRef(layout)
   layoutRef.current = layout
   const multiObjectComments = commentIndex.multiObjectByScene.get(sceneId) ?? EMPTY_COMMENTS
@@ -251,7 +262,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   const updateLayout = useCallback(() => {
     const flow = flowRef.current
     const canvas = canvasRef.current
-    if (!flow || !canvas) return
+    if (!flow || !canvas || layoutPendingRef.current) return
     const width = canvas.clientWidth
     const height = canvas.clientHeight
     if (!width || !height) return
@@ -347,6 +358,17 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     cancelAnimationFrame(layoutFrame.current)
     layoutFrame.current = requestAnimationFrame(updateLayout)
   }, [updateLayout])
+
+  useEffect(() => {
+    if (layoutPending) {
+      if (layoutReady.current && flowRef.current && canvasRef.current && !pendingViewport.current) {
+        pendingViewport.current = { viewport: flowRef.current.getViewport(), width: canvasRef.current.clientWidth }
+      }
+      layoutReady.current = false
+      canvasRef.current?.removeAttribute('data-viewport-ready')
+    }
+    scheduleLayout()
+  }, [layoutPending, layout, scheduleLayout])
 
   useEffect(() => {
     layoutReady.current = false
@@ -447,6 +469,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
   }, [])
 
   useEffect(() => {
+    if (!computedLayout) { setNodes([]); setEdges([]); return }
     const selected = new Set(selectionRef.current.map(keyOf))
     setNodes(previous => {
       // Keep measurements so updating a thread doesn't hide its node and drop keyboard focus.
@@ -619,7 +642,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     },
   }), [graphIndex, sceneId, sceneNodes, scheduleLayout, focusReading, getTargetRect, saveViewport, focusRelated])
 
-  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label={t('业务流程画布')} data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} data-reading-focus={readingNodeIds ? 'related' : undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
+  return <div ref={canvasRef} className={`canvas${readOnly ? ' is-readonly' : ''}`} aria-label={t('业务流程画布')} aria-busy={layoutPending || undefined} data-node-appearance={nodeAppearance} data-readonly={readOnly || undefined} data-reading-focus={readingNodeIds ? 'related' : undefined} onPointerCancelCapture={() => { marqueeRef.current = false }}
     onTouchStartCapture={event => {
       if (!(event.target as Element).closest('.react-flow__edge, .node-comment-button')) return
       const pane = canvasRef.current?.querySelector('.react-flow__pane')

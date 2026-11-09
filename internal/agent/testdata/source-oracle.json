@@ -1,0 +1,340 @@
+{
+  "oracle": {
+    "commit": "73890315827d0c335f360fcf467c33049fdb17cf",
+    "entry": "bin/source-verification.ts"
+  },
+  "cases": [
+    {
+      "name": "unicode-html-bom-crlf-sort",
+      "entries": [
+        {
+          "path": "😀<&>.go",
+          "base64": "77u/5qOA5p+l8J+YgA0K5omn6KGMKCkNCg=="
+        },
+        {
+          "path": ".spec",
+          "base64": "6K+05piO"
+        },
+        {
+          "path": "a b .txt",
+          "base64": "6KeE5qC8"
+        }
+      ],
+      "review": {
+        "schemaVersion": 1,
+        "id": "review-1",
+        "title": "测试审查",
+        "description": "核对原始流程",
+        "revision": "r1",
+        "snapshot": {
+          "repository": "test",
+          "commit": "fixed",
+          "fingerprint": "2f39895e5d0b5b75a40552989c481c98550dd5016b075ef4a14fe157de0ac6f6",
+          "capturedAt": "2026-11-02T00:00:00Z",
+          "dirty": true,
+          "files": [
+            {
+              "path": "a b .txt",
+              "sha256": "381879e1e191c2e1d0698102d2192a5771257f3c9775bb652e684e1a239866e1"
+            },
+            {
+              "path": "😀<&>.go",
+              "sha256": "6ca669500adedff0004097be1cf34e339a78109416abc785a1154d6426831c2c"
+            },
+            {
+              "path": ".spec",
+              "sha256": "4262c45dc797bb0cd5008331ef25b684413859f55b73c71fb4e2c01b645dbbb7"
+            }
+          ]
+        },
+        "coverage": {
+          "included": [],
+          "excluded": [],
+          "note": ""
+        },
+        "scenes": [
+          {
+            "id": "scene-1",
+            "title": "流程",
+            "description": ""
+          }
+        ],
+        "nodes": [
+          {
+            "id": "node-1",
+            "sceneId": "scene-1",
+            "title": "检查",
+            "kind": "action",
+            "summary": "核对",
+            "detail": "",
+            "input": "",
+            "output": "",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "evidence": [
+              {
+                "path": "😀<&>.go",
+                "symbol": "test",
+                "startLine": 1,
+                "endLine": 2,
+                "digest": "5b98d4a0f1e27b7e7d97589c81af982d1263d5102ab6e102f028738ecf2ade24"
+              }
+            ]
+          }
+        ],
+        "edges": [],
+        "comments": []
+      },
+      "expected": {
+        "algorithm": "sha256-path-content-v1",
+        "files": [
+          {
+            "path": "a b .txt",
+            "sha256": "381879e1e191c2e1d0698102d2192a5771257f3c9775bb652e684e1a239866e1"
+          },
+          {
+            "path": "😀<&>.go",
+            "sha256": "6ca669500adedff0004097be1cf34e339a78109416abc785a1154d6426831c2c"
+          },
+          {
+            "path": ".spec",
+            "sha256": "4262c45dc797bb0cd5008331ef25b684413859f55b73c71fb4e2c01b645dbbb7"
+          }
+        ],
+        "fingerprint": "2f39895e5d0b5b75a40552989c481c98550dd5016b075ef4a14fe157de0ac6f6"
+      },
+      "codes": [
+        "检查😀\n执行()"
+      ]
+    },
+    {
+      "name": "legacy-manifest",
+      "entries": [
+        {
+          "path": "logic.go",
+          "base64": "Y2hlY2soKQpydW4oKQo="
+        }
+      ],
+      "review": {
+        "schemaVersion": 1,
+        "id": "review-1",
+        "title": "测试审查",
+        "description": "核对原始流程",
+        "revision": "r1",
+        "snapshot": {
+          "repository": "test",
+          "commit": "fixed",
+          "fingerprint": "4e426666f0aa3e5f3aadbc656e6b189f4374fa1d813af9bb20f051d36ffec636",
+          "capturedAt": "2026-11-02T00:00:00Z",
+          "dirty": true
+        },
+        "coverage": {
+          "included": [],
+          "excluded": [],
+          "note": ""
+        },
+        "scenes": [
+          {
+            "id": "scene-1",
+            "title": "流程",
+            "description": ""
+          }
+        ],
+        "nodes": [
+          {
+            "id": "node-1",
+            "sceneId": "scene-1",
+            "title": "检查",
+            "kind": "action",
+            "summary": "核对",
+            "detail": "",
+            "input": "",
+            "output": "",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "evidence": [
+              {
+                "path": "logic.go",
+                "symbol": "test",
+                "startLine": 1,
+                "endLine": 2,
+                "digest": "cc768cf0cb5b40cf5602803192c0a2a8b6d2f357fc2b12205b62fa2053a78ac5"
+              }
+            ]
+          }
+        ],
+        "edges": [],
+        "comments": []
+      },
+      "expected": {
+        "algorithm": "sha256-path-content-v1",
+        "files": [
+          {
+            "path": "logic.go",
+            "sha256": "a02ee782937307c0145f9e881a2a5d2695f7157e7091a9abee0be81e630f7f23"
+          }
+        ],
+        "fingerprint": "4e426666f0aa3e5f3aadbc656e6b189f4374fa1d813af9bb20f051d36ffec636"
+      },
+      "codes": [
+        "check()\nrun()"
+      ]
+    },
+    {
+      "name": "binary-document-only",
+      "entries": [
+        {
+          "path": "opaque.bin",
+          "base64": "//4="
+        }
+      ],
+      "review": {
+        "schemaVersion": 1,
+        "id": "review-1",
+        "title": "测试审查",
+        "description": "核对原始流程",
+        "revision": "r1",
+        "snapshot": {
+          "repository": "test",
+          "commit": "fixed",
+          "fingerprint": "2e40f7453308818e0c8b6bfbad1b6fa474eaf066e3fe9c5f856a8b71d24cbe66",
+          "capturedAt": "2026-11-02T00:00:00Z",
+          "dirty": true,
+          "files": [
+            {
+              "path": "opaque.bin",
+              "sha256": "b3d510ef04275ca8e698e5b3cbb0ece3949ef9252f0cdc839e9ee347409a2209"
+            }
+          ]
+        },
+        "coverage": {
+          "included": [],
+          "excluded": [],
+          "note": ""
+        },
+        "scenes": [
+          {
+            "id": "scene-1",
+            "title": "流程",
+            "description": ""
+          }
+        ],
+        "nodes": [
+          {
+            "id": "node-1",
+            "sceneId": "scene-1",
+            "title": "检查",
+            "kind": "action",
+            "summary": "核对",
+            "detail": "",
+            "input": "",
+            "output": "",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "evidence": []
+          }
+        ],
+        "edges": [],
+        "comments": []
+      },
+      "expected": {
+        "algorithm": "sha256-path-content-v1",
+        "files": [
+          {
+            "path": "opaque.bin",
+            "sha256": "b3d510ef04275ca8e698e5b3cbb0ece3949ef9252f0cdc839e9ee347409a2209"
+          }
+        ],
+        "fingerprint": "2e40f7453308818e0c8b6bfbad1b6fa474eaf066e3fe9c5f856a8b71d24cbe66"
+      },
+      "codes": []
+    },
+    {
+      "name": "two-thousand-line-boundary",
+      "entries": [
+        {
+          "path": "logic.go",
+          "base64": "eAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4CngKeAp4"
+        }
+      ],
+      "review": {
+        "schemaVersion": 1,
+        "id": "review-1",
+        "title": "测试审查",
+        "description": "核对原始流程",
+        "revision": "r1",
+        "snapshot": {
+          "repository": "test",
+          "commit": "fixed",
+          "fingerprint": "599c72e74c54eac26c6a868b828c0e4424d8708b94a23924f5f8cfddcf361015",
+          "capturedAt": "2026-11-02T00:00:00Z",
+          "dirty": true,
+          "files": [
+            {
+              "path": "logic.go",
+              "sha256": "e850fa4111ab14b840aa90f3ce054c3fb1d80d1417325e6ba5c5ca33d2203246"
+            }
+          ]
+        },
+        "coverage": {
+          "included": [],
+          "excluded": [],
+          "note": ""
+        },
+        "scenes": [
+          {
+            "id": "scene-1",
+            "title": "流程",
+            "description": ""
+          }
+        ],
+        "nodes": [
+          {
+            "id": "node-1",
+            "sceneId": "scene-1",
+            "title": "检查",
+            "kind": "action",
+            "summary": "核对",
+            "detail": "",
+            "input": "",
+            "output": "",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "evidence": [
+              {
+                "path": "logic.go",
+                "symbol": "test",
+                "startLine": 1,
+                "endLine": 2000,
+                "digest": "e850fa4111ab14b840aa90f3ce054c3fb1d80d1417325e6ba5c5ca33d2203246"
+              }
+            ]
+          }
+        ],
+        "edges": [],
+        "comments": []
+      },
+      "expected": {
+        "algorithm": "sha256-path-content-v1",
+        "files": [
+          {
+            "path": "logic.go",
+            "sha256": "e850fa4111ab14b840aa90f3ce054c3fb1d80d1417325e6ba5c5ca33d2203246"
+          }
+        ],
+        "fingerprint": "599c72e74c54eac26c6a868b828c0e4424d8708b94a23924f5f8cfddcf361015"
+      },
+      "codes": [
+        "x\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx"
+      ]
+    }
+  ]
+}

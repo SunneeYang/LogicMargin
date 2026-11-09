@@ -1,5 +1,12 @@
 import { Text } from '@codemirror/state'
-import { Chunk } from '@codemirror/merge'
+import { Change, Chunk } from '@codemirror/merge'
+import type { DiffConfig } from '@codemirror/merge'
+import type { ComputedDiff } from './precompute.ts'
+
+export function codeDiffConfig(computed?: ComputedDiff | null): DiffConfig {
+  return computed ? { override: () => computed.changes.map(({ fromA, toA, fromB, toB }) => new Change(fromA, toA, fromB, toB)) }
+    : { scanLimit: 2000, timeout: 100 }
+}
 
 export interface UnifiedLine {
   text: string
@@ -8,9 +15,9 @@ export interface UnifiedLine {
   kind?: 'removed' | 'added'
 }
 
-export function buildUnifiedDiff(before: string, after: string) {
+export function buildUnifiedDiff(before: string, after: string, computed?: ComputedDiff | null) {
   const a = Text.of(before.split('\n')), b = Text.of(after.split('\n'))
-  const chunks = Chunk.build(a, b, { scanLimit: 2000, timeout: 100 })
+  const chunks = Chunk.build(a, b, codeDiffConfig(computed))
     .filter(chunk => chunk.changes.some(change => change.fromA !== change.toA || change.fromB !== change.toB))
   const lines: UnifiedLine[] = []
   const marks: { from: number; to: number; kind: 'removed' | 'added' }[] = []
@@ -58,5 +65,5 @@ export function buildUnifiedDiff(before: string, after: string) {
     if (to - from >= 8) folds.push({ from: doc.line(from + 1).from, to: doc.line(to).to, lines: to - from })
   }
   return { doc, lines, marks: marks.map(mark => ({ ...mark, to: Math.min(mark.to, doc.length) })).filter(mark => mark.to > mark.from),
-    changes, changeEnds, folds, precise: chunks.every(chunk => chunk.precise) }
+    changes, changeEnds, folds, precise: computed?.precise ?? chunks.every(chunk => chunk.precise) }
 }

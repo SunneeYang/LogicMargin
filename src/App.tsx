@@ -11,6 +11,7 @@ import CommentComposer from './CommentComposer.tsx'
 import type { InspectionTab } from './CommentComposer.tsx'
 import TargetDetails from './TargetDetails.tsx'
 import NodeCodeDiff from './NodeCodeDiff.tsx'
+import type { DiffContext } from './precompute.ts'
 import SidebarResize, { useSidebarWidths } from './SidebarResize.tsx'
 import { sampleReview } from './sample.ts'
 import { useReviewSession } from './useReviewSession.ts'
@@ -242,6 +243,11 @@ export default function App() {
   const canApprove = !reviewBlocked && !sessionAction && !unresolved.length && !approved
   const finishLabel = baselinePlanning ? '提交改造意见' : hasFeedback ? '提交本轮' : approved ? '本轮已通过' : needsReviewCount ? '复核本轮' : unresolved.length ? '查看待处理意见' : '完成审查'
   const codeBefore = viewBaseline ? undefined : comparingBaseline ? taskBaseline : session.snapshots.get(activeRound - 1)
+  const codePrecompute: DiffContext | undefined = session.session && codeBefore && !viewBaseline ? {
+    sessionId: session.session.id,
+    beforeSnapshot: comparingBaseline ? { kind: 'baseline' } : { kind: 'round', round: activeRound - 1 },
+    afterSnapshot: { kind: 'round', round: activeRound },
+  } : undefined
   const [codeError, setCodeError] = useState('')
   useEffect(() => {
     setCodeError('')
@@ -906,7 +912,7 @@ export default function App() {
         </section>}
         {publicationPending && <div className="revision-banner publication-pending" role="status"><strong>{t('修改中，新版尚未发布')}</strong><p>{t('当前仍是 {round} 的流程图。代理交流回复不代表修改已完成；新版发布后才能确认处理结果。', { round: roundLabel(session.session!.round) })}</p></div>}
         {(viewBaseline || historical) && <div className="revision-banner historical-banner"><span>{viewBaseline ? baselinePlanning ? t('在基线 B 上提出改造意见，提交后交给代理实现。') : t('正在查看固定基线 B，可针对原流程批注。') : t('正在查看 {round} 的历史流程 · 只读。', { round: roundLabel(activeRound) })}</span>{!baselinePlanning && <button className="button subtle" onClick={() => void switchRound(session.session?.round ?? 1)}>{session.session ? t('返回当前 {round}', { round: roundLabel(session.session.round) }) : t('返回修改后')}</button>}</div>}
-        <GraphCanvas ref={graph} key={canvasKey} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode}
+        <GraphCanvas ref={graph} key={canvasKey} review={displayReview} sceneId={scene.id} selection={selection} setSelection={graphSelection} changes={graphChanges} mode={mode} precomputeSessionId={session.session?.id}
           readingScopeKey={JSON.stringify([SESSION_ID ?? review.id, scene.id])}
           comparisonReview={viewBaseline || (roundHistorical && !comparingBaseline && activeRound === previousRound) ? review : !roundHistorical ? baselineReview : undefined}
           flowPulse={flowPulse} onSelectIntent={replayFlow} onHoverIntent={discussionTargets || composer ? undefined : replayFlow}
@@ -969,7 +975,7 @@ export default function App() {
             context: `${viewBaseline ? `${t('基线 B')} · ` : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? t(' · 只读') : ''}`,
             tab: windowTab, onTabChange: setWindowTab,
             detail: <TargetDetails review={displayReview} targets={windowTargets} />,
-            code: <>{viewBaseline && <p className="muted">{t('当前查看基线 B，以下为原版代码依据。')}</p>}{codeError ? <p role="alert">{translateError(codeError, locale)}</p> : <NodeCodeDiff before={codeBefore} after={displayReview} targets={windowTargets} beforeLabel={comparingBaseline ? t('基线 B') : roundLabel(activeRound - 1)} afterLabel={viewBaseline ? t('基线 B') : session.session ? roundLabel(activeRound) : t('当前评审')} />}</>,
+            code: <>{viewBaseline && <p className="muted">{t('当前查看基线 B，以下为原版代码依据。')}</p>}{codeError ? <p role="alert">{translateError(codeError, locale)}</p> : <NodeCodeDiff precomputeContext={codePrecompute} before={codeBefore} after={displayReview} targets={windowTargets} beforeLabel={comparingBaseline ? t('基线 B') : roundLabel(activeRound - 1)} afterLabel={viewBaseline ? t('基线 B') : session.session ? roundLabel(activeRound) : t('当前评审')} />}</>,
           } : undefined}
           discussion={discussionTargets ? {
             key: discussionTargets.map(keyOf).join('|'),
