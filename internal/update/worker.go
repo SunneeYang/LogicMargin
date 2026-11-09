@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -356,18 +357,18 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 			}
 		}
 	}()
-	run := func(command []string) ([]byte, error) {
-		call, c := context.WithTimeout(ctx, 2*time.Minute)
+	run := func(parent context.Context, command []string) ([]byte, error) {
+		call, c := context.WithTimeout(parent, 2*time.Minute)
 		defer c()
 		return deps.run(call, job.Home, os.Environ(), command)
 	}
-	codex := func(args ...string) (map[string]json.RawMessage, error) {
-		b, err := run(append(append([]string{}, deps.codex...), args...))
+	codex := func(call context.Context, args ...string) (map[string]json.RawMessage, error) {
+		b, err := run(call, append(append([]string{}, deps.codex...), args...))
 		if err != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
+			if call.Err() != nil {
+				return nil, call.Err()
 			}
-			return nil, errors.New("codex_command_failed")
+			return nil, errors.New("codex_" + strings.Join(args[:min(3, len(args))], "_") + "_failed")
 		}
 		var obj map[string]json.RawMessage
 		if json.Unmarshal(b, &obj) != nil || obj == nil {
@@ -378,7 +379,7 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 	if err := phase("checking"); err != nil {
 		return err
 	}
-	fallbackVersion, err := run([]string{job.Fallback, "--version"})
+	fallbackVersion, err := run(ctx, []string{job.Fallback, "--version"})
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -386,7 +387,7 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 		return errors.New("fallback_version_mismatch")
 	}
 	// An existing enabled Codex installation is required; never silently install into another host.
-	list, err := codex("plugin", "list", "--json")
+	list, err := codex(ctx, "plugin", "list", "--json")
 	if err != nil {
 		return err
 	}
@@ -423,6 +424,37 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 	if !found {
 		return errors.New("codex_installation_required")
 	}
+	marketplaces, err := codex(ctx, "plugin", "marketplace", "list", "--json")
+	if err != nil {
+		return err
+	}
+	var catalogs []struct{ Name, Root string }
+	if json.Unmarshal(marketplaces["marketplaces"], &catalogs) != nil {
+		return errors.New("codex_marketplace_unverified")
+	}
+	var previousRoot string
+	for _, catalog := range catalogs {
+		if catalog.Name == "logic-margin-local" {
+			previousRoot = catalog.Root
+		}
+	}
+	if !filepath.IsAbs(previousRoot) {
+		return errors.New("codex_marketplace_unverified")
+	}
+	if err := validateInstallDirectories(job.Home, job.DataDir, previousRoot); err != nil {
+		return err
+	}
+	realPrevious, err := filepath.EvalSymlinks(previousRoot)
+	if err != nil {
+		return err
+	}
+	realDirectory, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		return err
+	}
+	if contained(realPrevious, filepath.Join(realDirectory, "marketplace-backup")) {
+		return errors.New("unsafe_update_directory")
+	}
 	release, err := check(ctx, deps.client, job.PreviousVersion, job.Version)
 	if err != nil {
 		return err
@@ -437,7 +469,7 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 	if err != nil {
 		return err
 	}
-	output, err := run([]string{binary, "--version"})
+	output, err := run(ctx, []string{binary, "--version"})
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -447,7 +479,7 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 	if err := phase("stopping"); err != nil {
 		return err
 	}
-	err = daemon.Replace(ctx, job.Home, job.InstanceID, job.DataDir, job.Version, binary, job.Fallback, func(ctx context.Context) error {
+	err = daemon.Replace(ctx, job.Home, job.InstanceID, job.DataDir, job.Version, binary, job.Fallback, func(ctx context.Context) (installError error) {
 		if err := phase("backing_up"); err != nil {
 			return err
 		}
@@ -459,7 +491,45 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 		if err := phase("marketplace"); err != nil {
 			return err
 		}
-		added, err := codex("plugin", "marketplace", "add", "SunneeYang/LogicMargin", "--ref", "v"+job.Version, "--sparse", ".agents/plugins", "--sparse", "plugins/logic-margin", "--json")
+		catalogBackup := filepath.Join(directory, "marketplace-backup")
+		if err := copyData(ctx, previousRoot, catalogBackup); err != nil {
+			return err
+		}
+		restoreCatalog := true
+		defer func() {
+			if !restoreCatalog {
+				return
+			}
+			// Registration failure must not leave the installed plugin undiscoverable.
+			recovery, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+			defer cancel()
+			listed, err := codex(recovery, "plugin", "marketplace", "list", "--json")
+			var present []struct{ Name, Root string }
+			if err != nil || json.Unmarshal(listed["marketplaces"], &present) != nil {
+				installError = fmt.Errorf("%w; codex_marketplace_restore_failed", installError)
+				return
+			}
+			for _, catalog := range present {
+				if catalog.Name == "logic-margin-local" {
+					if info, err := os.Stat(catalog.Root); err != nil || !info.IsDir() {
+						installError = fmt.Errorf("%w; codex_marketplace_restore_failed", installError)
+					}
+					return
+				}
+			}
+			restored, err := codex(recovery, "plugin", "marketplace", "add", catalogBackup, "--json")
+			if err != nil || string(restored["marketplaceName"]) != `"logic-margin-local"` {
+				installError = fmt.Errorf("%w; codex_marketplace_restore_failed", installError)
+			}
+		}()
+		removed, err := codex(ctx, "plugin", "marketplace", "remove", "logic-margin-local", "--json")
+		if err != nil {
+			return err
+		}
+		if string(removed["marketplaceName"]) != `"logic-margin-local"` {
+			return errors.New("codex_marketplace_mismatch")
+		}
+		added, err := codex(ctx, "plugin", "marketplace", "add", "SunneeYang/LogicMargin", "--ref", "v"+job.Version, "--sparse", ".agents/plugins", "--sparse", "plugins/logic-margin", "--json")
 		if err != nil {
 			return err
 		}
@@ -467,7 +537,8 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 		if json.Unmarshal(added["marketplaceName"], &name) != nil || name != "logic-margin-local" {
 			return errors.New("codex_marketplace_mismatch")
 		}
-		refreshed, err := codex("plugin", "marketplace", "upgrade", "logic-margin-local", "--json")
+		restoreCatalog = false
+		refreshed, err := codex(ctx, "plugin", "marketplace", "upgrade", "logic-margin-local", "--json")
 		if err != nil {
 			return err
 		}
@@ -478,7 +549,7 @@ func runWorker(parent context.Context, jobPath string, deps dependencies) (resul
 		if err := phase("installing"); err != nil {
 			return err
 		}
-		added, err = codex("plugin", "add", "logic-margin@logic-margin-local", "--json")
+		added, err = codex(ctx, "plugin", "add", "logic-margin@logic-margin-local", "--json")
 		if err != nil {
 			return err
 		}

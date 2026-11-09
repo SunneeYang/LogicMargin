@@ -115,7 +115,46 @@ func fakeCodex(args []string) int {
 		fmt.Printf(`{"installed":[{"name":"logic-margin","marketplaceName":"logic-margin-local","version":%q,"enabled":true,"source":{"source":"local","path":%q}}]}`+"\n", installedVersion, os.Getenv("LM_UPDATE_TEST_OLD_INSTALL"))
 		return 0
 	}
+	if key == "plugin marketplace list --json" {
+		catalogs := []any{}
+		if _, err := os.Stat(os.Getenv("LM_UPDATE_TEST_MARKETPLACE")); err == nil {
+			catalogs = append(catalogs, map[string]string{"name": "logic-margin-local", "root": os.Getenv("LM_UPDATE_TEST_MARKETPLACE")})
+		}
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"marketplaces": catalogs})
+		return 0
+	}
+	if key == "plugin marketplace remove logic-margin-local --json" {
+		if os.Getenv("LM_UPDATE_TEST_MODE") == "remove-fail" {
+			return 1
+		}
+		_ = os.RemoveAll(os.Getenv("LM_UPDATE_TEST_MARKETPLACE"))
+		if os.Getenv("LM_UPDATE_TEST_MODE") == "remove-commit-fail" {
+			return 1
+		}
+		fmt.Println(`{"marketplaceName":"logic-margin-local"}`)
+		return 0
+	}
 	if strings.HasPrefix(key, "plugin marketplace add ") {
+		if args[3] == "SunneeYang/LogicMargin" {
+			if _, err := os.Stat(os.Getenv("LM_UPDATE_TEST_MARKETPLACE")); err == nil {
+				return 1 // A different configured Git ref cannot be overwritten.
+			}
+			if strings.HasPrefix(os.Getenv("LM_UPDATE_TEST_MODE"), "registration-") {
+				return 1
+			}
+			_ = os.MkdirAll(os.Getenv("LM_UPDATE_TEST_MARKETPLACE"), 0700)
+		} else {
+			if os.Getenv("LM_UPDATE_TEST_MODE") == "registration-restore-fail" {
+				return 1
+			}
+			b, err := os.ReadFile(filepath.Join(args[3], "catalog.json"))
+			if err != nil || string(b) != "original catalog" {
+				return 1
+			}
+			_ = os.WriteFile(os.Getenv("LM_UPDATE_TEST_RESTORED"), b, 0600)
+			_ = os.MkdirAll(os.Getenv("LM_UPDATE_TEST_MARKETPLACE"), 0700)
+			_ = os.WriteFile(filepath.Join(os.Getenv("LM_UPDATE_TEST_MARKETPLACE"), "catalog.json"), b, 0600)
+		}
 		fmt.Println(`{"marketplaceName":"logic-margin-local"}`)
 		return 0
 	}
@@ -305,7 +344,7 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture := archiveFixture(t, executable)
-	for _, mode := range []string{"success", "checksum-fail", "installed-newer", "binary-version", "refresh-fail", "install-fail", "restart-fail", "cancel", "cancel-install", "detached-success", "detached-cancel", "home-in-install", "data-in-install"} {
+	for _, mode := range []string{"success", "checksum-fail", "installed-newer", "binary-version", "refresh-fail", "install-fail", "restart-fail", "cancel", "cancel-install", "detached-success", "detached-cancel", "home-in-install", "data-in-install", "remove-fail", "registration-fail", "registration-restore-fail", "remove-canceled", "remove-commit-fail", "catalog-backup-overlap"} {
 		t.Run(mode, func(t *testing.T) {
 			root := t.TempDir()
 			home := filepath.Join(root, "home")
@@ -326,6 +365,13 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 			t.Setenv("LM_UPDATE_TEST_COMMANDS", filepath.Join(root, "commands.jsonl"))
 			t.Setenv("LM_UPDATE_TEST_INSTALLED", filepath.Join(root, "codex-new"))
 			t.Setenv("LM_UPDATE_TEST_OLD_INSTALL", filepath.Join(root, "codex-old"))
+			t.Setenv("LM_UPDATE_TEST_MARKETPLACE", filepath.Join(root, "codex-marketplace"))
+			if mode == "catalog-backup-overlap" {
+				t.Setenv("LM_UPDATE_TEST_MARKETPLACE", filepath.Join(home, "updates"))
+			}
+			t.Setenv("LM_UPDATE_TEST_RESTORED", filepath.Join(root, "catalog-restored"))
+			_ = os.MkdirAll(os.Getenv("LM_UPDATE_TEST_MARKETPLACE"), 0700)
+			_ = os.WriteFile(filepath.Join(os.Getenv("LM_UPDATE_TEST_MARKETPLACE"), "catalog.json"), []byte("original catalog"), 0600)
 			_ = os.MkdirAll(os.Getenv("LM_UPDATE_TEST_OLD_INSTALL"), 0700)
 			oldBinary := filepath.Join(os.Getenv("LM_UPDATE_TEST_OLD_INSTALL"), filepath.Base(executable))
 			if err := copyFile(executable, oldBinary); err != nil {
@@ -386,6 +432,10 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 			runner := func(c context.Context, dir string, env, command []string) ([]byte, error) {
 				b, e := mcpconfig.RunCommand(c, dir, env, command)
 				key := strings.Join(command, " ")
+				if mode == "remove-canceled" && strings.Contains(key, "marketplace remove") {
+					cancelWorker()
+					return b, context.Canceled
+				}
 				if strings.Contains(key, "marketplace add") {
 					for _, lockPath := range []string{filepath.Join(home, "start.lock"), filepath.Join(data, ".service-lock")} {
 						unlock, lockErr := daemon.AcquireLock(context.Background(), lockPath, 0)
@@ -449,7 +499,7 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 			if mode == "success" || mode == "detached-success" {
 				wantPhase = "completed"
 			}
-			if mode == "cancel" || mode == "cancel-install" || mode == "detached-cancel" {
+			if mode == "cancel" || mode == "cancel-install" || mode == "detached-cancel" || mode == "remove-canceled" {
 				wantPhase = "canceled"
 			}
 			if status.Phase != wantPhase {
@@ -473,8 +523,8 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 				}
 			}
 			commands, _ := os.ReadFile(os.Getenv("LM_UPDATE_TEST_COMMANDS"))
-			if mode == "home-in-install" || mode == "data-in-install" {
-				if status.Error != "unsafe_update_directory" || actual["pid"] != health.PID || bytes.Contains(commands, []byte(`"marketplace"`)) {
+			if mode == "home-in-install" || mode == "data-in-install" || mode == "catalog-backup-overlap" {
+				if status.Error != "unsafe_update_directory" || actual["pid"] != health.PID || bytes.Contains(commands, []byte(`"marketplace","remove"`)) || bytes.Contains(commands, []byte(`"marketplace","add"`)) {
 					t.Fatalf("unsafe install reached stop or plugin mutation: %+v, %s", status, commands)
 				}
 				if _, err := os.Stat(filepath.Join(directory, "backup")); !errors.Is(err, os.ErrNotExist) {
@@ -482,12 +532,23 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 				}
 			}
 			if mode == "success" || mode == "detached-success" {
-				if !bytes.Contains(commands, []byte(`"--ref","v1.0.1"`)) || !bytes.Contains(commands, []byte(`"upgrade","logic-margin-local"`)) || !bytes.Contains(commands, []byte(`"add","logic-margin@logic-margin-local"`)) {
+				removeAt := bytes.Index(commands, []byte(`"remove","logic-margin-local"`))
+				addAt := bytes.Index(commands, []byte(`"--ref","v1.0.1"`))
+				if removeAt < 0 || addAt < removeAt || !bytes.Contains(commands, []byte(`"upgrade","logic-margin-local"`)) || !bytes.Contains(commands, []byte(`"add","logic-margin@logic-margin-local"`)) {
 					t.Fatalf("missing pinned separate steps: %s", commands)
 				}
 				if _, err := os.Stat(oldBinary); !errors.Is(err, os.ErrNotExist) {
 					t.Fatal("old installation was not removed by fixture")
 				}
+			}
+			if mode == "registration-fail" || mode == "remove-canceled" || mode == "remove-commit-fail" {
+				restored, err := os.ReadFile(os.Getenv("LM_UPDATE_TEST_RESTORED"))
+				if err != nil || string(restored) != "original catalog" || !strings.Contains(status.Error, "old_service_restored") {
+					t.Fatalf("catalog was lost after registration failure: %+v, %v", status, err)
+				}
+			}
+			if mode == "registration-restore-fail" && !strings.Contains(status.Error, "codex_marketplace_restore_failed") {
+				t.Fatalf("catalog recovery failure was hidden: %+v", status)
 			}
 			if mode == "restart-fail" {
 				failed, err := os.ReadFile(filepath.Join(directory, "failed-data", "session.json"))

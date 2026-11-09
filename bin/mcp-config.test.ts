@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { execFile, spawnSync } from 'node:child_process'
+import childProcess, { execFile, spawnSync } from 'node:child_process'
+import { syncBuiltinESMExports } from 'node:module'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -81,16 +82,30 @@ test('invalid endpoints are rejected before launching any configuration process'
 })
 
 test('timeouts, early exits and API failures close the temporary process without exposing its output', async t => {
-  for (const mode of ['timeout', 'exit', 'error']) {
-    const fixture = await setup(t, {}, mode)
-    await assert.rejects(configureCodexMcp(url, { command: fixture.command, timeoutMs: mode === 'timeout' ? 200 : 2000 }), error => {
-      assert.ok(error instanceof Error)
-      assert.match(error.message, /超时|提前退出|拒绝操作/)
-      assert.doesNotMatch(error.message, /fixture-secret/)
-      return true
-    })
-    const childPid = Number(await readFile(fixture.pid, 'utf8'))
-    assert.throws(() => process.kill(childPid, 0), { code: 'ESRCH' })
+  const spawn = childProcess.spawn
+  const children: number[] = []
+  t.mock.method(childProcess, 'spawn', (...args: Parameters<typeof spawn>) => {
+    const child = spawn(...args)
+    if (child.pid) children.push(child.pid)
+    return child
+  })
+  syncBuiltinESMExports()
+  try {
+    for (const mode of ['timeout', 'exit', 'error']) {
+      children.length = 0
+      const fixture = await setup(t, {}, mode)
+      await assert.rejects(configureCodexMcp(url, { command: fixture.command, timeoutMs: mode === 'timeout' ? 200 : 2000 }), error => {
+        assert.ok(error instanceof Error)
+        assert.match(error.message, /超时|提前退出|拒绝操作/)
+        assert.doesNotMatch(error.message, /fixture-secret/)
+        return true
+      })
+      assert.equal(children.length, 1)
+      assert.throws(() => process.kill(children[0], 0), { code: 'ESRCH' })
+    }
+  } finally {
+    t.mock.restoreAll()
+    syncBuiltinESMExports()
   }
 })
 

@@ -17,15 +17,16 @@ Installation and cancellation require a real loopback peer and Host, matching HT
 1. 将当前原生程序复制到真实 daemon home 的 `updates/<job-id>/`，从这里启动独立 worker。它继承当前 Codex home，工作目录独立于旧插件缓存；Codex 删除旧 `installedPath` 不会删除 worker、下载、备份或恢复入口。
 2. 核对已有 Codex 插件，验证固定版本官方 Release，下载当前平台 ZIP 与 SHA-256，检查解压路径和程序 `--version`。支持现有五个发行目标；未支持平台返回 error，不换包、不编译。
 3. 停服前按真实路径检查数据、更新目录与 Codex 插件/临时目录；符号链接别名造成重叠，或数据/恢复入口位于可能被清理的插件源内时拒绝。随后持有 daemon `start.lock`，核对正在运行实例的登记身份，再停止并确认退出。持有原 dataDir 的 `.service-lock`，完整备份实际数据目录，随后才更改插件。会话、B/R、评论、归档与 session ID 不迁移、不清理；dataDir 内含符号链接时拒绝备份。
-4. 分别执行固定官方 ref 的 marketplace 注册、refresh 和实际安装：
+4. 先读取并验证当前 marketplace 根目录，将目录快照保存到本次任务的 `marketplace-backup/`。Codex 将不同 Git ref 视为不同来源，因此更换 ref 前先移除旧来源注册，再执行固定官方 ref 的注册、refresh 和实际安装：
 
    ```sh
+   codex plugin marketplace remove logic-margin-local --json
    codex plugin marketplace add SunneeYang/LogicMargin --ref vX.Y.Z --sparse .agents/plugins --sparse plugins/logic-margin --json
    codex plugin marketplace upgrade logic-margin-local --json
    codex plugin add logic-margin@logic-margin-local --json
    ```
 
-   注册结果必须对应 `logic-margin-local`，refresh 的 `errors` 必须为空；插件安装返回的 `version`、`installedPath` 与磁盘 `plugin.json` 都须核实。命令零退出码不等于成功。原本的本地 ZIP marketplace 会切换到该官方固定 Git tag，后续网页更新会再次明确固定所选版本。
+   移除和注册结果必须对应 `logic-margin-local`。移除后插件缓存保留，但暂时不在清单中；注册失败或移除已生效后收到取消时，用独立有界恢复过程从旧目录快照重新注册，再恢复旧服务。备份来源包含本次备份目标时拒绝，避免递归复制。恢复目录快照会将该 marketplace 暂时注册为本地来源，下次成功更新再切到官方固定 tag；不会覆盖其他 marketplace。refresh 的 `errors` 必须为空；插件安装返回的 `version`、`installedPath` 与磁盘 `plugin.json` 都须核实。命令零退出码不等于成功。原本的本地 ZIP marketplace 会切换到该官方固定 Git tag，后续网页更新会再次明确固定所选版本。
 5. 用已校验、位于持久更新目录内的新原生程序启动服务。复用实际 home、dataDir、Host 与端口；通过真实 readiness 和 HTTP health 核实新 PID、实例身份及版本。只在验证完成后记录 completed；前端还比较重连后台的真实版本。
 
 The worker survives deletion of the old Codex plugin cache. The daemon startup lock spans stop, backup, plugin operations, and restart; the data writer lock protects backup and restoration. Download failures keep the old service running. Failures after stopping restart the copied old executable. If a failed new service wrote data, its files are retained under `failed-data/` and the complete backup is restored before the old service starts. A surviving writer blocks recovery instead of allowing a second writer.
@@ -36,7 +37,7 @@ The worker survives deletion of the old Codex plugin cache. The daemon startup l
 
 完成后 MCP 连接可能需要宿主重连/重载。监听地址没有变，因此更新流程不改 Codex MCP 配置；在原宿主核实工具已重新连接，然后按原 session ID 继续评审。更新不代表评审通过。
 
-每次任务的状态在实际 home 的 `updates/status.json`，日志在 `updates/<job-id>/worker.log`，备份在 `updates/<job-id>/backup/`，旧程序与新程序都保留在该任务目录。不要读取或粘贴 `daemon.json` 中的关闭令牌。错误中的 `old_service_restored` 表示旧服务已通过启动健康检查；`rollback_blocked`、`restore_failed`、`rollback_failed` 或 `update_worker_interrupted` 需要本机诊断。插件可能已更新但服务恢复到旧版本，网页会分别显示失败与当前真实服务版本，不能据安装成功继续声称整体更新成功。
+每次任务的状态在实际 home 的 `updates/status.json`，日志在 `updates/<job-id>/worker.log`，备份在 `updates/<job-id>/backup/`，旧程序与新程序都保留在该任务目录。不要读取或粘贴 `daemon.json` 中的关闭令牌。错误中的 `old_service_restored` 表示旧服务已通过启动健康检查；`rollback_blocked`、`restore_failed`、`codex_marketplace_restore_failed`、`rollback_failed` 或 `update_worker_interrupted` 需要本机诊断。插件可能已更新但服务恢复到旧版本，网页会分别显示失败与当前真实服务版本，不能据安装成功继续声称整体更新成功。
 
 硬断电、worker 被强杀或磁盘故障不能保证自动恢复。先用保留的原生程序执行 `server status`，核对实例与进程；确认没有其他 writer 后使用持久目录中的旧入口 `server start --host ORIGINAL_HOST --port ORIGINAL_PORT` 恢复。应保留原 `LOGIC_MARGIN_HOME`；自定义数据目录使用 `LOGIC_MARGIN_DATA_DIR` 环境变量，`server start` 不支持 `--data-dir`。不要按端口强杀、删除锁或清空会话绕过保护；存在备份恢复错误时先检查备份和 `failed-data`，不要直接覆盖原数据。备份与旧程序不会自动清理。
 
