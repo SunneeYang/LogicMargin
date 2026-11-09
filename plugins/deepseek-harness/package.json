@@ -1,0 +1,21 @@
+{
+  "name": "dsh-plugin-logicmargin",
+  "version": "0.9.6",
+  "type": "module",
+  "description": "Source-backed logic reviews with diagrams, saved code diffs, and resumable human feedback.",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=24.9.0", "dsh": "0.2.2-rc.1" },
+  "keywords": ["dsh-plugin", "deepseek-harness", "logicmargin", "code-review", "mcp"],
+  "repository": { "type": "git", "url": "https://github.com/SunneeYang/LogicMargin.git", "directory": "plugins/deepseek-harness" },
+  "homepage": "https://github.com/SunneeYang/LogicMargin",
+  "exports": { ".": "./index.js", "./package.json": "./package.json", "./locale/*.json": "./locale/*.json", "./icon": "./icon.svg" },
+  "files": ["index.js", "native.js", "cordis.patch.yml", "locale", "icon.svg", "resources", "README.md"],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/schemastery": "~3.19.0",
+    "@deepseek-ai/dsh-mcp-client": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-skill-filesystem": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-subprocess": "0.2.2-rc.1"
+  },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
+}

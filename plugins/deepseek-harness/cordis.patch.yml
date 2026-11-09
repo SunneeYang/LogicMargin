@@ -1,0 +1,3 @@
+- insert:
+    - id: logic-margin
+      name: ./index.js

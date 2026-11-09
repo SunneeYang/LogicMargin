@@ -17,12 +17,13 @@ export function validateReleaseVersion(tag, versions) {
 }
 
 async function releaseVersion(tag) {
-  const [packageInfo, plugin, lock] = await Promise.all(
-    ['package.json', 'plugins/logic-margin/plugin.json', 'package-lock.json'].map(async path => JSON.parse(await readFile(join(root, path), 'utf8'))),
+  const [packageInfo, plugin, lock, dsh] = await Promise.all(
+    ['package.json', 'plugins/logic-margin/plugin.json', 'package-lock.json', 'plugins/deepseek-harness/package.json'].map(async path => JSON.parse(await readFile(join(root, path), 'utf8'))),
   )
   return validateReleaseVersion(tag, {
     'package.json': packageInfo.version,
     'plugins/logic-margin/plugin.json': plugin.version,
+    'plugins/deepseek-harness/package.json': dsh.version,
     'package-lock.json': lock.version,
     'package-lock.json packages[""]': lock.packages?.['']?.version,
   })

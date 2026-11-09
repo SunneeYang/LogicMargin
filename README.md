@@ -105,6 +105,8 @@ Structural focus is applied automatically for supported Go and JavaScript/TypeSc
 
 ### Use it with an agent
 
+For **DeepSeek Harness 0.2.2-rc.1**, build and install the dedicated tgz following the [DSH guide](docs/deepseek-harness.md). It registers the skill and connects the same native service through DSH's official MCP Client. The Codex commands below are specific to Codex.
+
 Register the Git marketplace and install the plugin:
 
 ```sh
@@ -212,6 +214,7 @@ The detailed guides below are currently in Chinese.
 | Topic | Start here |
 | --- | --- |
 | Plugin installation, automatic startup, distribution, and platform entry points | [Agent plugin](docs/agent-plugin.md) |
+| DeepSeek Harness package, isolated validation, and market submission paths | [DSH integration](docs/deepseek-harness.md) |
 | Starting, waiting, replying, publishing revisions, and cleanup | [Agent workflow](docs/agent-workflow.md) |
 | Diagram JSON, stable IDs, and source digests | [Review format](plugins/logic-margin/skills/logic-margin/references/review-format.md) |
 | Cross-round comparison, carried comments, and original locations | [Revision review design](docs/revision-review-design.md) |

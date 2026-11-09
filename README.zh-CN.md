@@ -105,6 +105,8 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 ### 交给 Agent 使用
 
+**DeepSeek Harness 0.2.2-rc.1** 使用独立 tgz，见 [DSH 适配与安装](docs/deepseek-harness.md)。插件通过官方 MCP Client 连接同一原生服务并注册技能；以下命令专用于 Codex。
+
 注册 Git marketplace，安装插件：
 
 ```sh
@@ -209,6 +211,7 @@ MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknow
 | 我想了解… | 从这里开始 |
 | --- | --- |
 | 插件安装、自动启动、分发与跨平台入口 | [Agent 插件](docs/agent-plugin.md) |
+| DeepSeek Harness 制品、隔离验收与市场收录路径 | [DSH 适配](docs/deepseek-harness.md) |
 | 发起、等待、回复、发布新版和清理 | [Agent 工作流](docs/agent-workflow.md) |
 | 流程图 JSON、稳定 ID 与来源摘要 | [评审文件格式](plugins/logic-margin/skills/logic-margin/references/review-format.md) |
 | 跨轮对比、批注迁移与原位置 | [跨轮评审设计](docs/revision-review-design.md) |
