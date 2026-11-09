@@ -57,7 +57,7 @@ for (const target of ['sparse', 'replaced', 'deleted', 'multiple']) {
     page.on('pageerror', error => errors.push(error.message))
     await page.goto(`/?session=${session.id}`)
     await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
-    await page.locator(`.react-flow__node[data-id="${target}"] .node-comment-button`).evaluate(element => (element as HTMLButtonElement).click())
+    await page.locator(`.react-flow__node[data-id="${target}"] .node-comment-button`).click()
     const panel = page.locator('[data-composer][data-state="open"]')
     await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
     await expect(panel.locator('.cm-editor')).toHaveCount(1)

@@ -127,7 +127,7 @@ async function createSession(request: APIRequestContext, sample = structuralRead
 
 async function openCode(page: Page, split = false, id = 'sparse') {
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
-  await page.locator(`.react-flow__node[data-id="${id}"] .node-comment-button`).evaluate(element => (element as HTMLElement).click())
+  await page.locator(`.react-flow__node[data-id="${id}"] .node-comment-button`).click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
   const dock = panel.getByRole('button', { name: '移到侧栏编辑', exact: true })

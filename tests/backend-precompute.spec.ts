@@ -91,7 +91,7 @@ function assertLayoutInput(input: LayoutInput) {
 
 async function openCode(page: Page, split = false) {
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
-  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').evaluate(element => (element as HTMLElement).click())
+  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
   await panel.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
@@ -368,7 +368,7 @@ test('an editor chunk failure stays in the code pane and a reload can recover it
   await page.route('**/assets/CodeDiffEditor-*.js', route => route.abort('failed'))
   await page.goto(`/?session=${session.id}`)
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
-  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').evaluate(element => (element as HTMLElement).click())
+  await page.locator('.react-flow__node[data-id="sparse"] .node-comment-button').click()
   const panel = page.locator('[data-composer][data-state="open"]')
   await panel.getByRole('tab', { name: '代码 diff', exact: true }).click()
   await expect(panel.getByRole('alert')).toHaveText('代码视图暂时无法打开，请刷新页面后重试。')
