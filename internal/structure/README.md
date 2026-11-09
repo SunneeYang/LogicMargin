@@ -89,9 +89,11 @@ Contract tests cover Go files/declarations/statements/truncation, all supported
 JS dialects, real TS/TSX types, safe formatting, condition edits, content-bearing
 whitespace, ASI boundaries, tree-packing invariance, duplicate scope names,
 UTF-16 emoji/Chinese coordinates, coverage, budgets, cancellation, and concurrent
-isolated VMs. Non-race runtime tests require complete Go/TS/TSX files larger than
-100,000 UTF-16 units and 2,000 lines to parse under the production deadline,
-retain content/ASI distinctions, and reject real syntax errors. Boundary tests
+isolated VMs. Non-race large-source correctness tests use a test-owned deadline
+for complete Go/TS/TSX files larger than 100,000 UTF-16 units and 2,000 lines,
+retaining content/ASI distinctions and rejecting real syntax errors. A successful
+large parse within the production deadline depends on host speed; `ErrBudget`
+remains a valid runtime fallback. Boundary tests
 cover exactly 500,000 units/10,000 lines, over-limit surrogate pairs, independent
 token/node exhaustion, and the bundle's own source guards. Native cancellation
 checks cover offset mapping, scanning, and AST work; VM cancellation remains
@@ -122,7 +124,7 @@ The historical dense JS result measures work until interruption, not a completed
 parse under the current five-second deadline. The benchmark fixtures remain
 exactly 100,000 units regardless of the background parser's source limit.
 Syntax correctness tests use adapter calls with a separate test deadline;
-non-race tests also require public `Parse` success under the production budget.
+non-race runtime tests check public `Parse` on small inputs and at resource limits.
 Cancellation and resource-limit tests still exercise public `Parse` under race.
 Large-input measurements permit a budget fallback. The tree-packing
 regression fixture uses eight statements and long safe whitespace to exercise

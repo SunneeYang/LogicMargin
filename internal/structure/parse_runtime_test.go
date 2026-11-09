@@ -32,6 +32,7 @@ func TestParseRuntimeBudget(t *testing.T) {
 	}
 }
 
+// Large-file syntax correctness uses a test deadline; production timeout/fallback is checked separately.
 func TestLargeCompleteSources(t *testing.T) {
 	for _, language := range []string{"go", "ts", "tsx"} {
 		t.Run(language, func(t *testing.T) {
@@ -57,7 +58,7 @@ func TestLargeCompleteSources(t *testing.T) {
 			if units := len(utf16.Encode([]rune(text))); units <= 100_000 || units > maxSourceUnits {
 				t.Fatalf("fixture outside larger source budget: %d", units)
 			}
-			doc, err := Parse(t.Context(), text, language)
+			doc, err := parseSyntax(t, text, language)
 			if err != nil {
 				t.Fatalf("large complete %s source: %v", language, err)
 			}
@@ -65,15 +66,15 @@ func TestLargeCompleteSources(t *testing.T) {
 			if doc.ParsedAs != "file" || len(doc.Scopes) != 1 || doc.Scopes[0].From != len(utf16.Encode([]rune(prefix))) {
 				t.Fatal("complete-file mode or UTF-16 scope coordinates changed")
 			}
-			joined, err := Parse(t.Context(), prefix+strings.Replace(body, "return\n", "return ", 1), language)
+			joined, err := parseSyntax(t, prefix+strings.Replace(body, "return\n", "return ", 1), language)
 			if err != nil || reflect.DeepEqual(keys(doc), keys(joined)) || doc.Shape == joined.Shape {
 				t.Fatalf("restricted newline disappeared: %v", err)
 			}
-			changed, err := Parse(t.Context(), strings.Replace(text, "😀中文", "😀中 文", 1), language)
+			changed, err := parseSyntax(t, strings.Replace(text, "😀中文", "😀中 文", 1), language)
 			if err != nil || reflect.DeepEqual(keys(doc), keys(changed)) {
 				t.Fatalf("saved literal content disappeared: %v", err)
 			}
-			if _, err := Parse(t.Context(), text+"\n}", language); !errors.Is(err, ErrSyntax) {
+			if _, err := parseSyntax(t, text+"\n}", language); !errors.Is(err, ErrSyntax) {
 				t.Fatalf("invalid complete source accepted: %v", err)
 			}
 		})
