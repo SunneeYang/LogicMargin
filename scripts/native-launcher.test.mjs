@@ -252,7 +252,7 @@ public class LauncherFixture {
   const cwd = join(root, 'project with spaces')
   const cwdRecord = join(root, 'received-cwd')
   await mkdir(cwd)
-  const invocation = `Set-Location -LiteralPath ${psQuote(cwd)}; $output = & ${psQuote(launcher)} @(${cliArgs.map(psQuote).join(', ')}); $code = $LASTEXITCODE; [Console]::Out.WriteLine(($output -join "\n")); exit $code`
+  const invocation = `Set-Location -LiteralPath ${psQuote(cwd)}; $launcherArguments = @(${cliArgs.map(psQuote).join(', ')}); $output = & ${psQuote(launcher)} @launcherArguments; $code = $LASTEXITCODE; [Console]::Out.WriteLine(($output -join "\n")); exit $code`
   const command = `function Invoke-WebRequest { throw 'Adjacent execution must not download' }; ${invocation}`
   const options = { cwd: root, env: { ...process.env, FAKE_NATIVE_VERSION: version, FAKE_NATIVE_ARGS: received, FAKE_NATIVE_CWD: cwdRecord } }
   const result = await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command], options)
