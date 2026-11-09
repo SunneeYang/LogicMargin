@@ -2,7 +2,7 @@
 
 插件包含审查技能、HTTP MCP、评审 API、网页和 CLI。一个常驻后台进程同时提供 `/mcp`、`/api` 与内嵌网页；CLI 只在启动、配置和恢复时短暂运行。安装后可在其他工程使用，无需在业务工程安装 npm 依赖或启动 Vite。
 
-0.9.3 默认使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 只用于源码开发与构建。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
+0.9.4 默认使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 只用于源码开发与构建。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
 
 网页“设置”面板分为“界面”和“版本与更新”。后者可读取运行中原生服务版本，手动检查官方稳定版，并在服务本机一键更新已有 Codex 插件与 Go 服务。远程页面只能检查；详细信任、备份与失败恢复边界见 [网页本机更新](local-updates.md)。
 
@@ -26,7 +26,7 @@ codex plugin marketplace upgrade logic-margin-local --json
 codex plugin add logic-margin@logic-margin-local --json
 ```
 
-先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上的插件版本；若要求固定版本，首次注册时将 `--ref main` 改为 `--ref v0.9.3`，之后更新仍保持该 tag。启动器的下载版本始终固定为当前插件版本，不使用浮动的 latest。
+先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上的插件版本；若要求固定版本，首次注册时将 `--ref main` 改为 `--ref v0.9.4`，之后更新仍保持该 tag。启动器的下载版本始终固定为当前插件版本，不使用浮动的 latest。
 
 Codex 会移除旧版本缓存。更新后通过原宿主重新加载技能，按新版 `installedPath` 定位入口；旧 `LM_CLI` 路径可能已失效。安装成功与后台切换分别验证，恢复步骤见下文。
 
@@ -34,7 +34,7 @@ Codex 会移除旧版本缓存。更新后通过原宿主重新加载技能，�
 
 ## ZIP 安装（无需 Git）
 
-从 [GitHub Release v0.9.3](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.3) 下载匹配平台的 `logic-margin-agent-0.9.3-TARGET.zip` 与同名 `.zip.sha256`：
+从 [GitHub Release v0.9.4](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.4) 下载匹配平台的 `logic-margin-agent-0.9.4-TARGET.zip` 与同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |
@@ -44,22 +44,22 @@ Codex 会移除旧版本缓存。更新后通过原宿主重新加载技能，�
 | Linux x64 | `linux-x64` |
 | Windows x64 | `win32-x64` |
 
-例如 macOS ARM64 的附件是 `logic-margin-agent-0.9.3-darwin-arm64.zip` 和 `logic-margin-agent-0.9.3-darwin-arm64.zip.sha256`。每个包只包含对应平台的程序、内嵌网页和插件材料；解压后运行无需下载运行时。
+例如 macOS ARM64 的附件是 `logic-margin-agent-0.9.4-darwin-arm64.zip` 和 `logic-margin-agent-0.9.4-darwin-arm64.zip.sha256`。每个包只包含对应平台的程序、内嵌网页和插件材料；解压后运行无需下载运行时。
 
 在下载目录校验，下面以 macOS ARM64 为例；Linux 将 `shasum -a 256` 换成 `sha256sum` 并选对应文件：
 
 ```sh
-shasum -a 256 -c logic-margin-agent-0.9.3-darwin-arm64.zip.sha256
+shasum -a 256 -c logic-margin-agent-0.9.4-darwin-arm64.zip.sha256
 ```
 
-Windows PowerShell 用 `certutil -hashfile .\logic-margin-agent-0.9.3-win32-x64.zip SHA256`，与 `.zip.sha256` 内的摘要比较。一致后解压到持久位置，将 ZIP 顶层目录注册为 marketplace：
+Windows PowerShell 用 `certutil -hashfile .\logic-margin-agent-0.9.4-win32-x64.zip SHA256`，与 `.zip.sha256` 内的摘要比较。一致后解压到持久位置，将 ZIP 顶层目录注册为 marketplace：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.3-darwin-arm64
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.4-darwin-arm64
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Windows 用实际的 `logic-margin-agent-0.9.3-win32-x64` 目录，包含空格的路径加引号。更新已有安装前先停止身份确认的旧后台、备份实际数据，步骤见下一节。
+Windows 用实际的 `logic-margin-agent-0.9.4-win32-x64` 目录，包含空格的路径加引号。更新已有安装前先停止身份确认的旧后台、备份实际数据，步骤见下一节。
 
 开始新的 agent 会话，使用：
 
@@ -79,7 +79,7 @@ http://100.124.38.121:5173/?session=<sessionId>
 
 ## 升级与数据连续性
 
-0.8.x Node 服务与 0.9.3 Go 服务使用兼容的保存格式，但必须保持同一数据目录只有一个后台写入者。升级不需要删除会话、归档或重新创建评审：
+0.8.x Node 服务与 0.9.4 Go 服务使用兼容的保存格式，但必须保持同一数据目录只有一个后台写入者。升级不需要删除会话、归档或重新创建评审：
 
 1. 记录实际 `LOGIC_MARGIN_HOME`、`LOGIC_MARGIN_DATA_DIR`、端口和原 session ID。用已安装入口的 `server status` 核对登记实例、健康身份和版本；默认数据是 `~/.logic-margin/sessions`，自定义目录以实际服务记录为准。
 2. 用 `server stop` 停止身份核验通过的旧受管实例，确认进程已退出，再备份实际会话目录。新版原生 CLI 也可检查和停止登记的旧实例。身份不匹配、进程仍存活但不健康或端口归属不明时保留现场诊断；不能按端口猜进程并强杀，也不能删登记文件绕过单写保护。
@@ -175,18 +175,18 @@ npm ci
 /Users/hcm-b0677/.codex/bin/agent-tmp-run npm run package:agent -- --target win32-x64
 ```
 
-输出位于 `artifacts/logic-margin-agent-0.9.3-TARGET.zip`，不包含本机实际会话、浏览器草稿或私有评审材料。包内直接运行 `scripts/logic-margin` / `scripts/logic-margin.exe`，不依赖 marketplace 下载器。每个平台须分别做原生运行验收；五目标 `CGO_ENABLED=0` 交叉编译通过不等于目标系统已验收。历史迁移记录仅实际运行了 macOS ARM64，具体测试与兼容边界见 [Go 验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。
+输出位于 `artifacts/logic-margin-agent-0.9.4-TARGET.zip`，不包含本机实际会话、浏览器草稿或私有评审材料。包内直接运行 `scripts/logic-margin` / `scripts/logic-margin.exe`，不依赖 marketplace 下载器。每个平台须分别做原生运行验收；五目标 `CGO_ENABLED=0` 交叉编译通过不等于目标系统已验收。历史迁移记录仅实际运行了 macOS ARM64，具体测试与兼容边界见 [Go 验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。
 
 ## 维护者发布
 
-同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、插件 `plugin.json` 和 `cmd/logic-margin/main.go` 默认版本为 0.9.3，再准备发布：
+同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、插件 `plugin.json` 和 `cmd/logic-margin/main.go` 默认版本为 0.9.4，再准备发布：
 
 ```sh
-/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run release:agent -- v0.9.3
+/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run release:agent -- v0.9.4
 /Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:release
 ```
 
-发行目标是 GitHub tag `v0.9.3`，附件为五平台各一份 `logic-margin-agent-0.9.3-TARGET.zip` 及其 `.zip.sha256`。Git marketplace 的启动器按插件版本定位这些官方附件，校验后执行本平台程序；不将 Node 通用 ZIP 或开发 oracle 当成默认发布。
+发行目标是 GitHub tag `v0.9.4`，附件为五平台各一份 `logic-margin-agent-0.9.4-TARGET.zip` 及其 `.zip.sha256`。Git marketplace 的启动器按插件版本定位这些官方附件，校验后执行本平台程序；不将 Node 通用 ZIP 或开发 oracle 当成默认发布。
 
 推送 tag 与创建 GitHub Release 分别按用户授权执行。跨平台构建、原生运行、CI 完成和附件实际可下载是不同结果；以实际检查和 Release 附件为准，本地打包不代表已发布。维护时同时检查仓库启动器与 ZIP 内的技能说明，确保两条入口描述一致。
 

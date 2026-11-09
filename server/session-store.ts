@@ -119,13 +119,21 @@ export class SessionStore {
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new SessionError('找不到审查任务，可能已被清理', 404); throw error }
     throw new SessionError('评审任务已归档，可从任务列表恢复', 410)
   }
+  private async isMissing(session: string, error: unknown): Promise<boolean> {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') return true
+    if (process.platform !== 'win32' || code !== 'EPERM') return false
+    // Windows can report a pending unlink as EPERM; only confirmed absence is missing.
+    try { await stat(this.path(session)); return false }
+    catch (probe) { return (probe as NodeJS.ErrnoException).code === 'ENOENT' }
+  }
   private async load(session: string): Promise<ReviewSession> {
     const path = this.path(session)
     let metadata: BigIntStats
     try { metadata = await stat(path, { bigint: true }) }
     catch (error) {
       this.forget(session)
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      if (!await this.isMissing(session, error)) throw error
       return this.missing(session)
     }
     const cached = this.cache.get(session)
@@ -150,7 +158,7 @@ export class SessionStore {
         }
         throw new Error('会话文件正在被其他进程修改，请稍后重试')
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return this.missing(session)
+        if (await this.isMissing(session, error)) return this.missing(session)
         throw new SessionError(`会话文件损坏，原文件已保留：${error instanceof Error ? error.message : '格式无效'}`, 500)
       }
     })()

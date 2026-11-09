@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +19,15 @@ const sessionA = "11111111-1111-4111-8111-111111111111"
 const sessionB = "22222222-2222-4222-8222-222222222222"
 
 func source(p, content string) Source { return Source{p, sum(content), content} }
+
+func realTempDir(t *testing.T) string {
+	t.Helper()
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
 
 func writeGzip(t *testing.T, target string, raw []byte) {
 	t.Helper()
@@ -39,14 +49,14 @@ func writeGzip(t *testing.T, target string, raw []byte) {
 
 func TestRoundTripAndIsolation(t *testing.T) {
 	ctx := context.Background()
-	s := NewStore(t.TempDir())
+	s := NewStore(realTempDir(t))
 	want := source("src/原版.go", "\ufeffpackage demo\r\n// 😀\r\n")
 	if err := s.Put(ctx, sessionA, want); err != nil {
 		t.Fatal(err)
 	}
 	file := filepath.Join(s.directory, filename(sessionA, want.Path, want.SHA256))
 	before, err := os.Stat(file)
-	if err != nil || before.Mode().Perm() != 0600 {
+	if err != nil || runtime.GOOS != "windows" && before.Mode().Perm() != 0600 {
 		t.Fatal(before, err)
 	}
 	if err := s.Put(ctx, sessionA, want); err != nil {
@@ -90,7 +100,7 @@ func TestRoundTripAndIsolation(t *testing.T) {
 }
 
 func TestRejectInvalidIdentityAndContent(t *testing.T) {
-	s := NewStore(filepath.Join(t.TempDir(), "not-created"))
+	s := NewStore(filepath.Join(realTempDir(t), "not-created"))
 	ctx := context.Background()
 	valid := source("logic.go", "valid")
 	for _, id := range []string{"", "../session", strings.ToUpper(sessionA), "11111111-1111-1111-8111-111111111111", "session-1"} {
@@ -131,7 +141,7 @@ func TestRejectInvalidIdentityAndContent(t *testing.T) {
 }
 
 func TestCorruptionNeverReturnsSource(t *testing.T) {
-	s := NewStore(t.TempDir())
+	s := NewStore(realTempDir(t))
 	want := source("logic.go", "original")
 	target := filepath.Join(s.directory, filename(sessionA, want.Path, want.SHA256))
 	for _, test := range []struct {
@@ -174,8 +184,8 @@ func TestCorruptionNeverReturnsSource(t *testing.T) {
 
 func TestSymlinksCannotEscape(t *testing.T) {
 	ctx := context.Background()
-	parent := t.TempDir()
-	outside := t.TempDir()
+	parent := realTempDir(t)
+	outside := realTempDir(t)
 	linked := filepath.Join(parent, "linked")
 	if err := os.Symlink(outside, linked); err != nil {
 		t.Skip(err)
@@ -190,7 +200,7 @@ func TestSymlinksCannotEscape(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(outside, "new-cache")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("created outside configured directory", err)
 	}
-	s := NewStore(t.TempDir())
+	s := NewStore(realTempDir(t))
 	secret := filepath.Join(outside, "secret")
 	if err := os.WriteFile(secret, []byte("untouched"), 0600); err != nil {
 		t.Fatal(err)
@@ -211,7 +221,7 @@ func TestSymlinksCannotEscape(t *testing.T) {
 
 func TestQuotaEvictionAndAbandonedTemporaryFiles(t *testing.T) {
 	ctx := context.Background()
-	s := NewStore(t.TempDir())
+	s := NewStore(realTempDir(t))
 	old, recent, next := source("old.go", "old"), source("recent.go", "recent"), source("next.go", "next")
 	for _, item := range []Source{old, recent} {
 		if err := s.Put(ctx, sessionA, item); err != nil {
@@ -277,7 +287,7 @@ func TestQuotaEvictionAndAbandonedTemporaryFiles(t *testing.T) {
 }
 
 func TestConcurrentStoresRespectQuota(t *testing.T) {
-	directory := t.TempDir()
+	directory := realTempDir(t)
 	var workers sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		workers.Add(1)

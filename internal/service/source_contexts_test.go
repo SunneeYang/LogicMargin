@@ -34,7 +34,10 @@ func contextDocument(raw string) review.Object {
 
 func contextServer(t *testing.T) (*Server, review.Object, review.Object, review.Object, string, string) {
 	t.Helper()
-	directory := t.TempDir()
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &Server{store: review.NewStore(directory), derived: precompute.NewEngine(filepath.Join(directory, "derived")), contexts: sourcecontext.NewStore(filepath.Join(directory, "contexts"))}
 	t.Cleanup(func() { s.derived.Close(); s.store.Close() })
 	a := "\ufeffpackage saved\r\n\r\nfunc Run() {\r\n\tvalue := \"旧😀\"\r\n\t_ = value\r\n}\r\n"

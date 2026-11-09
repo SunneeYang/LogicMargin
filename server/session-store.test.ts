@@ -459,6 +459,51 @@ for (const mode of ['delete', 'archive'] as const) test(`${mode} between file re
   }
 })
 
+for (const mode of ['delete', 'archive'] as const) for (const failedAt of [1, 2]) test(`Windows EPERM at stat ${failedAt} confirms ${mode} without reporting corruption`, async t => {
+  const { store, directory, session } = await setup(t)
+  const reader = new SessionStore(directory)
+  const path = join(directory, `${session.id}.json`)
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!
+  const originalStat = fs.stat
+  let reads = 0
+  Object.defineProperty(process, 'platform', { ...platform, value: 'win32' })
+  t.mock.method(fs, 'stat', async (...args: Parameters<typeof stat>) => {
+    if (args[0] === path && ++reads === failedAt) {
+      await store.cleanup(session.id, { mode, expectedVersion: session.version, allowUnfinished: true })
+      throw Object.assign(new Error('delete pending'), { code: 'EPERM' })
+    }
+    return originalStat(...args)
+  })
+  try {
+    syncBuiltinESMExports()
+    await assert.rejects(reader.get(session.id), { status: mode === 'delete' ? 404 : 410 })
+  } finally {
+    t.mock.restoreAll(); syncBuiltinESMExports(); Object.defineProperty(process, 'platform', platform)
+  }
+})
+
+for (const probeDenied of [false, true]) test(`Windows EPERM preserves real access failures (probe denied: ${probeDenied})`, async t => {
+  const { directory, session } = await setup(t)
+  const path = join(directory, `${session.id}.json`)
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!
+  const originalRead = fs.readFile, originalStat = fs.stat
+  let denied = false
+  Object.defineProperty(process, 'platform', { ...platform, value: 'win32' })
+  t.mock.method(fs, 'readFile', (...args: Parameters<typeof readFile>) => {
+    if (args[0] !== path) return originalRead(...args)
+    denied = true
+    return Promise.reject(Object.assign(new Error('permission denied'), { code: 'EPERM' }))
+  })
+  t.mock.method(fs, 'stat', (...args: Parameters<typeof stat>) => args[0] === path && denied && probeDenied
+    ? Promise.reject(Object.assign(new Error('probe permission denied'), { code: 'EPERM' })) : originalStat(...args))
+  try {
+    syncBuiltinESMExports()
+    await assert.rejects(new SessionStore(directory).get(session.id), { status: 500 })
+  } finally {
+    t.mock.restoreAll(); syncBuiltinESMExports(); Object.defineProperty(process, 'platform', platform)
+  }
+})
+
 test('Finish packages only new human feedback, and does not resubmit unchanged open opinions', async t => {
   const { store, session } = await setup(t)
   const first = await store.mutate(session.id, commentBatch(session, '第一条意见'))
