@@ -187,6 +187,22 @@ func TestStaleLockRecoveryHasOneConcurrentWinner(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		if count == 0 && runtime.GOOS == "windows" {
+			// Concurrent reaper handles can temporarily block deletion; recovery still has a deadline.
+			release, err := AcquireLock(context.Background(), path, 3*time.Second)
+			if err != nil {
+				t.Fatal("stale lock did not recover after reaper handles closed:", err)
+			}
+			if other, err := AcquireLock(context.Background(), path, 0); err == nil {
+				_ = other()
+				_ = release()
+				t.Fatal("recovered lock was acquired twice")
+			}
+			if err := release(); err != nil {
+				t.Fatal(err)
+			}
+			count = 1
+		}
 		if count != 1 {
 			t.Fatalf("iteration %d: %d writers acquired one lock", iteration, count)
 		}

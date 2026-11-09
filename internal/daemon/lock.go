@@ -110,8 +110,10 @@ func staleLock(path string) (bool, error) {
 			return true, nil
 		}
 		// Unknown files are preserved even in an old lock directory.
-		if entries, readErr := os.ReadDir(path); readErr == nil && len(entries) > 0 {
-			return false, nil
+		if entries, readErr := os.ReadDir(path); readErr == nil {
+			if len(entries) > 0 || lockRemovalBusy(err) {
+				return false, nil
+			}
 		}
 		return false, err
 	}

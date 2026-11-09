@@ -52,6 +52,7 @@ type Server struct {
 	cancel         context.CancelFunc
 	mu             sync.Mutex
 	closing        bool
+	newConnections map[net.Conn]struct{}
 	posts          sync.WaitGroup
 	requests       sync.Map
 	mcpConnections map[string]*mcpConnection
@@ -113,6 +114,7 @@ func Start(opts Options) (*Server, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Server{opts: opts, assets: assets, store: review.NewStore(opts.DataDir), ctx: ctx, cancel: cancel, done: make(chan struct{})}
+	s.newConnections = make(map[net.Conn]struct{})
 	derivedDir := opts.DataDir
 	if derivedDir == "" {
 		derivedDir = filepath.Join(".logic-margin", "sessions")
@@ -124,7 +126,21 @@ func Start(opts Options) (*Server, error) {
 	go s.warmWorker()
 	s.URL = "http://" + net.JoinHostPort(publicHost, fmt.Sprint(listener.Addr().(*net.TCPAddr).Port))
 	s.configureMCP()
-	s.http = &http.Server{Handler: http.HandlerFunc(s.serveHTTP), ReadHeaderTimeout: 10 * time.Second}
+	s.http = &http.Server{Handler: http.HandlerFunc(s.serveHTTP), ReadHeaderTimeout: 10 * time.Second,
+		ConnState: func(connection net.Conn, state http.ConnState) {
+			s.mu.Lock()
+			if state == http.StateNew && !s.closing {
+				s.newConnections[connection] = struct{}{}
+			} else {
+				delete(s.newConnections, connection)
+			}
+			closeNew := state == http.StateNew && s.closing
+			s.mu.Unlock()
+			if closeNew {
+				_ = connection.Close()
+			}
+		},
+	}
 	go func() {
 		if err := s.http.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			_ = s.Close()
@@ -139,12 +155,21 @@ func (s *Server) Close() error {
 	s.closeOnce.Do(func() {
 		s.mu.Lock()
 		s.closing = true
+		newConnections := make([]net.Conn, 0, len(s.newConnections))
+		for connection := range s.newConnections {
+			newConnections = append(newConnections, connection)
+		}
+		s.newConnections = nil
 		for _, connection := range s.mcpConnections {
 			if connection.idle != nil {
 				connection.idle.Stop()
 			}
 		}
 		s.mu.Unlock()
+		// Shutdown otherwise gives unstarted HTTP connections a 5s grace, consuming our entire deadline.
+		for _, connection := range newConnections {
+			_ = connection.Close()
+		}
 		s.cancel()
 		s.store.Close()
 		s.derived.Close()

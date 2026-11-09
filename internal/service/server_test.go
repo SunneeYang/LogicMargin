@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -36,6 +37,35 @@ func testServer(t *testing.T) *Server {
 		}
 	})
 	return s
+}
+
+func TestCloseDropsConnectionsWithoutRequests(t *testing.T) {
+	s := testServer(t)
+	connection, err := net.DialTimeout("tcp", strings.TrimPrefix(s.URL, "http://"), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	deadline := time.Now().Add(time.Second)
+	for {
+		s.mu.Lock()
+		accepted := len(s.newConnections) != 0
+		s.mu.Unlock()
+		if accepted {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("TCP connection was not accepted")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	start := time.Now()
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(start) > 2*time.Second {
+		t.Fatal("unused TCP connection delayed shutdown")
+	}
 }
 
 func fixtureReview() review.Object {
