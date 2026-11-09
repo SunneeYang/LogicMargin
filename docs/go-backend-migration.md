@@ -1,16 +1,16 @@
-# Go 后端迁移工作区
+# Go 后端迁移与 0.9.0 发行
 
-创建日期：2026-11-08。分支：`arch/go-backend`。**Go 迁移与代码 diff/流程图预计算候选已实现，并通过本机业务、发行闭环及 Chrome 验收；已知兼容边界和测量范围见[验收记录](go-backend-validation.md)。尚未替换主线发行或正式服务。**
+迁移始于 2026-11-08 的 `arch/go-backend`，已通过合并提交 `62dcc38` 进入主线。**0.9.0 默认发行切换为 Go 原生程序，包含代码 diff、结构重点/移动局部对照与流程图预计算；用户无需安装 Node.js 或 Go。** 本文保留迁移阶段的基线与决策，历史测试数字及其边界见 [迁移验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。切换发行入口不证明实际插件、运行服务或云端 Release 已更新，须分别检查。
 
-## 固定基线与工作方式
+## 迁移阶段的固定基线与工作方式（历史）
 
 - 对照提交：`73890315827d0c335f360fcf467c33049fdb17cf`，LogicMargin 0.8.7。
-- 原主线：`/Users/hcm-b0677/Documents/work/LogicMargin`，保留 `main` 和既有未提交调研材料。
-- 迁移 worktree：`/Users/hcm-b0677/Documents/work/LogicMargin/.scratch/worktrees/go-backend`，由根 agent 独占写入并负责集成；会话存储、HTTP/MCP、评审命令在各自的独立 worktree 实现，完成后只复制各自负责的文件。
+- 当时的原主线：`/Users/hcm-b0677/Documents/work/LogicMargin`，保留 `main` 和既有未提交调研材料。
+- 当时的迁移 worktree：`/Users/hcm-b0677/Documents/work/LogicMargin/.scratch/worktrees/go-backend`，由根 agent 独占写入并负责集成；会话存储、HTTP/MCP、评审命令在各自的独立 worktree 实现，完成后只复制各自负责的文件。
 - 首先完成行为等价的 Go 迁移，再增加结构 diff 预计算；两阶段分别记录验证与性能，避免混淆语言迁移和新算法的收益。
 - 创建分支/worktree不包含提交、推送、发布或修改真实评审服务的授权。后续按用户要求交付，合并时保留 `--no-ff` 历史。
 
-主线基线记录位于原 worktree 的 `.scratch/go-migration-baseline/`：`baseline.json` 保存提交、Node 版本、锁文件摘要及既有调研文档摘要；`node-tests.tap` 保存本次 Node 测试输出。本次 Node 测试退出码为 0：204 项中 202 通过、2 跳过、0 失败。这些是本机材料，不会自动随分支提交。沙箱内首次尝试因禁止监听本地端口失败，日志单独保留，不计作产品失败；迁移后应复跑相同用例。
+迁移时的主线基线记录位于原 worktree 的 `.scratch/go-migration-baseline/`：`baseline.json` 保存提交、Node 版本、锁文件摘要及既有调研文档摘要；`node-tests.tap` 保存该阶段 Node 测试输出。该阶段 Node 测试退出码为 0：204 项中 202 通过、2 跳过、0 失败。这些是本机材料，不会自动随分支提交。沙箱内首次尝试因禁止监听本地端口失败，日志单独保留，不计作产品失败；迁移后应复跑相同用例。
 
 ## 技术决策
 
@@ -20,7 +20,7 @@
 
 ## 第一阶段：行为等价迁移
 
-| 范围 | 当前实现 | Go 迁移需要保留的能力 |
+| 范围 | 迁移前实现 | Go 迁移保留的能力 |
 | --- | --- | --- |
 | HTTP、静态网页及资源 | `server/runtime.ts`、`server/api.ts` | 路由、错误、响应编码、长轮询、健康检查、受控停止、手机/Tailscale 网页访问 |
 | 会话与数据 | `server/session-store.ts`、`server/publication.ts` | 固定 B、R1/R2 快照、批注/回复、提交/领取、归档/恢复、来源校验、原子持久化 |
@@ -29,7 +29,7 @@
 | 共享运行时逻辑 | `src/model.ts`、`src/workspace.ts`、`src/revisions.ts`、`src/session-lifecycle.ts` | 数据校验、状态转换、反馈包与通过记录、逻辑身份和轮次规则 |
 | 发行与安装 | `scripts/package-agent.mjs`、Release workflow、插件技能入口 | Go 可执行文件、内嵌网页、按 OS/架构选包、校验与版本信息；发行入口不回调 Node |
 
-现有 TypeScript 后端和测试可暂时作为对照参考，迁移验收完成前保留其可运行基线；这不意味着需要长期运行两个后台。
+现有 TypeScript 后端和测试保留为开发兼容 oracle，正常安装与发行使用 Go 原生入口；两个后端不得同时写同一会话目录。
 
 ## 必须保持的兼容语义
 
@@ -90,23 +90,23 @@ Go 迁移也为多用户同时审查做准备。2026-11-09 用户明确：本次
 - [x] Node/Go 及结构候选的本机浏览器性能对照，原始样本与范围见验收文档。
 - [ ] 服务 CPU/峰值 RSS、写入/发布负载及其他目标平台实际运行对比。
 
-主线发行和 Codex 中的正式插件尚未切换。原 Node 入口继续作为主线和对照，Go 候选通过独立分支与构建入口保留、试用。
+0.9.0 的正常发行入口为 Go，Git marketplace 通过 `.sh` / `.ps1` 启动器下载并校验与插件固定版本一致的官方原生包；平台 ZIP 直接运行包内程序。旧 Node 入口仅作开发兼容对照。现有安装升级需先识别并停止身份确认的旧后台、备份并保留实际会话目录，再重启与重连 MCP，详见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。
 
-## 第一阶段的开发入口
+## 当前开发与发行入口
 
 Go 运行时模块位于 `internal/review`、`internal/agent`、`internal/service`、`internal/daemon`、`internal/mcpconfig`；`cmd/logic-margin` 是唯一程序入口。HTTP/MCP 与 CLI 复用同一套评审操作；后台管理只在终端入口解析，避免 Go 包循环依赖。
 
-在迁移验收前保留原 `npm run review`、`package:agent` 和 Node 后端测试作为对照。Go 候选使用以下独立命令，不改主线 marketplace 已构建入口和正式 Release workflow：
+开发与构建需要 Node.js 和 Go；发行程序运行不依赖这些工具。`npm test` 和旧 `npm run review --` 仅用于 Node 兼容 oracle，正常 CLI 不再通过 Node 调用。以下命令用于 Go 路径，产生大量临时数据的命令用 harness 包裹：
 
 ```sh
-npm run build:go                         # 构建当前平台程序，包含网页
-npm run package:go -- --target linux-x64 # 按平台生成 ZIP 和 SHA-256
-go test ./... -count=1
-npm run test:go:agent                    # 复用已有发行闭环，PATH 不含 JS 运行时
-npm run test:go:compat                   # Node/Go 业务响应与旧存储对照
-npm run test:go:e2e -- tests/session.spec.ts tests/baseline-review.spec.ts tests/session-lifecycle.spec.ts tests/round-finish.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts --workers=4
+/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run build:go
+/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run package:agent -- --target linux-x64
+/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOWORK=off go test ./... -count=1
+/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:agent
+/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:compat
+/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:e2e -- tests/session.spec.ts tests/baseline-review.spec.ts tests/session-lifecycle.spec.ts tests/round-finish.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts --workers=4
 ```
 
-按项目 AGENTS.md，产生大量临时数据的本地构建/测试须用 `/Users/hcm-b0677/.codex/bin/agent-tmp-run` 包裹。Go 原生候选的使用方式见 [Go 插件说明](go-agent-plugin.md)。跨平台 CI 定义在 `.github/workflows/verify-go.yml`；添加定义不代表云端检查已经运行。推广为默认发行须在独立迁移验收后处理，不能把旧 Node 通用包误标为免运行时的 Go 包。
+发行 tag 为 `v0.9.0`，五目标 `darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64` 各生成 `logic-margin-agent-0.9.0-TARGET.zip` 及同名 `.zip.sha256`。包内直接运行 `scripts/logic-margin`，Windows 为 `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI`。完整使用方式见 [原生插件说明](go-agent-plugin.md)。跨平台 CI 定义和本地交叉编译不代表云端检查或每个目标的原生验收已完成；历史验收仅实际执行了 macOS ARM64。
 
 实现过程中修复了两个独立边界：进程锁先在临时目录写好 owner，再以系统不覆盖重命名原子公布，并绑定目录身份进行回收/释放，避免并发回收旧锁产生第二个 Go 写入者；Codex 配置命令由 Unix 进程组或 Windows Job 管理，关闭空闲管道、限制等待并回收包装器的子进程。macOS 的并发锁回收、目录替换释放、包装器超时回归与 race 检查已通过；其他平台的实际运行仍以最终验收记录为准。

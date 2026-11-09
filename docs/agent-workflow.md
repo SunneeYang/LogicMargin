@@ -6,12 +6,12 @@
 
 ## 连接服务
 
-完整插件的 CLI 位于 `skills/logic-margin/scripts/logic-margin.mjs`。以下源码工程示例可用 `npm run review --`，安装包则用 `node "$LM_CLI"`；原生包直接调用可执行文件。
+0.9.0 默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server setup`。
 
 首次使用执行：
 
 ```sh
-npm run review -- server setup
+"$LM_CLI" server setup
 ```
 
 它启动或复用后台，并通过短暂的 Codex 配置进程，注册当前 `CODEX_HOME` 用户配置中的 `logic_margin` HTTP MCP 地址与 `tool_timeout_sec`。默认工具超时为 86400 秒，保留已设置的更长值；同名不同服务或禁用配置会报错而不覆盖。配置进程不运行模型，完成后退出。
@@ -92,7 +92,7 @@ Agent 在原工作区处理意见，验证相应改动，再生成新版图，�
 
 新版图、最终回应与发布记录原子保存后才开启下一轮。失败保留上一份完整发布。临时回复使任务处于处理中，待新版发布后再由人确认解决或通过。发布成功后将链接交给用户，继续 `wait_review`。
 
-网页支持修改前/当前对比、字段变化与来源依据更新。历史图只读，目标移除后的批注仍可回到原轮次查看；最终解决与批准由评审者在当前图确认。
+网页支持修改前/当前对比、字段变化与来源依据更新。代码对照仅使用固定 B/R 已保存的源码片段，不补读当前工作区；统一/并排共用单一竖向滚动入口，可逐次展开上下文。文本差异始终可读，结构重点辅助核对支持语法中的改动，明确移动且修改的块可与原位置局部对照；失败、预算耗尽或不确定时保留文本回退。这不使用 SemanticDiff 引擎，也不证明通用语义等价，详见 [结构 diff](structural-diff.md)。历史图只读，目标移除后的批注仍可回到原轮次查看；最终解决与批准由评审者在当前图确认。
 
 ## 中断和恢复
 
@@ -101,16 +101,16 @@ Agent 在原工作区处理意见，验证相应改动，再生成新版图，�
 原 Agent 收到 MCP 错误后，通过宿主的通用终端工具检查：
 
 ```sh
-npm run review -- server status
+"$LM_CLI" server status
 ```
 
-后台健康且兼容时重连 MCP；没有登记或确认进程已退出时用 `server start` 拉起；进程仍在但不健康、身份不符、端口冲突时保留现场并诊断，避免另起写入实例。版本不匹配时，经身份核验 `server stop` 后再启动新版。CLI 不依赖失效的 MCP 服务，恢复保持原端口和会话目录。
+后台健康且兼容时重连 MCP；没有登记或确认进程已退出时用 `server start` 拉起；进程仍在但不健康、身份不符、端口冲突时保留现场并诊断，避免另起写入实例。版本不匹配时，经身份核验 `server stop` 并确认旧进程退出后再启动新版，保留实际会话目录和原 session ID。升级停服、备份与重连步骤见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。CLI 不依赖失效的 MCP 服务，恢复保持原端口和会话目录。
 
 重连后调用 `get_review`，核对目的、上下文、来源工程、固定提交和当前轮次。需要定位任务时用 `list_reviews` 的 `context` 与 `state: "all"`。领取过但尚未完成处理的意见从历史补做；继续等待可给 `wait_review` 传 `after_submission`，使用最后实际处理的固定提交 ID。
 
 游标会排除指定提交及之前的记录。未知游标报错；期间多次提交时，反馈结果同时核对 `earlierSubmissions`；通过结果按需用 `earlierSubmissionIds` 补查。新版发布后默认等待跳过旧轮次。恢复不改变原 session ID，避免旧草稿覆盖新一轮。
 
-托管服务默认数据目录为 `~/.logic-margin/sessions`；开发服务使用工程内 `.logic-margin/sessions`，自定义 `LOGIC_MARGIN_DATA_DIR` 时备份实际目录。MCP 仅接受本机连接，即使网页/API 按授权范围监听局域网或 Tailscale。浏览器草稿、待同步操作及独立文件模式数据仍留在对应浏览器和访问地址。
+托管服务默认数据目录为 `~/.logic-margin/sessions`；开发服务使用工程内 `.logic-margin/sessions`，自定义 `LOGIC_MARGIN_DATA_DIR` 时备份实际目录。MCP 仅接受本机连接，即使网页/API 按授权范围监听局域网或 Tailscale。浏览器草稿、待同步操作及独立文件模式数据仍留在对应浏览器和访问地址。远程 MCP、账号、权限及多人协作尚未实现。
 
 ## 查询、归档与删除
 
@@ -127,12 +127,12 @@ npm run review -- server status
 已有脚本和明确使用远端评审 API 的流程仍可使用 CLI。显式 `--url` / `LOGIC_MARGIN_URL` 只连接原地址；它不会把远端故障替换成本机新任务。文件参数相对调用时工作目录解析，完整命令见 `--help`。
 
 ```sh
-npm run review -- start review.logic-margin.json --source-root /path/to/workspace --purpose "实际目的" --wait
-npm run review -- wait SESSION_ID --after SUBMISSION_ID --timeout 1800
-npm run review -- ack SESSION_ID SUBMISSION_ID
-npm run review -- reply SESSION_ID COMMENT_ID --body "临时回应"
-npm run review -- cleanup SESSION_ID
-npm run review -- restore SESSION_ID
+"$LM_CLI" start review.logic-margin.json --source-root /path/to/workspace --purpose "实际目的" --wait
+"$LM_CLI" wait SESSION_ID --after SUBMISSION_ID --timeout 1800
+"$LM_CLI" ack SESSION_ID SUBMISSION_ID
+"$LM_CLI" reply SESSION_ID COMMENT_ID --body "临时回应"
+"$LM_CLI" cleanup SESSION_ID
+"$LM_CLI" restore SESSION_ID
 ```
 
 CLI `wait` 保留自动领取和已授权策略下输出最终通过结果后归档的行为；MCP `wait_review` 则分开交付、领取与归档。兼容宿主反复返回 CLI 运行句柄时，继续等待仍可能触发模型调用，应明确说明，不能称为已接通 MCP 长等待。

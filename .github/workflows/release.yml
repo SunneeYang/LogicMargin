@@ -9,25 +9,7 @@ permissions:
 
 jobs:
   verify:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22.18.0'
-          cache: npm
-      - name: Install archive tools on Windows
-        if: runner.os == 'Windows'
-        run: choco install zip unzip -y --no-progress
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - run: npm run test:agent
-      - run: node --test scripts/release-agent.test.mjs
+    uses: ./.github/workflows/verify-go.yml
 
   publish:
     needs: verify
@@ -41,12 +23,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.18.0'
+          node-version: '26'
           cache: npm
       - run: npm ci
-      - name: Prepare portable ZIP and SHA-256 checksum
-        run: node scripts/release-agent.mjs "$RELEASE_TAG"
-      - name: Verify committed plugin matches the release build
-        run: git diff --exit-code -- plugins/logic-margin/skills/logic-margin/scripts/logic-margin.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: logic-margin-release-*
+          path: artifacts
+          merge-multiple: true
+      - name: Verify five target ZIPs, versions and checksums
+        run: node scripts/release-agent.mjs "$RELEASE_TAG" --verify
       - name: Publish immutable version
-        run: gh release create "$RELEASE_TAG" artifacts/*.zip artifacts/*.sha256 --verify-tag --title "LogicMargin $RELEASE_TAG" --generate-notes
+        shell: bash
+        run: |
+          release_notes=(--generate-notes)
+          if [[ -f "docs/releases/${RELEASE_TAG}.md" ]]; then
+            release_notes=(--notes-file "docs/releases/${RELEASE_TAG}.md")
+          fi
+          gh release create "$RELEASE_TAG" artifacts/*.zip artifacts/*.zip.sha256 artifacts/SHA256SUMS --verify-tag --title "LogicMargin $RELEASE_TAG" "${release_notes[@]}"

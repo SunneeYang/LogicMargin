@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.7-2563eb?style=flat-square" alt="版本 0.8.7" /></a>
-  <a href="#快速开始"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="需要 Node.js 22.18 或更高版本" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.0-2563eb?style=flat-square" alt="版本 0.9.0" /></a>
+  <a href="#快速开始"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 原生程序；用户无需安装 Node.js 或 Go" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
 
@@ -74,7 +74,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
   <a href="docs/images/code-diff-dark.png">查看深色代码对照</a>
 </p>
 
-截图来自 0.8.5 源码页面，使用虚构订单流程和示例代码。演示文件包含固定基线与已保存的代码片段，不含真实业务会话，也不代表生产源码核验结果。
+截图来自 0.9.0 Go 构建，使用虚构订单流程和示例代码。代码图为默认“文本差异”模式的并排对照，可见文本／结构重点切换控件。演示文件包含固定基线与已保存的代码片段，不含真实业务会话，也不代表生产源码核验结果。
 
 ## 核心能力
 
@@ -93,22 +93,24 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 界面支持**简体中文和英文**，首次使用根据浏览器语言选择，也可在**外观 → 界面语言**中切换并保存偏好。流程、代码和批注保留原文；切换语言会保留当前选择与草稿。
 
-代码 diff 比较的是评审中保存且能匹配的相关源码片段。缺少历史片段或无法确定对应关系时，界面显示已有原文和原因；不会用当前代码推测旧版本，也不提供全仓库 diff。
+代码 diff 比较的是评审固定基线 B 与轮次 R 中保存且能匹配的相关源码片段。缺少历史片段或无法确定对应关系时，界面显示已有原文和原因；不会用当前代码推测旧版本，也不提供全仓库 diff。
+
+支持的 Go、JavaScript/TypeScript（含 JSX/TSX）语法可切换到“结构重点”，减少可安全忽略的排版差异强调；明确配对的移动代码可“与原位置对照”，移动时又修改的内容也可局部核对。完整文本差异始终可读，不支持的语法、配对不确定或预算耗尽时保留文本阅读。这是语法结构阅读辅助，不使用 SemanticDiff 引擎，也不判定通用语义等价。具体边界见 [结构 diff 契约与验收](docs/structural-diff.md)。
 
 ## 快速开始
 
-需要 **Node.js 22.18+**，推荐 24+。Codex 在线安装还需要 Git；无需手动克隆仓库、安装本工程的 npm 依赖或构建插件。
+**0.9.0 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
 
 ### 交给 Agent 使用
 
-注册远程 marketplace，安装已构建的插件：
+注册 Git marketplace，安装插件：
 
 ```sh
 codex plugin marketplace add SunneeYang/LogicMargin --ref main --sparse .agents/plugins --sparse plugins/logic-margin
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Codex 管理 Git 检出，只展开插件目录。在需要评审的业务工程中新开 Agent 会话：
+Codex 管理 Git 检出，只展开插件目录。目录内的 `.sh` / `.ps1` 启动器从官方 GitHub Release 下载与插件版本固定一致的本平台原生 ZIP，校验 SHA-256 后运行。在需要评审的业务工程中新开 Agent 会话：
 
 ```text
 $logic-margin:logic-margin
@@ -117,16 +119,26 @@ $logic-margin:logic-margin
 
 Agent 启动一个后台进程，同时提供 HTTP MCP、评审 API 和内嵌网页。首次用 `server setup` 注册本机 MCP 地址和长工具超时，再按宿主提示重载或重连 MCP，核实工具可用后读取来源、整理流程图并给出评审链接。后续评审复用同一后台，业务工程无需安装 LogicMargin 的 npm 依赖。
 
-更新时，可以让 Agent 执行：
+更新已有安装前，先用 `server status` 确认受管服务，`server stop` 停止身份核验通过的旧实例，并备份实际会话目录，再让 Agent 执行：
 
 ```sh
 codex plugin marketplace upgrade logic-margin-local
 codex plugin add logic-margin@logic-margin-local
 ```
 
-随后新开会话，加载新版技能和 CLI 路径。评审数据独立于插件缓存保存。这会更新到 `main` 上已构建的版本；评审过程中不会后台轮询升级。
+沿用原 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`、端口和 session ID。更新后加载新版技能和 CLI 路径，重启服务、重连 MCP；需要修复注册时用 `server setup`。评审数据独立于插件缓存，升级不删除会话。完整步骤见 [升级与数据连续性](docs/agent-plugin.md#升级与数据连续性)。marketplace 跟随注册的 ref，评审过程中不会后台轮询升级。
 
-不想依赖 Git 时，可从 [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest) 下载 Node 小包及 SHA-256 校验文件。ZIP 安装、从本地 marketplace 迁移、服务重启与可选原生包见 [插件安装文档](docs/agent-plugin.md)。
+不依赖 Git 时，从 [Release v0.9.0](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.0) 选择 `logic-margin-agent-0.9.0-TARGET.zip` 及同名 `.zip.sha256`：
+
+| 平台 | TARGET |
+| --- | --- |
+| macOS Apple Silicon | `darwin-arm64` |
+| macOS Intel | `darwin-x64` |
+| Linux ARM64 | `linux-arm64` |
+| Linux x64 | `linux-x64` |
+| Windows x64 | `win32-x64` |
+
+每个 ZIP 只含对应平台的原生程序和插件材料，直接运行 `plugins/logic-margin/skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`），无需再下载运行时。校验、ZIP 注册与服务升级见 [插件安装文档](docs/agent-plugin.md)。
 
 ### 在浏览器中体验
 
@@ -159,20 +171,20 @@ Agent 负责读源、改代码和整理流程；LogicMargin 负责呈现、讨�
 
 ## 独立任务与清理
 
-同一目的的修改沿用原任务的轮次；更换审查对象或目的时，新建任务。MCP 用 `context` 关联同一段 Agent 对话，用 `purpose` 明确本次核对什么。以下兼容 CLI 命令供脚本使用，正常 Agent 评审使用对应 MCP 工具。
+同一目的的修改沿用原任务的轮次；更换审查对象或目的时，新建任务。MCP 用 `context` 关联同一段 Agent 对话，用 `purpose` 明确本次核对什么。以下 CLI 命令供脚本使用，正常 Agent 评审使用对应 MCP 工具。将安装后的原生程序或 Git marketplace 的 `scripts/logic-margin.sh` 启动器绝对路径记为 `LM_CLI`；PowerShell 则将 `$LM_CLI` 设为 `logic-margin.exe` 或 `logic-margin.ps1`，用 `& $LM_CLI` 调用，例如 `& $LM_CLI server status`。
 
 ```sh
 # 查询同一上下文中的活动与归档任务
-npm run review -- list --context order-checkout --state all
+"$LM_CLI" list --context order-checkout --state all
 
 # 默认归档，保留完整图、批注和历史
-npm run review -- cleanup <sessionId>
+"$LM_CLI" cleanup SESSION_ID
 
 # 恢复归档任务
-npm run review -- restore <sessionId>
+"$LM_CLI" restore SESSION_ID
 
 # 明确永久删除指定任务，无法从服务端恢复
-npm run review -- cleanup <sessionId> --mode delete
+"$LM_CLI" cleanup SESSION_ID --mode delete
 ```
 
 网页“文件 → 评审任务”也提供建立、备份、归档、恢复和删除入口。默认仅清理已通过的任务；未完成任务的显式清理、命令参数与并发保护见 [Agent 工作流](docs/agent-workflow.md#查询归档与删除)。
@@ -186,7 +198,7 @@ MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknow
 - **浏览器内容**：尚未添加的草稿、待同步操作和独立文件模式的数据保存在当前浏览器、当前访问地址，不会自动出现在其他设备上。
 - **私有网络访问**：开发服务默认监听 `0.0.0.0:5173`；局域网设备可使用本机的局域网地址。使用 Tailscale 时，将评审链接地址设置为服务机器的 Tailscale 地址。
 - **MCP 访问**：即使网页分享到私有网络，MCP 也只接受本机回环连接，与需核验的源码工作区位于同一机器。
-- **使用边界**：评审 API 面向受信任的本机或私有网络，尚未提供账号和权限管理。来源摘要校验也不能代替对流程语义的人工复核。
+- **使用边界**：评审 API 面向受信任的本机或私有网络，尚未实现远程 MCP、账号、权限或多人协作。来源摘要校验也不能代替对流程语义的人工复核。
 
 </details>
 
@@ -204,20 +216,25 @@ MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknow
 <details>
 <summary><strong>本地开发与验证</strong></summary>
 
+开发需要适合 `package.json` 工具链的 Node.js 和 `go.mod` 指定的 Go。产生大量临时数据的构建/测试按仓库规则用 `agent-tmp-run` 包裹。
+
 ```sh
 npm ci
-npm run dev         # 网页与评审 API
-npm test            # 模型、客户端、CLI 与服务端测试
-npm run build       # TypeScript 检查与生产构建
-npm run test:agent  # 分发包集成测试
+npm run dev         # 网页开发及旧 Node API
+npm test            # 前端/模型测试与旧 Node 兼容对照
+npm run build       # TypeScript 检查与前端构建
+npm run build:go    # 内嵌网页的 Go 原生服务
+npm run test:go     # Go 运行时测试
+npm run test:go:agent  # 原生分发包集成测试
+npm run test:go:compat # Node/Go 兼容对照
 
 npx playwright install chromium
-npm run test:e2e    # 桌面、移动端与系统明暗主题的交互测试
+npm run test:go:e2e # Go 服务上的桌面/手机视口与主题交互
 ```
 
-已有 Chrome 时也可运行 `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`。
+已有 Chrome 时也可运行 `PLAYWRIGHT_CHANNEL=chrome npm run test:go:e2e`。
 
-技术栈：React 19、TypeScript、React Flow、Vite，以及基于 Node.js 的本地 HTTP 服务。默认 Node 分发包不内嵌运行时；可选 Bun 原生包的构建说明见 [插件文档](docs/agent-plugin.md#开发与验证)。
+技术栈：React 19、TypeScript、React Flow、Vite，以及 Go 本地 HTTP 服务。旧 Node 后端仅保留为开发兼容对照；原生构建见 [插件文档](docs/agent-plugin.md#开发与验证)，历史验证范围见 [迁移验收](docs/go-backend-validation.md)。五目标交叉编译与目标平台实际运行分别验收，迁移记录中仅 macOS ARM64 实际执行。
 
 </details>
 

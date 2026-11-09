@@ -11,3 +11,4 @@ internal/ui/dist/*
 !internal/ui/dist/.placeholder
 plugins/logic-margin/skills/logic-margin/scripts/logic-margin
 plugins/logic-margin/skills/logic-margin/scripts/logic-margin.exe
+plugins/logic-margin/skills/logic-margin/scripts/logic-margin.mjs

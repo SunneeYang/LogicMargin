@@ -11,10 +11,10 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 ## 建立连接
 
-将本技能目录下 `scripts/logic-margin.mjs` 的绝对路径记为 `LM_CLI`，用 Node.js 22.18+ 运行。原生包使用 `scripts/logic-margin`（Windows 为 `.exe`）直接运行；将下文 `node "$LM_CLI"` 换成对应调用，PowerShell 用 `&` 调用带空格的路径。
+将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.0 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
 
 ```sh
-node "$LM_CLI" server start
+"$LM_CLI" server start
 ```
 
 核对返回的 `mcpUrl`，复用已运行的兼容后台。正常评审使用 `logic_margin` MCP 工具；首次尚未注册时执行 `server setup`，它只更新当前 Codex home 下的 LogicMargin MCP 地址和工具超时。返回 `reloadRequired: true` 后，在原宿主重载或重连 MCP，并核实工具已可用。仅启动后台或写入配置，不代表当前会话已加载工具；未加载时先报告连接状态，不以反复 CLI 等待冒充 MCP 等待。
@@ -44,6 +44,8 @@ MCP 只接受本机连接。用户要求 Tailscale/局域网网页访问时，�
 它在创建前核验真实来源，失败时修正流程和依据后重试。`context`、分享链接 `public_url` 可按实际需要传入；用户要求通过后归档时设 `cleanup_on_approval: true`。`verify_review` 可用于只核验来源，不创建任务。
 
 基线已嵌入 `review_file` 的 `baseline` 字段时，传 `baseline_source_root` 核验旧树即可。B 在后续 R2、R3 中保持固定；`base_round` 继续填写实际处理的评审轮次。
+
+代码对照仅使用固定 B/R 保存的源码片段；历史缺失时说明缺失，不补读当前工作区。结构重点和明确移动块的原位置局部对照是阅读辅助，移动时又修改的内容也需核对；不支持、配对不确定或预算耗尽时保留文本差异，不据此判断通用语义等价。
 
 从原系统 B 开始收集改造意见时，`review_file` 提供原版图，`source_root` 指向其真实源码，设置 `baseline_review: true`，省略独立的基线文件与目录。工具核验原版一次并固定为 B，页面先显示 B，第一次实现发布后显示 R1。
 

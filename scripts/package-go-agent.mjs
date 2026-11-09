@@ -3,39 +3,18 @@ import { createHash } from 'node:crypto'
 import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
-import { buildGo, checkTarget, hostTarget, root } from './build-go.mjs'
+import { buildGo, checkTarget, hostTarget, root, targets } from './build-go.mjs'
 
 const run = promisify(execFile)
 
-async function nativeReferences(directory) {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) { await nativeReferences(path); continue }
-    if (!entry.name.endsWith('.md')) continue
-    let text = await readFile(path, 'utf8')
-    text = text.replaceAll('node "$LM_CLI"', '"$LM_CLI"')
-      .replaceAll('scripts/logic-margin.mjs', 'scripts/logic-margin')
-      .replaceAll('Node.js 22.18+', '匹配当前操作系统与架构的 Go 原生包')
-    if (entry.name === 'SKILL.md') {
-      const start = text.indexOf('将本技能目录下 ')
-      const end = text.indexOf('\n\n```sh', start)
-      if (start < 0 || end < 0) throw new Error('原生技能入口模板已变化，请更新打包适配')
-      text = text.slice(0, start) + '将本技能目录下 `scripts/logic-margin`（Windows 为 `scripts/logic-margin.exe`）的绝对路径记为 `LM_CLI`，直接运行。PowerShell 用 `&` 调用带空格的路径。用户运行时无需 Node、Bun、Go 或 npm。' + text.slice(end)
-    }
-    if (entry.name === 'plugin-updates.md') {
-      // Candidate binaries are distributed by target ZIP until the migration is accepted.
-      text = '# Go 迁移包安装与更新\n\n本包是独立迁移分支的原生发行候选，尚未替换主线 Git marketplace。更新时使用同平台的新 ZIP，校验 SHA-256 后放在持久目录；保留原会话目录，重新注册该目录的 marketplace。不要用主线 marketplace upgrade 将候选包替换回旧 Node 包。正式发布前按迁移文档验收。\n\n首次配置与恢复见 [连接、恢复与 CLI 兼容](mcp-workflow.md)。\n'
-    }
-    await writeFile(path, text)
-  }
-}
-
-async function goNotices() {
+async function goNotices(target) {
+  const [GOOS, GOARCH] = targets[target]
+  const options = { cwd: root, env: { ...process.env, CGO_ENABLED: '0', GOOS, GOARCH } }
   const { stdout } = await run('go', ['list', '-m', '-json', 'all'], { cwd: root })
   const modules = JSON.parse('[' + stdout.trim().replace(/}\s*\n\s*{/g, '},{') + ']')
-  const dependencies = new Set((await run('go', ['list', '-deps', '-f', '{{if .Module}}{{.Module.Path}}{{end}}', './cmd/logic-margin'], { cwd: root })).stdout.trim().split(/\r?\n/))
+  const dependencies = new Set((await run('go', ['list', '-deps', '-f', '{{if .Module}}{{.Module.Path}}{{end}}', './cmd/logic-margin'], options)).stdout.trim().split(/\r?\n/))
   let text = '\n\n# Go backend dependencies\n'
   for (const mod of modules.filter(mod => !mod.Main && dependencies.has(mod.Path))) {
     if (!mod.Dir) throw new Error(`缺少模块许可目录：${mod.Path}`)
@@ -70,12 +49,13 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target =
     await mkdir(dirname(binary), { recursive: true })
     await buildGo(target, binary)
     if (!target.startsWith('win32-')) await chmod(binary, 0o755)
-    for (const path of ['plugin.json', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references']) {
+    for (const path of ['plugin.json', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references',
+      'skills/logic-margin/scripts/logic-margin.sh', 'skills/logic-margin/scripts/logic-margin.ps1']) {
       await cp(join(plugin, path), join(stagedPlugin, path), { recursive: true })
     }
-    await nativeReferences(join(stagedPlugin, 'skills/logic-margin'))
+    await chmod(join(stagedPlugin, 'skills/logic-margin/scripts/logic-margin.sh'), 0o755)
     const notices = join(stagedPlugin, 'THIRD_PARTY_NOTICES.md')
-    await writeFile(notices, await readFile(notices, 'utf8') + await goNotices())
+    await writeFile(notices, await readFile(notices, 'utf8') + await goNotices(target))
     await mkdir(join(staging, '.agents/plugins'), { recursive: true })
     await cp(join(root, '.agents/plugins/marketplace.json'), join(staging, '.agents/plugins/marketplace.json'))
     await cp(join(root, 'docs/go-agent-plugin.md'), join(staging, 'README.md'))

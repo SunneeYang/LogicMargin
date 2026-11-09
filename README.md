@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.8.7-2563eb?style=flat-square" alt="Version 0.8.7" /></a>
-  <a href="#quickstart"><img src="https://img.shields.io/badge/Node.js-22.18%2B-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Requires Node.js 22.18 or later" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.0-2563eb?style=flat-square" alt="Version 0.9.0" /></a>
+  <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
 
@@ -74,7 +74,7 @@ Agent-prepared diagrams still need to be checked against the source. LogicMargin
   <a href="docs/images/code-diff-dark-en.png">Dark code view</a>
 </p>
 
-Captured from the 0.8.5 source build using fictional order data and sample code. The downloadable demo includes a fixed baseline and saved code snippets; it contains no real review sessions and does not demonstrate production source verification.
+Screenshots from the 0.9.0 Go build use fictional order data and sample code. The code view shows side-by-side comparison in the default text mode, with text/structural focus controls available. The downloadable demo includes a fixed baseline and saved code snippets; it contains no real review sessions and does not demonstrate production source verification.
 
 ## Features
 
@@ -93,22 +93,24 @@ Choose from three themes—paper, soft relief, and glass—with light, dark, or 
 
 The interface supports **English and Simplified Chinese**. It initially follows the browser’s supported language; choose **Appearance → Interface language** to save a different preference. Flows, source code, and comments stay in their original language, and switching languages keeps your current selection and drafts.
 
-Code diffs compare related source snippets saved in the review when their correspondence can be established. If a historical snippet is missing or the pairing is ambiguous, the interface shows the available source and an explanation. It does not infer old code from the current workspace or provide a repository-wide diff.
+Code diffs compare related source snippets saved in the review’s fixed baseline B and revision R when their correspondence can be established. If a historical snippet is missing or the pairing is ambiguous, the interface shows the available source and an explanation. It does not infer old code from the current workspace or provide a repository-wide diff.
+
+Structural focus is available for supported Go and JavaScript/TypeScript syntax, including JSX/TSX. It emphasizes changes beyond safe formatting differences and offers a local comparison with the original location for clearly paired moved blocks, including blocks modified during the move. Full text diff stays available and is the fallback for unsupported syntax, uncertain pairing, or exhausted budgets. This is a syntax-based reading aid; it does not use the SemanticDiff engine or prove general semantic equivalence. See the [structural diff contract and validation](docs/structural-diff.md).
 
 ## Quickstart
 
-Requires **Node.js 22.18+**; 24+ is recommended. Online Codex installation also requires Git. You do not need to clone this repository, install its npm dependencies, or build the plugin.
+**0.9.0 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
 
 ### Use it with an agent
 
-Register the remote marketplace and install the prebuilt plugin:
+Register the Git marketplace and install the plugin:
 
 ```sh
 codex plugin marketplace add SunneeYang/LogicMargin --ref main --sparse .agents/plugins --sparse plugins/logic-margin
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Codex manages the Git checkout and checks out the plugin directories. Start a new agent session in the project you want to review:
+Codex checks out the plugin directories. Their `.sh` / `.ps1` launchers download the native ZIP for your platform from the official GitHub Release, pinned to the plugin version, and verify its SHA-256 before running it. Start a new agent session in the project you want to review:
 
 ```text
 $logic-margin:logic-margin
@@ -118,16 +120,26 @@ can still deduct a fee, and wait for my feedback.
 
 The agent starts one background process for HTTP MCP, the review API, and the bundled web UI. On first use, `server setup` registers its local MCP address and long tool timeout in Codex; reconnect or reload MCP in your host and verify that its tools are available. The agent then reads the sources, prepares the diagram, and gives you a review link. Later reviews reuse the same process. Your business project does not need LogicMargin's npm dependencies.
 
-To update, ask your agent to run:
+Before updating an existing installation, identify its managed service with `server status`, stop the verified old instance with `server stop`, and back up the actual session directory. Then ask your agent to run:
 
 ```sh
 codex plugin marketplace upgrade logic-margin-local
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Then start a new session to load the updated skill and CLI path. Review data is stored separately from the plugin cache. This updates to the prebuilt version on `main`; it does not poll for updates during a review.
+Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, download the small Node ZIP and its SHA-256 file from [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases/latest). See the [plugin guide](docs/agent-plugin.md) for ZIP installation, migration from a local marketplace, service restarts, and optional native packages. The detailed guides are currently in Chinese.
+For installation without Git, use [Release v0.9.0](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.0). Choose `logic-margin-agent-0.9.0-TARGET.zip` and its `.zip.sha256`:
+
+| Platform | TARGET |
+| --- | --- |
+| macOS Apple Silicon | `darwin-arm64` |
+| macOS Intel | `darwin-x64` |
+| Linux ARM64 | `linux-arm64` |
+| Linux x64 | `linux-x64` |
+| Windows x64 | `win32-x64` |
+
+Each ZIP contains one native executable and the plugin files. It runs directly from `plugins/logic-margin/skills/logic-margin/scripts/logic-margin` (`logic-margin.exe` on Windows), with no runtime download. See the [plugin guide](docs/agent-plugin.md) for checksum verification, ZIP registration, and service upgrades. The detailed guides are currently in Chinese.
 
 ### Try it in your browser
 
@@ -160,20 +172,20 @@ The agent reads sources, changes code, and prepares diagrams. LogicMargin displa
 
 ## Independent reviews and cleanup
 
-Continue the original review for changes serving the same purpose. Start a new review when the subject or purpose changes. Use MCP `context` to associate reviews with an agent conversation and `purpose` to describe what each review checks. The following compatibility CLI commands remain available for scripts; normal agent reviews use the corresponding MCP tools.
+Continue the original review for changes serving the same purpose. Start a new review when the subject or purpose changes. Use MCP `context` to associate reviews with an agent conversation and `purpose` to describe what each review checks. The following CLI commands remain available for scripts; normal agent reviews use the corresponding MCP tools. Set `LM_CLI` to the installed native executable, or to the Git marketplace’s `scripts/logic-margin.sh` launcher. In PowerShell, set `$LM_CLI` to `logic-margin.exe` or `logic-margin.ps1` and invoke it with `& $LM_CLI`, for example `& $LM_CLI server status`.
 
 ```sh
 # List active and archived reviews in one context
-npm run review -- list --context order-checkout --state all
+"$LM_CLI" list --context order-checkout --state all
 
 # Archive by default, preserving the full diagram, comments, and history
-npm run review -- cleanup <sessionId>
+"$LM_CLI" cleanup SESSION_ID
 
 # Restore an archived review
-npm run review -- restore <sessionId>
+"$LM_CLI" restore SESSION_ID
 
 # Permanently delete one review; it cannot be restored from the server
-npm run review -- cleanup <sessionId> --mode delete
+"$LM_CLI" cleanup SESSION_ID --mode delete
 ```
 
 “File → Review tasks” also provides creation, backup, archive, restore, and deletion actions. By default, only approved reviews can be cleaned up. See the [agent workflow](docs/agent-workflow.md#查询归档与删除) for explicit cleanup of unfinished reviews, command options, and concurrency checks.
@@ -187,7 +199,7 @@ MCP `wait_review` does not claim feedback or archive reviews. After reading feed
 - **Browser data:** unfinished drafts, pending operations, and standalone file reviews are stored in the current browser for the current origin. They do not automatically appear on other devices.
 - **Private network access:** the development server listens on `0.0.0.0:5173` by default. Other LAN devices can use the machine's LAN address. With Tailscale, set the review link's public address to the service machine's Tailscale address.
 - **MCP access:** the MCP endpoint accepts loopback connections only, even when the review page is shared over a private network. The MCP service and source workspace are on the same machine.
-- **Current boundaries:** the review API is intended for a trusted local machine or private network and has no account or permission management yet. Source digest verification also does not replace human verification of the diagram's meaning.
+- **Current boundaries:** the review API is intended for a trusted local machine or private network. Remote MCP, accounts, permissions, and multiuser collaboration are not implemented. Source digest verification also does not replace human verification of the diagram's meaning.
 
 </details>
 
@@ -207,20 +219,25 @@ The detailed guides below are currently in Chinese.
 <details>
 <summary><strong>Local development and validation</strong></summary>
 
+Requires the Node.js version supported by `package.json` tooling and the Go version in `go.mod`. Wrap builds and tests that create substantial temporary data with the repository’s `agent-tmp-run` harness.
+
 ```sh
 npm ci
-npm run dev         # Web UI and review API
-npm test            # Models, client, CLI, and server tests
-npm run build       # TypeScript checks and production build
-npm run test:agent  # Distribution integration tests
+npm run dev         # UI development with the legacy Node API
+npm test            # Frontend/model tests and legacy Node compatibility oracle
+npm run build       # TypeScript checks and frontend build
+npm run build:go    # Native Go service with embedded UI
+npm run test:go     # Go runtime tests
+npm run test:go:agent  # Native distribution integration tests
+npm run test:go:compat # Node/Go compatibility checks
 
 npx playwright install chromium
-npm run test:e2e    # Desktop, mobile, and system theme interaction tests
+npm run test:go:e2e # Go service with desktop/mobile viewport and theme tests
 ```
 
-If Chrome is already installed, you can also run `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`.
+If Chrome is already installed, you can also run `PLAYWRIGHT_CHANNEL=chrome npm run test:go:e2e`.
 
-Built with React 19, TypeScript, React Flow, Vite, and a local Node.js HTTP service. The default Node distribution does not bundle a runtime. See the [plugin guide](docs/agent-plugin.md#开发与验证) for optional Bun native builds.
+Built with React 19, TypeScript, React Flow, Vite, and a local Go HTTP service. The legacy Node backend is retained as a developer compatibility oracle. See the [plugin guide](docs/agent-plugin.md#开发与验证) for native builds and [migration validation](docs/go-backend-validation.md) for the historical test scope. Five-target cross-compilation is separate from native acceptance; the migration record reports actual execution on macOS ARM64 only.
 
 </details>
 

@@ -1,5 +1,13 @@
-name: Verify Go migration
-on: [push, pull_request, workflow_dispatch]
+name: Verify Go release
+on:
+  push:
+    branches: [main, 'release/*']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   native:
@@ -23,20 +31,31 @@ jobs:
         run: choco install zip unzip -y --no-progress
       - run: npm ci
       - run: npm test
+      - run: npm run build
+      - run: npm run test:release
       - run: node scripts/build-graph-precompute.mjs --check
       - run: node scripts/build-structure-parser.mjs --check
       - run: npm run build:go
       - run: go test -race ./... -count=1
-      - run: npm run test:go:agent
+      - run: npm run test:agent
+      - run: node --test scripts/native-launcher.test.mjs
       - run: npm run test:go:compat
+      - name: Install browser for Go UI regression tests
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+      - name: Verify the packaged Go review UI
+        if: runner.os == 'Linux'
+        run: npm run test:go:e2e -- tests/structural-code-diff.spec.ts tests/backend-precompute.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts tests/i18n.spec.ts tests/large-code-diff.spec.ts --workers=1
       - uses: actions/upload-artifact@v4
         with:
-          name: logic-margin-go-${{ runner.os }}
+          name: logic-margin-native-${{ runner.os }}
           path: artifacts/go/
+          if-no-files-found: error
 
   cross-build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target: [darwin-arm64, darwin-x64, linux-arm64, linux-x64, win32-x64]
     steps:
@@ -49,8 +68,11 @@ jobs:
           node-version: '26'
           cache: npm
       - run: npm ci
-      - run: npm run package:go -- --target ${{ matrix.target }}
+      - run: npm run package:agent -- --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
-          name: logic-margin-go-${{ matrix.target }}
-          path: artifacts/*.zip*
+          name: logic-margin-release-${{ matrix.target }}
+          path: |
+            artifacts/*.zip
+            artifacts/*.zip.sha256
+          if-no-files-found: error

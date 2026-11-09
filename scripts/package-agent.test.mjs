@@ -2,10 +2,10 @@ import assert from 'node:assert/strict'
 import { spawn, execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { EventEmitter, once } from 'node:events'
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { after, before, test } from 'node:test'
 import { createSessionApi } from '../server/api.ts'
@@ -19,6 +19,8 @@ const goBackend = process.env.LOGIC_MARGIN_TEST_GO === '1'
 const { packageAgent } = await import(goBackend ? './package-go-agent.mjs' : './package-agent.mjs')
 const native = goBackend || process.env.LOGIC_MARGIN_TEST_NATIVE === '1'
 let packageDirectory, packagedRoot, packagedCli, packagedCommand
+const plugin = new URL('../plugins/logic-margin/', import.meta.url)
+const version = JSON.parse(await readFile(new URL('plugin.json', plugin), 'utf8')).version
 
 const sourceText = '总等级升级不要求先解锁或上阵技能。\n失败时保留原等级、资格与上阵状态。\n'
 const sha256 = value => createHash('sha256').update(value).digest('hex')
@@ -43,15 +45,61 @@ before(async () => {
   const unpacked = join(directory, 'unpacked')
   await mkdir(unpacked)
   await execute('unzip', ['-q', archive, '-d', unpacked])
-  const version = JSON.parse(await readFile(new URL('../plugins/logic-margin/plugin.json', import.meta.url), 'utf8')).version
   packagedRoot = join(unpacked, `logic-margin-agent-${version}${target ? `-${target}` : ''}`)
   const executable = native ? process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin' : 'logic-margin.mjs'
   packagedCli = join(packagedRoot, 'plugins/logic-margin/skills/logic-margin/scripts', executable)
   packagedCommand = native ? [packagedCli] : [process.execPath, packagedCli]
-  assert.deepEqual(await readdir(join(packagedRoot, 'plugins/logic-margin/skills/logic-margin/scripts')), [executable], 'Distribution must contain only its selected runtime, excluding stale entries, public assets and real review data')
-}, { timeout: 120000 })
+  const entries = goBackend ? [executable, 'logic-margin.ps1', 'logic-margin.sh'] : [executable]
+  assert.deepEqual((await readdir(join(packagedRoot, 'plugins/logic-margin/skills/logic-margin/scripts'))).sort(), entries.sort(), 'Distribution must contain only its selected runtime and native launchers, excluding stale entries, public assets and real review data')
+  if (goBackend) {
+    assert.equal(await readFile(`${archive}.sha256`, 'utf8'), `${sha256(await readFile(archive))}  ${archive.split(/[\\/]/).at(-1)}\n`)
+    const runtimeVersion = await execute(packagedCli, ['--version'])
+    assert.equal(runtimeVersion.stdout.trim(), version, 'Native runner must match the plugin version used for downloads and cache keys')
+    for (const path of ['plugin.json', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/scripts/logic-margin.sh', 'skills/logic-margin/scripts/logic-margin.ps1',
+      ...(await readdir(new URL('skills/logic-margin/references/', plugin))).map(name => `skills/logic-margin/references/${name}`)]) {
+      assert.deepEqual(await readFile(join(packagedRoot, 'plugins/logic-margin', path)), await readFile(new URL(path, plugin)), `${path} must be shipped unchanged`)
+    }
+    const notices = await readFile(join(packagedRoot, 'plugins/logic-margin/THIRD_PARTY_NOTICES.md'), 'utf8')
+    assert.ok(notices.startsWith(await readFile(new URL('THIRD_PARTY_NOTICES.md', plugin), 'utf8')))
+    for (const dependency of ['@lezer/common', '@lezer/javascript', '@lezer/lr', '@lezer/highlight', 'github.com/dop251/goja', 'github.com/modelcontextprotocol/go-sdk', 'Go standard library and runtime']) {
+      assert.ok(notices.includes(dependency), `Missing license notice for ${dependency}`)
+    }
+  }
+}, { timeout: 240000 })
 
 after(async () => { if (packageDirectory) await rm(packageDirectory, { recursive: true, force: true }) })
+
+test('native launchers use the sibling or versioned cache and reject a mismatched runner', { skip: !goBackend }, async t => {
+  const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-launcher-package-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const pluginRoot = join(directory, 'marketplace plugin with spaces')
+  await cp(join(packagedRoot, 'plugins/logic-margin'), pluginRoot, { recursive: true })
+  const windows = process.platform === 'win32'
+  const scripts = join(pluginRoot, 'skills/logic-margin/scripts')
+  const executable = windows ? 'logic-margin.exe' : 'logic-margin'
+  const launcher = join(scripts, windows ? 'logic-margin.ps1' : 'logic-margin.sh')
+  const command = windows ? 'powershell.exe' : '/bin/sh'
+  const args = windows ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', launcher, '--version'] : [launcher, '--version']
+  const cacheRoot = join(directory, 'cache with spaces')
+  const env = { ...process.env, XDG_CACHE_HOME: cacheRoot, LOCALAPPDATA: cacheRoot }
+  const run = () => execute(command, args, { cwd: directory, env, timeout: 10000 })
+  assert.equal((await run()).stdout.trim(), version)
+  await rm(join(scripts, executable))
+  const cacheBinary = cachedVersion => join(cacheRoot, 'logic-margin/native', cachedVersion, `${process.platform}-${process.arch}`, executable)
+  await mkdir(dirname(cacheBinary(version)), { recursive: true })
+  await cp(packagedCli, cacheBinary(version))
+  assert.equal((await run()).stdout.trim(), version)
+  const otherVersion = '0.0.0'
+  const manifest = JSON.parse(await readFile(join(pluginRoot, 'plugin.json'), 'utf8'))
+  await writeFile(join(pluginRoot, 'plugin.json'), JSON.stringify({ ...manifest, version: otherVersion }))
+  await mkdir(dirname(cacheBinary(otherVersion)), { recursive: true })
+  await cp(packagedCli, cacheBinary(otherVersion))
+  await assert.rejects(run(), error => {
+    assert.equal(error.code, 1)
+    assert.match(error.stderr, /does not match plugin/)
+    return true
+  })
+})
 
 async function setup(t) {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-agent-test-'))
@@ -236,6 +284,7 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
   const health = await (await fetch(`${status.url}/api/health`)).json()
   assert.equal(health.service, 'logic-margin')
   assert.equal(health.managed, true)
+  if (goBackend) assert.equal(health.version, version)
   const page = await fetch(`${status.url}/`)
   assert.equal(page.status, 200)
   const html = await page.text()

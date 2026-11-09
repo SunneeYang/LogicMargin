@@ -1,7 +1,7 @@
 {
   "name": "logic-margin",
   "private": true,
-  "version": "0.8.7",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -14,8 +14,8 @@
     "test:go:e2e": "node scripts/go-e2e.mjs",
     "test": "node --test src/*.test.ts server/*.test.ts bin/*.test.ts",
     "review": "node bin/entry.ts",
-    "package:agent": "node scripts/package-agent.mjs",
-    "test:agent": "node --test scripts/package-agent.test.mjs",
+    "package:agent": "node scripts/package-go-agent.mjs",
+    "test:agent": "node --test scripts/go-agent.test.mjs",
     "release:agent": "node scripts/release-agent.mjs",
     "test:release": "node --test scripts/release-agent.test.mjs",
     "test:e2e": "playwright test"
