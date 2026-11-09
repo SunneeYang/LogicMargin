@@ -106,6 +106,8 @@ export class SessionStore {
   }
   private remember(state: ReviewSession, metadata: BigIntStats, bytes: number) {
     this.forget(state.id)
+    // Windows metadata can collide after a same-size edit; re-read instead of bypassing validation.
+    if (process.platform === 'win32') return
     this.cache.set(state.id, { state, signature: signature(metadata), bytes })
     this.cacheBytes += bytes
     // Serialized bytes estimate the cache budget; parsed objects can use more heap.

@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.0-2563eb?style=flat-square" alt="版本 0.9.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.1-2563eb?style=flat-square" alt="版本 0.9.1" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 原生程序；用户无需安装 Node.js 或 Go" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -74,7 +74,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
   <a href="docs/images/code-diff-dark.png">查看深色代码对照</a>
 </p>
 
-截图来自 0.9.0 Go 构建，使用虚构订单流程和示例代码。代码图为默认“文本差异”模式的并排对照，可见文本／结构重点切换控件。演示文件包含固定基线与已保存的代码片段，不含真实业务会话，也不代表生产源码核验结果。
+截图来自 0.9.0 Go 构建，0.9.1 未改变界面；使用虚构订单流程和示例代码。代码图为默认“文本差异”模式的并排对照，可见文本／结构重点切换控件。演示文件包含固定基线与已保存的代码片段，不含真实业务会话，也不代表生产源码核验结果。
 
 ## 核心能力
 
@@ -99,7 +99,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 ## 快速开始
 
-**0.9.0 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
+**0.9.1 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
 
 ### 交给 Agent 使用
 
@@ -128,7 +128,7 @@ codex plugin add logic-margin@logic-margin-local
 
 沿用原 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`、端口和 session ID。更新后加载新版技能和 CLI 路径，重启服务、重连 MCP；需要修复注册时用 `server setup`。评审数据独立于插件缓存，升级不删除会话。完整步骤见 [升级与数据连续性](docs/agent-plugin.md#升级与数据连续性)。marketplace 跟随注册的 ref，评审过程中不会后台轮询升级。
 
-不依赖 Git 时，从 [Release v0.9.0](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.0) 选择 `logic-margin-agent-0.9.0-TARGET.zip` 及同名 `.zip.sha256`：
+不依赖 Git 时，从 [Release v0.9.1](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.1) 选择 `logic-margin-agent-0.9.1-TARGET.zip` 及同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |

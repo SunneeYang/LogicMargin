@@ -6,7 +6,7 @@
 
 ## 连接服务
 
-0.9.0 默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server setup`。
+0.9.1 默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server setup`。
 
 首次使用执行：
 

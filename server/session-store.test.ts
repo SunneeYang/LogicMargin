@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
 import { mkdtemp, readFile, rm, stat, unlink, utimes, writeFile } from 'node:fs/promises'
+import { syncBuiltinESMExports } from 'node:module'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
@@ -408,6 +410,33 @@ test('corrupted persisted publication and future comment rounds are rejected wit
   future.review.comments[0].originRound = 3
   await writeFile(path, JSON.stringify(future))
   await assert.rejects(store.get(session.id), /轮次超出/)
+})
+
+test('Windows revalidates same-size external corruption when file metadata collides', async t => {
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!
+  const originalStat = fs.stat
+  Object.defineProperty(process, 'platform', { ...platform, value: 'win32' })
+  try {
+    const { store, directory, session } = await setup(t)
+    const published = await store.revise(session.id, revision(session))
+    await store.get(session.id)
+    const path = join(directory, `${session.id}.json`)
+    const metadata = await originalStat(path, { bigint: true })
+    const before = await readFile(path, 'utf8')
+    const broken = structuredClone(published)
+    broken.snapshots[1].publication!.source.fingerprint = '0'.repeat(64)
+    const raw = JSON.stringify(broken)
+    assert.equal(Buffer.byteLength(raw), Buffer.byteLength(before))
+    await writeFile(path, raw)
+    t.mock.method(fs, 'stat', (...args: Parameters<typeof stat>) => args[0] === path ? Promise.resolve(metadata) : originalStat(...args))
+    syncBuiltinESMExports()
+    await assert.rejects(store.get(session.id), /原文件已保留.*指纹不一致/)
+    assert.equal(await readFile(path, 'utf8'), raw)
+  } finally {
+    t.mock.restoreAll()
+    syncBuiltinESMExports()
+    Object.defineProperty(process, 'platform', platform)
+  }
 })
 
 test('Finish packages only new human feedback, and does not resubmit unchanged open opinions', async t => {

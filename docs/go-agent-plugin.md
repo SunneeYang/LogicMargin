@@ -1,10 +1,10 @@
-# LogicMargin 0.9.0 原生插件
+# LogicMargin 0.9.1 原生插件
 
-0.9.0 默认使用一个 Go 可执行文件，包含 HTTP MCP、评审 API、会话管理、CLI 和现有 React 网页。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 仅用于源码开发与构建。旧 Node 后端仅保留为开发兼容对照。
+0.9.1 默认使用一个 Go 可执行文件，包含 HTTP MCP、评审 API、会话管理、CLI 和现有 React 网页。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 仅用于源码开发与构建。旧 Node 后端仅保留为开发兼容对照。
 
 ## 选择并校验 ZIP
 
-从 [GitHub Release v0.9.0](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.0) 下载 `logic-margin-agent-0.9.0-TARGET.zip` 与同名 `.zip.sha256`：
+从 [GitHub Release v0.9.1](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.1) 下载 `logic-margin-agent-0.9.1-TARGET.zip` 与同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |
@@ -14,16 +14,16 @@
 | Linux x64 | `linux-x64` |
 | Windows x64 | `win32-x64` |
 
-macOS 用 `shasum -a 256 -c ZIP文件名.sha256`，Linux 用 `sha256sum -c ZIP文件名.sha256`。PowerShell 用 `Get-FileHash .\ZIP文件名 -Algorithm SHA256`，与 `.sha256` 中的摘要比较。校验一致后解压到持久位置；每个 ZIP 只含本平台程序，运行时无需再次下载。
+macOS 用 `shasum -a 256 -c ZIP文件名.sha256`，Linux 用 `sha256sum -c ZIP文件名.sha256`。PowerShell 用 `certutil -hashfile .\ZIP文件名 SHA256`，与 `.sha256` 中的摘要比较。校验一致后解压到持久位置；每个 ZIP 只含本平台程序，运行时无需再次下载。
 
 将解压后的 ZIP 顶层目录注册为本地 marketplace，例如：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.0-darwin-arm64
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.1-darwin-arm64
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Windows 换成实际的 `logic-margin-agent-0.9.0-win32-x64` 目录。安装本身不搬迁评审数据，也不代表当前 Agent 已加载 MCP 工具。
+Windows 换成实际的 `logic-margin-agent-0.9.1-win32-x64` 目录。安装本身不搬迁评审数据，也不代表当前 Agent 已加载 MCP 工具。
 
 ## 原生入口与 MCP
 

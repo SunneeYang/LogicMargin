@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.0-2563eb?style=flat-square" alt="Version 0.9.0" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.1-2563eb?style=flat-square" alt="Version 0.9.1" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -74,7 +74,7 @@ Agent-prepared diagrams still need to be checked against the source. LogicMargin
   <a href="docs/images/code-diff-dark-en.png">Dark code view</a>
 </p>
 
-Screenshots from the 0.9.0 Go build use fictional order data and sample code. The code view shows side-by-side comparison in the default text mode, with text/structural focus controls available. The downloadable demo includes a fixed baseline and saved code snippets; it contains no real review sessions and does not demonstrate production source verification.
+Screenshots from the 0.9.0 Go build use fictional order data and sample code; 0.9.1 keeps the same interface. The code view shows side-by-side comparison in the default text mode, with text/structural focus controls available. The downloadable demo includes a fixed baseline and saved code snippets; it contains no real review sessions and does not demonstrate production source verification.
 
 ## Features
 
@@ -99,7 +99,7 @@ Structural focus is available for supported Go and JavaScript/TypeScript syntax,
 
 ## Quickstart
 
-**0.9.0 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
+**0.9.1 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
 
 ### Use it with an agent
 
@@ -129,7 +129,7 @@ codex plugin add logic-margin@logic-margin-local
 
 Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, use [Release v0.9.0](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.0). Choose `logic-margin-agent-0.9.0-TARGET.zip` and its `.zip.sha256`:
+For installation without Git, use [Release v0.9.1](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.1). Choose `logic-margin-agent-0.9.1-TARGET.zip` and its `.zip.sha256`:
 
 | Platform | TARGET |
 | --- | --- |

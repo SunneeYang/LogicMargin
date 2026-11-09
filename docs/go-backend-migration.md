@@ -1,6 +1,6 @@
-# Go 后端迁移与 0.9.0 发行
+# Go 后端迁移与 0.9.1 发行
 
-迁移始于 2026-11-08 的 `arch/go-backend`，已通过合并提交 `62dcc38` 进入主线。**0.9.0 默认发行切换为 Go 原生程序，包含代码 diff、结构重点/移动局部对照与流程图预计算；用户无需安装 Node.js 或 Go。** 本文保留迁移阶段的基线与决策，历史测试数字及其边界见 [迁移验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。切换发行入口不证明实际插件、运行服务或云端 Release 已更新，须分别检查。
+迁移始于 2026-11-08 的 `arch/go-backend`，已通过合并提交 `62dcc38` 进入主线。**0.9.1 默认发行切换为 Go 原生程序，包含代码 diff、结构重点/移动局部对照与流程图预计算；用户无需安装 Node.js 或 Go。** 本文保留迁移阶段的基线与决策，历史测试数字及其边界见 [迁移验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。切换发行入口不证明实际插件、运行服务或云端 Release 已更新，须分别检查。
 
 ## 迁移阶段的固定基线与工作方式（历史）
 
@@ -91,7 +91,7 @@ Go 迁移也为多用户同时审查做准备。2026-11-09 用户明确：本次
 - [x] macOS、Linux、Windows 原生 CI、74 项 Linux 网页验收与五目标 ZIP 构建；具体范围见[发行前平台门禁](go-backend-validation.md#090-发行前平台门禁)。
 - [ ] 服务 CPU/峰值 RSS、写入/发布负载及其他目标平台实际运行对比。
 
-0.9.0 的正常发行入口为 Go，Git marketplace 通过 `.sh` / `.ps1` 启动器下载并校验与插件固定版本一致的官方原生包；平台 ZIP 直接运行包内程序。旧 Node 入口仅作开发兼容对照。现有安装升级需先识别并停止身份确认的旧后台、备份并保留实际会话目录，再重启与重连 MCP，详见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。
+0.9.1 的正常发行入口为 Go，Git marketplace 通过 `.sh` / `.ps1` 启动器下载并校验与插件固定版本一致的官方原生包；平台 ZIP 直接运行包内程序。旧 Node 入口仅作开发兼容对照。现有安装升级需先识别并停止身份确认的旧后台、备份并保留实际会话目录，再重启与重连 MCP，详见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。
 
 ## 当前开发与发行入口
 
@@ -108,6 +108,6 @@ Go 运行时模块位于 `internal/review`、`internal/agent`、`internal/servic
 /Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:e2e -- tests/session.spec.ts tests/baseline-review.spec.ts tests/session-lifecycle.spec.ts tests/round-finish.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts --workers=4
 ```
 
-发行 tag 为 `v0.9.0`，五目标 `darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64` 各生成 `logic-margin-agent-0.9.0-TARGET.zip` 及同名 `.zip.sha256`。包内直接运行 `scripts/logic-margin`，Windows 为 `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI`。完整使用方式见 [原生插件说明](go-agent-plugin.md)。[发行前平台门禁](go-backend-validation.md#090-发行前平台门禁)已在三类操作系统 CI 执行；五目标交叉构建仍不能替代每种架构与真实设备验收。下面的 macOS ARM64 记录属于迁移阶段的历史范围。
+发行 tag 为 `v0.9.1`，五目标 `darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64` 各生成 `logic-margin-agent-0.9.1-TARGET.zip` 及同名 `.zip.sha256`。包内直接运行 `scripts/logic-margin`，Windows 为 `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI`。完整使用方式见 [原生插件说明](go-agent-plugin.md)。[发行前平台门禁](go-backend-validation.md#090-发行前平台门禁)已在三类操作系统 CI 执行；五目标交叉构建仍不能替代每种架构与真实设备验收。下面的 macOS ARM64 记录属于迁移阶段的历史范围。
 
 实现过程中修复了两个独立边界：进程锁先在临时目录写好 owner，再以系统不覆盖重命名原子公布，并绑定目录身份进行回收/释放，避免并发回收旧锁产生第二个 Go 写入者；Codex 配置命令由 Unix 进程组或 Windows Job 管理，关闭空闲管道、限制等待并回收包装器的子进程。macOS 的并发锁回收、目录替换释放、包装器超时回归与 race 检查已通过；其他平台的实际运行仍以最终验收记录为准。
