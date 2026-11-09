@@ -52,6 +52,12 @@ export function authoredPositions(
   )))) return undefined
   const byId = new Map(nodes.map(node => [node.id, node]))
   for (const edge of edges) if (!byId.has(edge.source) || !byId.has(edge.target)) throw new Error(`连线 ${edge.id} 引用了不存在的节点`)
+  return gridPositions(nodes, edges, sizes)
+}
+
+export function gridPositions(
+  nodes: readonly ReviewNode[], edges: readonly ReviewEdge[], sizes: ReadonlyMap<string, { width: number; height: number }>,
+) {
   const columns = [...new Set(nodes.map(node => node.position.x))].sort((a, b) => a - b)
   const rows = [...new Set(nodes.map(node => node.position.y))].sort((a, b) => a - b)
   const dimension = (node: ReviewNode) => ({ width: sizes.get(node.id)?.width || 248, height: sizes.get(node.id)?.height || 160 })
@@ -93,6 +99,7 @@ export function routeGraphEdges(
   const rowGap = Math.max(120, Math.max(24, ...[...labels.values()].map(label => label.height)) * 2 + 32)
   const boxes = [...placed.values()].map(box)
   const left = Math.min(...boxes.map(node => node.x))
+  const right = Math.max(...boxes.map(node => node.x + node.width))
   const kinds = new Map<string, NonNullable<LayoutEdge['kind']>>()
   const endpoints = new Map<string, { source: LayoutPort; target: LayoutPort }>()
   const gutters = new Map<string, number>()
@@ -208,58 +215,74 @@ export function routeGraphEdges(
     for (const rail of rails) for (const startY of sourceTracks) for (const endY of targetTracks) {
       add([start, { x: start.x, y: startY }, { x: rail, y: startY }, { x: rail, y: endY }, { x: end.x, y: endY }, end])
     }
-    let best: { points: LayoutPoint[]; label: LayoutPoint; collisions: number; score: number } | undefined
+    type RouteChoice = { points: LayoutPoint[]; label: LayoutPoint; collisions: number; score: number }
     const wireCosts = new Map<string, number>()
     type LabelPlace = { point: LayoutPoint; collisions: number; cost: number }
     const labelPlaces = new Map<string, LabelPlace | null>()
-    candidate: for (const points of candidates) {
-      const lines = segments(points).map(line => ({ ...line, key: `${line.a.x}:${line.a.y}:${line.b.x}:${line.b.y}` }))
-      const length = lines.reduce((sum, segment) => sum + Math.abs(segment.a.x - segment.b.x) + Math.abs(segment.a.y - segment.b.y), 0)
-      const baseCost = length + points.length * 24
-      // All remaining costs are nonnegative; a collision-free winner bounds the search.
-      if (best?.collisions === 0 && baseCost >= best.score) continue
-      let wireCost = 0
-      for (const line of lines) {
-        let cost = wireCosts.get(line.key)
-        if (cost === undefined) {
-          cost = 0
-          for (const prior of occupiedSegments) {
-            if (line.a.x === line.b.x && prior.a.x === prior.b.x) cost += Math.max(0, Math.min(Math.max(line.a.y, line.b.y), Math.max(prior.a.y, prior.b.y)) - Math.max(Math.min(line.a.y, line.b.y), Math.min(prior.a.y, prior.b.y))) * Math.max(0, trackSpacing - Math.abs(line.a.x - prior.a.x)) * 1000
-            else if (line.a.y === line.b.y && prior.a.y === prior.b.y) cost += Math.max(0, Math.min(Math.max(line.a.x, line.b.x), Math.max(prior.a.x, prior.b.x)) - Math.max(Math.min(line.a.x, line.b.x), Math.min(prior.a.x, prior.b.x))) * Math.max(0, trackSpacing - Math.abs(line.a.y - prior.a.y)) * 1000
-            else if ((line.a.x === line.b.x) !== (prior.a.x === prior.b.x)) {
-              const vertical = line.a.x === line.b.x ? line : prior, horizontal = line.a.y === line.b.y ? line : prior
-              if (vertical.a.x >= Math.min(horizontal.a.x, horizontal.b.x) && vertical.a.x <= Math.max(horizontal.a.x, horizontal.b.x)
-                && horizontal.a.y >= Math.min(vertical.a.y, vertical.b.y) && horizontal.a.y <= Math.max(vertical.a.y, vertical.b.y)) cost += 480
+    const choose = (): RouteChoice | undefined => {
+      let best: RouteChoice | undefined
+      candidate: for (const points of candidates) {
+        const lines = segments(points).map(line => ({ ...line, key: `${line.a.x}:${line.a.y}:${line.b.x}:${line.b.y}` }))
+        const length = lines.reduce((sum, segment) => sum + Math.abs(segment.a.x - segment.b.x) + Math.abs(segment.a.y - segment.b.y), 0)
+        const baseCost = length + points.length * 24
+        // All remaining costs are nonnegative; a collision-free winner bounds the search.
+        if (best?.collisions === 0 && baseCost >= best.score) continue
+        let wireCost = 0
+        for (const line of lines) {
+          let cost = wireCosts.get(line.key)
+          if (cost === undefined) {
+            cost = 0
+            for (const prior of occupiedSegments) {
+              if (line.a.x === line.b.x && prior.a.x === prior.b.x) cost += Math.max(0, Math.min(Math.max(line.a.y, line.b.y), Math.max(prior.a.y, prior.b.y)) - Math.max(Math.min(line.a.y, line.b.y), Math.min(prior.a.y, prior.b.y))) * Math.max(0, trackSpacing - Math.abs(line.a.x - prior.a.x)) * 1000
+              else if (line.a.y === line.b.y && prior.a.y === prior.b.y) cost += Math.max(0, Math.min(Math.max(line.a.x, line.b.x), Math.max(prior.a.x, prior.b.x)) - Math.max(Math.min(line.a.x, line.b.x), Math.min(prior.a.x, prior.b.x))) * Math.max(0, trackSpacing - Math.abs(line.a.y - prior.a.y)) * 1000
+              else if ((line.a.x === line.b.x) !== (prior.a.x === prior.b.x)) {
+                const vertical = line.a.x === line.b.x ? line : prior, horizontal = line.a.y === line.b.y ? line : prior
+                if (vertical.a.x >= Math.min(horizontal.a.x, horizontal.b.x) && vertical.a.x <= Math.max(horizontal.a.x, horizontal.b.x)
+                  && horizontal.a.y >= Math.min(vertical.a.y, vertical.b.y) && horizontal.a.y <= Math.max(vertical.a.y, vertical.b.y)) cost += 480
+              }
             }
+            cost += occupiedLabels.filter(obstacle => crosses(line.a, line.b, obstacle, 4)).length * 3000
+            wireCosts.set(line.key, cost)
           }
-          cost += occupiedLabels.filter(obstacle => crosses(line.a, line.b, obstacle, 4)).length * 3000
-          wireCosts.set(line.key, cost)
+          wireCost += cost
+          if (best?.collisions === 0 && baseCost + wireCost >= best.score) continue candidate
         }
-        wireCost += cost
-        if (best?.collisions === 0 && baseCost + wireCost >= best.score) continue candidate
-      }
-      for (const line of lines) {
-        let place = labelPlaces.get(line.key)
-        if (place === undefined) {
-          place = null
-          const vertical = line.a.x === line.b.x
-          const span = Math.abs(vertical ? line.a.y - line.b.y : line.a.x - line.b.x)
-          if (span >= (vertical ? label.height : label.width) + 12) for (const fraction of [.5, .25, .75, .15, .85]) {
-            const point = { x: line.a.x + (line.b.x - line.a.x) * fraction, y: line.a.y + (line.b.y - line.a.y) * fraction }
-            const bounds = labelBox(point, label.width, label.height)
-            if (boxes.some(node => intersects(bounds, node, 12))) continue
-            const collisions = occupiedLabels.filter(prior => intersects(bounds, prior, 8)).length
-            const labelCost = occupiedSegments.filter(prior => crosses(prior.a, prior.b, bounds, 4)).length * 3000
-            if (!place || collisions < place.collisions || collisions === place.collisions && labelCost < place.cost) place = { point, collisions, cost: labelCost }
-            if (collisions === 0 && labelCost === 0) break
+        for (const line of lines) {
+          let place = labelPlaces.get(line.key)
+          if (place === undefined) {
+            place = null
+            const vertical = line.a.x === line.b.x
+            const span = Math.abs(vertical ? line.a.y - line.b.y : line.a.x - line.b.x)
+            if (span >= (vertical ? label.height : label.width) + 12) for (const fraction of [.5, .25, .75, .15, .85]) {
+              const point = { x: line.a.x + (line.b.x - line.a.x) * fraction, y: line.a.y + (line.b.y - line.a.y) * fraction }
+              const bounds = labelBox(point, label.width, label.height)
+              if (boxes.some(node => intersects(bounds, node, 12))) continue
+              const collisions = occupiedLabels.filter(prior => intersects(bounds, prior, 8)).length
+              const labelCost = occupiedSegments.filter(prior => crosses(prior.a, prior.b, bounds, 4)).length * 3000
+              if (!place || collisions < place.collisions || collisions === place.collisions && labelCost < place.cost) place = { point, collisions, cost: labelCost }
+              if (collisions === 0 && labelCost === 0) break
+            }
+            labelPlaces.set(line.key, place)
           }
-          labelPlaces.set(line.key, place)
+          if (!place) continue
+          const score = baseCost + wireCost + place.cost
+          if (!best || place.collisions < best.collisions || place.collisions === best.collisions && score < best.score) best = { points, label: place.point, collisions: place.collisions, score }
+          if (best.collisions === 0 && best.score === baseCost + wireCost) continue candidate
         }
-        if (!place) continue
-        const score = baseCost + wireCost + place.cost
-        if (!best || place.collisions < best.collisions || place.collisions === best.collisions && score < best.score) best = { points, label: place.point, collisions: place.collisions, score }
-        if (best.collisions === 0 && best.score === baseCost + wireCost) continue candidate
       }
+      return best
+    }
+    let best = choose()
+    if (!best && kind === 'return' && !self) {
+      // A middle return channel can be blocked after automatic placement; try the outside without disturbing existing routes.
+      candidates.length = 0
+      for (const rail of [left - widestLabel - 64 - lane * trackSpacing, right + widestLabel + 64 + lane * trackSpacing].flatMap(rail => parallelTracks(rail, false))) {
+        add([start, { x: rail, y: start.y }, { x: rail, y: end.y }, end])
+        for (const startY of sourceTracks) for (const endY of targetTracks) {
+          add([start, { x: start.x, y: startY }, { x: rail, y: startY }, { x: rail, y: endY }, { x: end.x, y: endY }, end])
+        }
+      }
+      best = choose()
     }
     if (!best) throw new Error(`未能在节点外布置连线 ${edge.id}`)
     routes.set(edge.id, { points: best.points, label: best.label, sourceHandle: ports.source.id, targetHandle: ports.target.id,

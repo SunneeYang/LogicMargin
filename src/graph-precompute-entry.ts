@@ -26,8 +26,7 @@ export function computeJSON(json: string): string {
   const result = input.reference
     ? comparisonLayout(input.nodes ?? [], input.edges ?? [], input.reference.nodes ?? [], input.reference.edges ?? [], sizes)
     : layoutGraph(input.nodes ?? [], input.edges ?? [], sizes)
-  // The build exposes comparisonLayout's existing authored decision without rerunning its union layout.
-  const usesAuthoredPositions = (result as typeof result & { usesAuthoredPositions: boolean }).usesAuthoredPositions
+  const usesAuthoredPositions = result.usesAuthoredPositions
   if (typeof usesAuthoredPositions !== 'boolean') throw new Error('Missing layout provenance; rebuild graph.bundle.js')
   return JSON.stringify({ nodes: Object.fromEntries(result.nodes), edges: Object.fromEntries(result.edges), usesAuthoredPositions })
 }

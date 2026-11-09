@@ -1,6 +1,6 @@
-import { layoutGraph } from './graph-layout.ts'
+import { layoutNodePositions } from './graph-layout.ts'
 import { compareGraphIds } from './graph-order.ts'
-import { authoredPositions, routeGraphEdges } from './graph-routing.ts'
+import { routeGraphEdges } from './graph-routing.ts'
 import type { LayoutEdge, LayoutNode } from './graph-layout.ts'
 import type { ReviewEdge, ReviewNode, Target } from './types.ts'
 
@@ -81,9 +81,7 @@ export function comparisonLayout(
   })
   const unionNodes = [...combinedNodes.values()].sort((a, b) => compareGraphIds(a.id, b.id))
   // The comparison needs union slots, but only the visible side needs line routes.
-  const authored = authoredPositions(unionNodes, unionEdges, jointSizes)
-  const fallback = authored ? undefined : layoutGraph(unionNodes, unionEdges, jointSizes)
-  const union = authored ?? fallback!.nodes
+  const { nodes: union, usesAuthoredPositions: authored } = layoutNodePositions(unionNodes, unionEdges, jointSizes)
   const placed = new Map<string, LayoutNode>()
   for (const node of nodes) {
     const joint = union.get(node.id)!
@@ -91,26 +89,8 @@ export function comparisonLayout(
     placed.set(node.id, { position: joint.position, ...size, ports: [] })
   }
   const routes = new Map<string, LayoutEdge>()
-  if (authored) {
-    // Shared node slots stay fixed; only the visible version reserves line and label channels.
-    const routed = routeGraphEdges(placed, edges.map(edge => ({ ...edge, id: routeIds.get(edgeIdentity(edge))! })), new Map(nodes.map(node => [node.id, node.kind])))
-    for (const edge of edges) routes.set(edge.id, routed.get(routeIds.get(edgeIdentity(edge))!)!)
-  } else {
-    // Dagre's freeform slots need its own valid routes rather than the authored grid's corridors.
-    for (const edge of edges) {
-      const route = fallback!.edges.get(routeIds.get(edgeIdentity(edge))!)!
-      const points = route.points.map(point => ({ ...point }))
-      for (const [id, handle, point] of [[edge.source, route.sourceHandle, points[0]], [edge.target, route.targetHandle, points.at(-1)!]] as const) {
-        const joint = union.get(id)!, current = placed.get(id)!
-        const originalPort = joint.ports.find(port => port.id === handle)!
-        const horizontal = originalPort.side === 'top' || originalPort.side === 'bottom'
-        const port = { ...originalPort, offset: originalPort.offset * (horizontal ? current.width / joint.width : current.height / joint.height) }
-        current.ports.push(port)
-        point.x = current.position.x + (horizontal ? port.offset : port.side === 'left' ? 0 : current.width)
-        point.y = current.position.y + (horizontal ? port.side === 'top' ? 0 : current.height : port.offset)
-      }
-      routes.set(edge.id, { ...route, points })
-    }
-  }
-  return { nodes: placed, edges: routes }
+  // Shared node slots stay fixed; route the visible side at its actual sizes in both placement modes.
+  const routed = routeGraphEdges(placed, edges.map(edge => ({ ...edge, id: routeIds.get(edgeIdentity(edge))! })), new Map(nodes.map(node => [node.id, node.kind])))
+  for (const edge of edges) routes.set(edge.id, routed.get(routeIds.get(edgeIdentity(edge))!)!)
+  return { nodes: placed, edges: routes, usesAuthoredPositions: authored }
 }

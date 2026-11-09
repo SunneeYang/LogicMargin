@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { build, normalizePath } from 'vite'
+import { build } from 'vite'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const sources = ['src/graph-precompute-entry.ts', 'src/graph-layout.ts', 'src/graph-routing.ts', 'src/graph-focus.ts', 'src/graph-label.ts', 'src/graph-order.ts']
@@ -18,16 +18,6 @@ export async function buildGraphPrecompute({ check = false } = {}) {
   const nativeSHA = createHash('sha256').update(await readFile(join(root, 'internal/precompute/native_layout.go'))).digest('hex')
   const result = await build({
     root, configFile: false, logLevel: 'warn', resolve: { preserveSymlinks: true },
-    plugins: [{
-      name: 'expose-comparison-layout-provenance',
-      enforce: 'pre',
-      transform(code, id) {
-        if (normalizePath(id) !== normalizePath(join(root, 'src/graph-focus.ts'))) return
-        const before = 'return { nodes: placed, edges: routes }'
-        if (code.split(before).length !== 2) throw new Error('comparisonLayout changed; review its provenance instrumentation')
-        return { code: code.replace(before, 'return { nodes: placed, edges: routes, usesAuthoredPositions: !!authored }'), map: null }
-      },
-    }],
     build: {
       write: false, minify: false, sourcemap: false, target: 'es2022',
       lib: { entry: join(root, sources[0]), name: 'LogicMarginLayout', formats: ['iife'] },

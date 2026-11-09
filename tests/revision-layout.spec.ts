@@ -59,6 +59,45 @@ async function canvasLayout(page: Page) {
   })
 }
 
+test('swapped comparison lanes keep the rendered edge lines horizontal or vertical', async ({ page, request }) => {
+  const review = structuredClone(sampleReview)
+  review.id = 'swapped-lanes-orthogonal'
+  review.comments = []
+  review.scenes = [review.scenes[0]]
+  const makeNode = (id: string, x: number, y: number) => ({ ...review.nodes[0], id, title: id, summary: '', evidence: [],
+    sceneId: review.scenes[0].id, position: { x, y } })
+  review.nodes = [makeNode('a', 0, 0), makeNode('b', 0, 360), makeNode('c', 600, 360)]
+  review.edges = ['b', 'c'].map(target => ({ id: `a-${target}`, source: 'a', target, sceneId: review.scenes[0].id, label: target, detail: '' }))
+  review.baseline = structuredClone(review)
+  review.baseline.nodes = [makeNode('a', 0, 0), makeNode('b', 600, 360), makeNode('c', 0, 360)]
+  const created = await request.post('/api/review-sessions', { data: { review } })
+  expect(created.ok()).toBeTruthy()
+  const session: ReviewSession = await created.json()
+  await page.goto(`/?session=${session.id}`)
+  const paths = page.locator('.react-flow__edge-path')
+  for (const baseline of [false, true]) {
+    if (baseline) await page.getByRole('button', { name: '基线 B', exact: true }).click()
+    await expect(paths).toHaveCount(2)
+    const orthogonal = () => paths.evaluateAll(elements => elements.flatMap(element => {
+      const failures: string[] = []
+      let previous = { x: 0, y: 0 }
+      for (const [, kind, coordinates] of (element.getAttribute('d') ?? '').matchAll(/([MLQ])([^MLQ]+)/g)) {
+        const values = coordinates.trim().split(/[\s,]+/).map(Number)
+        const next = { x: values.at(-2)!, y: values.at(-1)! }
+        if (kind === 'L' && Math.abs(next.x - previous.x) > 1e-5 && Math.abs(next.y - previous.y) > 1e-5) failures.push(`${previous.x},${previous.y}->${next.x},${next.y}`)
+        previous = next
+      }
+      return failures
+    }))
+    await expect.poll(orthogonal).toEqual([])
+    const branch = page.locator('.react-flow__node[data-id="a"]')
+    await branch.hover()
+    await expect.poll(orthogonal).toEqual([])
+    await branch.click()
+    await expect.poll(orthogonal).toEqual([])
+  }
+})
+
 test('each round restores its zoom and reading position when a discussion dialog is reopened', async ({ page, request }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))

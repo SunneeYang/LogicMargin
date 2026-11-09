@@ -100,7 +100,11 @@ test('self loops and reverse cycles preserve direction and finite route coordina
   const result = layoutGraph(['a', 'b'].map(node), edges)
   for (const item of edges) {
     const route = result.edges.get(item.id)!
-    assert.ok(route.points.length >= 3)
+    assert.ok(route.points.length >= (item.source === item.target ? 4 : 2))
+    for (let index = 1; index < route.points.length; index++) {
+      const a = route.points[index - 1], b = route.points[index]
+      assert.ok(a.x === b.x || a.y === b.y, `${item.id}: cycle route must stay orthogonal`)
+    }
     assert.ok([...route.points, route.label].every(point => Number.isFinite(point.x) && Number.isFinite(point.y)))
     assert.ok(result.nodes.get(item.source)!.ports.some(port => port.id === route.sourceHandle && port.type === 'source'))
     assert.ok(result.nodes.get(item.target)!.ports.some(port => port.id === route.targetHandle && port.type === 'target'))

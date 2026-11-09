@@ -159,3 +159,23 @@ test('layout projection excludes source, comments, language and unrelated sizes,
   assert.deepEqual(sent[0].reference, projected.reference)
   assert.equal(sent.length, 2)
 })
+
+test('layout responses with diagonal segments fall back instead of entering the result cache', async () => {
+  const input: LayoutInput = {
+    nodes: ['a', 'b'].map(id => ({ id, kind: 'action', title: id, summary: '', position: { x: 0, y: 0 } })),
+    edges: [{ id: 'ab', source: 'a', target: 'b', label: '' }], sizes: [],
+  }
+  let posts = 0
+  const client = createPrecomputeClient(async url => {
+    if (String(url) === '/api/precompute') return response(caps)
+    posts++
+    return response({ schemaVersion: 1, algorithm: caps.layoutAlgorithm, key: 'bad-route', usesAuthoredPositions: false,
+      nodes: Object.fromEntries(['a', 'b'].map((id, index) => [id, { position: { x: 0, y: index * 200 }, width: 248, height: 160,
+        ports: [{ id: index ? 'target:ab' : 'source:ab', type: index ? 'target' : 'source', side: index ? 'top' : 'bottom', offset: 124 }] }])),
+      edges: { ab: { points: [{ x: 124, y: 160 }, { x: 160, y: 200 }], label: { x: 124, y: 180 }, sourceHandle: 'source:ab', targetHandle: 'target:ab' } },
+    })
+  })
+  assert.equal(await client.layout('saved', input), null)
+  assert.equal(await client.layout('saved', input), null)
+  assert.equal(posts, 2)
+})

@@ -401,10 +401,12 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 	columns, rows := make(map[float64]float64), make(map[float64]float64)
 	boxes := make([]nativeBox, len(placed))
 	left := math.Inf(1)
+	right := math.Inf(-1)
 	for i, node := range placed {
 		byID[node.id] = i
 		boxes[i] = nativeBox{node.Position.X, node.Position.Y, node.Width, node.Height}
 		left = math.Min(left, node.Position.X)
+		right = math.Max(right, node.Position.X+node.Width)
 		columns[node.Position.X] = math.Max(columns[node.Position.X], node.Width)
 		rows[node.Position.Y] = math.Max(rows[node.Position.Y], node.Height)
 	}
@@ -726,6 +728,22 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 				for _, endY := range targetTracks {
 					if err := add(start, Point{start.X, startY}, Point{rail, startY}, Point{rail, endY}, Point{end.X, endY}, end); err != nil {
 						return nil, err
+					}
+				}
+			}
+		}
+		if search.best == nil && ep.kind == "return" && !self {
+			for _, rail := range []float64{left - widest - 64 - float64(lane)*spacing, right + widest + 64 + float64(lane)*spacing} {
+				for _, track := range parallelTracks(rail, false) {
+					if err := add(start, Point{track, start.Y}, Point{track, end.Y}, end); err != nil {
+						return nil, err
+					}
+					for _, startY := range sourceTracks {
+						for _, endY := range targetTracks {
+							if err := add(start, Point{start.X, startY}, Point{track, startY}, Point{track, endY}, Point{end.X, endY}, end); err != nil {
+								return nil, err
+							}
+						}
 					}
 				}
 			}

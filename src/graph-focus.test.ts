@@ -1,12 +1,29 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { availableScopeNodeIds, comparisonLayout, graphBounds, relatedNodeIds } from './graph-focus.ts'
+import { layoutGraph } from './graph-layout.ts'
 import type { ReviewEdge, ReviewNode } from './types.ts'
 
 const node = (id: string, summary = ''): ReviewNode => ({
   id, sceneId: 'scene', title: id, summary, kind: 'action', detail: '', input: '', output: '', position: { x: 0, y: 0 }, evidence: [],
 })
 const edge = (id: string, source: string, target: string): ReviewEdge => ({ id, sceneId: 'scene', source, target, label: id, detail: '' })
+
+test('comparison keeps orthogonal routes when independently valid versions swap node lanes', () => {
+  const positioned = (id: string, x: number, y: number) => ({ ...node(id), position: { x, y } })
+  const before = [positioned('a', 0, 0), positioned('b', 0, 360), positioned('c', 600, 360)]
+  const after = [positioned('a', 0, 0), positioned('b', 600, 360), positioned('c', 0, 360)]
+  const edges = [edge('ab', 'a', 'b'), edge('ac', 'a', 'c')]
+  assert.equal(layoutGraph(before, edges).usesAuthoredPositions, true)
+  assert.equal(layoutGraph(after, edges).usesAuthoredPositions, true)
+  for (const [nodes, reference] of [[before, after], [after, before]]) {
+    const result = comparisonLayout(nodes, edges, reference, edges, new Map())
+    for (const [id, route] of result.edges) for (let index = 1; index < route.points.length; index++) {
+      const a = route.points[index - 1], b = route.points[index]
+      assert.ok(a.x === b.x || a.y === b.y, `${id}: diagonal comparison segment`)
+    }
+  }
+})
 
 test('related flow keeps one-hop context without recursively expanding a shared dispatcher', () => {
   const nodes = ['guard', 'source', 'other', 'deduplicate', 'failure', 'done'].map(id => node(id))

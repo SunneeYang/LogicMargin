@@ -14,6 +14,10 @@ export function layoutCases() {
     cases.push({ name: `sample-${scene.id}`, input: input(nodes.filter(item => ids.has(item.id)), edges.filter(item => ids.has(item.source))), authored: true })
   }
   cases.push({ name: 'sample-all-scenes', input: input(nodes, edges), authored: false })
+  const beforeLanes = [node('a', 0, 0), node('b', 0, 360), node('c', 600, 360)]
+  const afterLanes = [node('a', 0, 0), node('b', 600, 360), node('c', 0, 360)]
+  const laneEdges = [edge('ab', 'a', 'b'), edge('ac', 'a', 'c')]
+  cases.push({ name: 'comparison-swapped-lanes', input: input(beforeLanes, laneEdges, [], { nodes: afterLanes, edges: laneEdges }), authored: false })
   const authoredNodes = [node('a', 0, 0), node('b', 0, 300, 'decision'), node('c', 480, 600, 'result'), node('d', 960, 300, 'failure')]
   const authoredEdges = [edge('forward', 'a', 'b'), edge('complete', 'b', 'c'), edge('fail', 'b', 'd'), edge('return', 'b', 'a'), edge('self', 'a', 'a')]
   cases.push({ name: 'authored-return-exception-self', input: input(authoredNodes, authoredEdges), authored: true })
