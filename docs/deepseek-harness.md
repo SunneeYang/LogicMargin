@@ -12,7 +12,9 @@ LogicMargin 的 DSH 插件启动或复用原生 Go 服务，接入 DSH 官方 MC
 npm run package:dsh
 ```
 
-生成 `artifacts/dsh-plugin-logicmargin-0.9.6.tgz`。它包含入口、bundle patch、中英元数据、技能和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。不要直接安装 `plugins/deepseek-harness` 源码目录：随包资源由打包脚本生成。
+生成 `artifacts/dsh-plugin-logicmargin-0.9.6.tgz` 和同名 `.sha256`。它包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。不要直接安装 `plugins/deepseek-harness` 源码目录：随包资源由打包脚本生成。
+
+正式发行流水线将它与五个平台的原生 ZIP 一起构建，核对包内版本和许可，写入统一 `SHA256SUMS` 后上传到对应 GitHub Release。该流程不自动发布 npm 或提交市场收录；已发布的 `v0.9.6` Release 不会因修改流水线而自动增加附件。
 
 安装到实际使用的 profile：
 
@@ -21,6 +23,8 @@ dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.
 ```
 
 重载该插件/profile，核对技能 `logic-margin` 和 `mcp__logic_margin__start_review`、`mcp__logic_margin__wait_review` 工具。让 Agent 在待评审工程中使用 `logic-margin` 技能，读取真实来源、整理评审并给出页面链接。安装成功、技能被发现、MCP 可调用需要分别确认。
+
+Web profile 可用 `dsh --profile YOUR_PROFILE --host 127.0.0.1 --port 0 --no-open` 启动，宿主打印的登录链接带临时令牌，只供本机使用。DSH 的 `desktop` 是 Electron 保留 profile，CLI 不允许用它初始化或启动；Desktop 应用内的实际加载尚需单独验收。
 
 第一次激活通过既有 `.sh`/`.ps1` 启动器下载官方同版平台 ZIP，先核对 SHA-256 再运行。macOS/Linux 需要 `curl`、`unzip` 以及 `shasum` 或 `sha256sum`；Windows 使用 PowerShell。五个平台与 Go 原生发行包一致，用户不需要安装 Go。DSH 本身仍需要其支持的 Node.js 环境。
 
@@ -48,19 +52,19 @@ dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.
 npm run test:dsh
 ```
 
-已安装 DSH 时，可用真实 Loader 和安装到临时 profile 的 tgz 验证；不挂模型、账号插件或 Agent runner，不需要 DeepSeek 登录或模型推理：
+已安装 DSH 时，可将 tgz 安装到临时 profile，用真实 CLI 的 `runProfile` 启动完整默认 Web 组合进行验证。测试不提交模型提示词，临时 HOME 中没有真实账号配置，不需要 DeepSeek 登录：
 
 ```sh
 /Users/hcm-b0677/.codex/bin/agent-tmp-run env \
   LOGIC_MARGIN_DSH_ROOT=/absolute/path/to/node_modules/@deepseek-ai/dsh \
   node scripts/dsh-integration.mjs \
   artifacts/dsh-plugin-logicmargin-0.9.6.tgz \
-  .scratch/dsh-integration.json
+  .scratch/dsh-web-integration.json
 ```
 
 `agent-tmp-run` 是本开发环境的临时目录管理器；其他环境可提供同等独立的 `CODEX_AGENT_TMP` 并在结束后回收。脚本要求该变量，隔离 HOME、DSH profile、包缓存、LogicMargin home 和会话目录。测试需要网络下载和本机监听权限，包含一次超过 60 秒的真实等待；不使用正式服务或数据。
 
-兼容验收必须区分：本机真实 DSH Host/MCP/技能验证、Desktop 界面、实际模型按技能执行、Windows/Linux 原生运行。源码契约与早期 fixture 验证见[接口核查报告](deepseek-harness-adaptation-plan.md)；它们不能替代真实 tgz 联调。
+兼容验收必须区分：本机默认 Web Host 的 HTTP/API/MCP/技能验证、浏览器界面、Desktop、实际模型按技能执行、Windows/Linux 原生运行。源码契约与早期 fixture 验证见[接口核查报告](deepseek-harness-adaptation-plan.md)；它们不能替代真实 tgz 联调。
 
 ### 本轮实际验收
 
@@ -73,15 +77,50 @@ npm run test:dsh
 - 卸载撤销工具和技能，原隔离后台保持运行；停止并重启隔离后台、显式重载插件后，读取同一 session，材料完全一致。没有将此结果当作旧在途等待自动恢复的证据。
 - 测试结束停止隔离后台，harness 回收测试 profile、数据和缓存；未改真实 DSH/Codex profile 或正式服务。
 
-本地原始报告为 `.scratch/dsh-integration.json`，包含制品及原生程序 SHA-256。适配单测与发行校验各 10 项通过。Desktop、模型实际执行技能、Windows/Linux 本机运行及其他 DSH 版本尚未验收。
+以上最小 Loader 验证的原始报告为 `.scratch/dsh-integration.json`。后续完整默认 Web profile 验证在 `.scratch/dsh-web-integration.json`，两者包含各自制品及原生程序 SHA-256：
+
+- 真实 Web 默认组合启动，认证 HTTP 插件清单确认 LogicMargin 为 active；会话技能接口可发现 `logic-margin`。该步骤创建一个临时 Agent 会话，未提交模型提示词。
+- 同一完整宿主上的全部 11 个 MCP 工具、65 秒等待、显式领取、多轮修订与归档恢复、卸载和重启重载均通过。
+- 宿主停机失败的故障注入确认：DSH 强制退出时使用非零状态，失败报告已保存，隔离 Go 后台已提前退出；证据在 `.scratch/dsh-cleanup-fault-check.json`。
+- 适配和发行校验共 29 项通过；五个平台 ZIP 与 DSH tgz 实际构建并通过统一校验，所有候选包携带 MIT。共 13 个分发文件，包括 6 个归档、6 个 SHA-256 文件和 `SHA256SUMS`。
+
+Desktop、浏览器交互、模型实际执行技能、Windows/Linux 本机运行及其他 DSH 版本尚未验收。交叉构建成功不代替目标系统运行验证。
 
 ## 市场与账号
 
 本地 tgz 安装无需 DeepSeek 模型账号登录。模型登录只解决模型鉴权，与插件市场收录独立。
 
-1. **npm 分发**：确认包名和发布权限，明确项目许可，审阅 tgz 后再发布。当前包声明 `UNLICENSED`，不是已决定使用 MIT；仓库尚无项目级许可文件。
+1. **npm 分发**：项目已采用 [MIT](../LICENSE)，DSH 包携带同一许可。确认包名和 npm 发布权限，审阅生成的 tgz 后再发布；DSH 的模型登录不能代替 npm 账号的发布权限。
 2. **社区目录**：按 [awesome-dsh-plugin 投稿规则](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)提交独立收录请求；npm 发布并不自动被收录。
 3. **Discover**：官方 Discover 默认没有索引源；选择的索引需要包含该包。社区目录条目与其 npm 关联、市场索引导出也需分别核对。
 4. **Official 清单 / GitHub topic**：都是独立入口，不等于 npm 发布或社区审核通过。
 
-本轮只准备可安装制品和验证路径，不执行 npm 发布、市场投稿、GitHub topic 修改或真实 profile 安装。公开上架之前仍需用户确认许可和最终外部发布动作。市场事实的一手资料与固定来源见[接口核查报告](deepseek-harness-adaptation-plan.md#4-发布与社区收录只读复核)。
+本轮只准备可安装制品和验证路径，不执行 npm 发布、市场投稿、GitHub topic 修改或真实 profile 安装。MIT 选择已确认，最终外部发布动作需另行授权。市场事实的一手资料与固定来源见[接口核查报告](deepseek-harness-adaptation-plan.md#4-发布与社区收录只读复核)。
+
+### 登录与发布入口
+
+npm 需要 npm 账号，社区投稿使用 GitHub 账号，Discover 安装不要求存在一个统一的“市场登录”。以下是公开发行时的操作顺序，当前未执行登录或实际发布：
+
+```sh
+npm login --registry https://registry.npmjs.org
+npm whoami --registry https://registry.npmjs.org
+npm publish /absolute/path/dsh-plugin-logicmargin-X.Y.Z.tgz --dry-run --ignore-scripts --access public
+```
+
+先检查 dry-run 的文件、版本和许可；获得发布授权后，再去掉 `--dry-run` 发布**生成的 tgz**，不要从缺少生成资源的源码子目录直接发布。npm 登录可能要求浏览器认证和账号的双因素验证，凭据不放进仓库或插件。
+
+本轮使用空的临时 npm 配置完成了真实 `npm publish --dry-run`，文件与 MIT 许可检查通过；它不证明某个账号已登录或具备最终发布权限。
+
+社区目录的待投内容如下，目标文件名为 `data/plugins/SunneeYang__LogicMargin--plugins-deepseek-harness.yml`。投稿前先让代码在 `main` 可见，并把 `X.Y.Z` 替换为实际已发布、具有该 tgz 附件的版本；当前官方 `v0.9.6` 没有此附件，不能把本地候选包当作已发布下载地址。
+
+```yaml
+url: https://github.com/SunneeYang/LogicMargin/tree/main/plugins/deepseek-harness
+name: SunneeYang/LogicMargin#deepseek-harness
+category: workflow
+description:
+  en: Source-backed logic reviews with diagrams, code diffs, and resumable human feedback.
+  zh: 用有源码依据的流程图和代码差异开展人工评审，保留批注、回复与多轮修订。
+tarball: https://github.com/SunneeYang/LogicMargin/releases/download/vX.Y.Z/dsh-plugin-logicmargin-X.Y.Z.tgz
+```
+
+源码目录依赖打包时生成资源，不能直接安装，所以在 npm 映射可用前应提供有效 `tarball`。使用固定 tag 配合带版本文件名，避免 `latest/download` 在下一版指向不存在的旧文件名。不手改社区生成的 README，也不在条目中加入其协议未定义的 `npm` 字段；合并收录后再核对所用 Discover 索引与实际安装结果。

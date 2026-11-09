@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmod, cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -47,6 +48,7 @@ test('invalid configuration and pre-cancellation never launch a child', async ()
 })
 
 test('DSH skill keeps the review protocol and replaces only the host-specific bootstrap', async () => {
+  assert.deepEqual(await readFile(new URL('plugins/logic-margin/LICENSE', root)), await readFile(new URL('LICENSE', root)), 'Sparse Codex installs and generated DSH bundles must share the project license')
   const source = await readFile(new URL('plugins/logic-margin/skills/logic-margin/SKILL.md', root), 'utf8')
   const skill = harnessSkill(source)
   assert.equal(skill.slice(skill.indexOf('## 发起审查\n')), source.slice(source.indexOf('## 发起审查\n')))
@@ -60,7 +62,7 @@ test('packed tgz contains pinned launchers, DSH skill resources and no Codex ins
   const directory = await temporary(t)
   const archive = await packageDsh(directory)
   const entries = (await run('tar', ['-tzf', archive])).stdout.trim().split('\n')
-  for (const path of ['package/index.js', 'package/native.js', 'package/cordis.patch.yml', 'package/icon.svg', 'package/locale/en.json', 'package/locale/zh.json',
+  for (const path of ['package/index.js', 'package/native.js', 'package/cordis.patch.yml', 'package/icon.svg', 'package/locale/en.json', 'package/locale/zh.json', 'package/LICENSE',
     'package/resources/logic-margin/plugin.json', 'package/resources/logic-margin/skills/logic-margin/SKILL.md',
     'package/resources/logic-margin/skills/logic-margin/scripts/logic-margin.sh', 'package/resources/logic-margin/skills/logic-margin/scripts/logic-margin.ps1',
     'package/resources/logic-margin/skills/logic-margin/references/review-format.md']) assert.ok(entries.includes(path), path)
@@ -70,6 +72,9 @@ test('packed tgz contains pinned launchers, DSH skill resources and no Codex ins
   const manifest = JSON.parse(await read('package/package.json'))
   assert.equal(manifest.engines.dsh, '0.2.2-rc.1')
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
+  assert.equal(manifest.license, 'MIT')
+  assert.equal(await read('package/LICENSE'), await readFile(new URL('LICENSE', root), 'utf8'))
+  assert.equal(await readFile(`${archive}.sha256`, 'utf8'), `${createHash('sha256').update(await readFile(archive)).digest('hex')}  ${archive.split(/[\\/]/).at(-1)}\n`)
   assert.equal(JSON.parse(await read('package/resources/logic-margin/plugin.json')).version, manifest.version)
   for (const name of ['index.js', 'native.js']) assert.equal(await read(`package/${name}`), await readFile(new URL(`plugins/deepseek-harness/${name}`, root), 'utf8'))
   assert.equal(await read('package/resources/logic-margin/skills/logic-margin/SKILL.md'), harnessSkill(await readFile(new URL('plugins/logic-margin/skills/logic-margin/SKILL.md', root), 'utf8')))

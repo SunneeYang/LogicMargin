@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -17,13 +18,15 @@ export async function packageDsh(output = join(root, 'artifacts')) {
   const source = join(root, 'plugins/deepseek-harness')
   const manifest = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'))
   const native = JSON.parse(await readFile(join(root, 'plugins/logic-margin/plugin.json'), 'utf8'))
-  const version = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version
+  const { version, license } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
   if (manifest.version !== version || native.version !== version) throw new Error('DSH bundle, shared skill and native release versions must match')
+  if (manifest.license !== license || license !== 'MIT') throw new Error('DSH bundle must use the project MIT license')
   const temporary = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-dsh-package-'))
   try {
     const staging = join(temporary, 'package'), resources = join(staging, 'resources/logic-margin')
     await mkdir(join(resources, 'skills/logic-margin/scripts'), { recursive: true })
     for (const name of ['package.json', 'index.js', 'native.js', 'cordis.patch.yml', 'locale', 'README.md']) await cp(join(source, name), join(staging, name), { recursive: true })
+    await cp(join(root, 'LICENSE'), join(staging, 'LICENSE'))
     await cp(join(root, 'src/assets/logo.svg'), join(staging, 'icon.svg'))
     await writeFile(join(resources, 'plugin.json'), JSON.stringify({ name: native.name, version: native.version }, null, 2) + '\n')
     const shared = join(root, 'plugins/logic-margin')
@@ -40,7 +43,9 @@ export async function packageDsh(output = join(root, 'artifacts')) {
       : process.platform === 'win32' ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js') : null
     const args = ['pack', '--ignore-scripts', '--json', '--cache', join(temporary, 'npm-cache'), '--pack-destination', resolve(output)]
     const { stdout } = await run(npmCli ? process.execPath : 'npm', npmCli ? [npmCli, ...args] : args, { cwd: staging, maxBuffer: 2 * 1024 * 1024 })
-    return join(resolve(output), JSON.parse(stdout)[0].filename)
+    const archive = join(resolve(output), JSON.parse(stdout)[0].filename)
+    await writeFile(`${archive}.sha256`, `${createHash('sha256').update(await readFile(archive)).digest('hex')}  ${basename(archive)}\n`)
+    return archive
   } finally { await rm(temporary, { recursive: true, force: true }) }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

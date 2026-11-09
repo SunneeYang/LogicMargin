@@ -248,6 +248,8 @@ Built with React 19, TypeScript, React Flow, Vite, and a local Go HTTP service. 
 
 ## Acknowledgements
 
+LogicMargin is available under the [MIT license](LICENSE). Distribution archives include the project license and retain their third-party notices.
+
 Special thanks to **[Crit](https://github.com/tomasz-tomczyk/crit)** for inspiring the workflow of browser annotations, explicit submissions, and agents waiting for review. LogicMargin draws on these interaction patterns and independently implements diagram annotations, cross-round verification, and review task management around business flows and logical relationships. Primary sources and design decisions are recorded in the [Crit reference notes](docs/crit-reference.md).
 
 Thanks to **[React Flow / xyflow](https://github.com/xyflow/xyflow)** for the diagram canvas foundation.

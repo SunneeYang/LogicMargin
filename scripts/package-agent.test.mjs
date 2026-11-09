@@ -46,6 +46,8 @@ before(async () => {
   await mkdir(unpacked)
   await execute('unzip', ['-q', archive, '-d', unpacked])
   packagedRoot = join(unpacked, `logic-margin-agent-${version}${target ? `-${target}` : ''}`)
+  assert.deepEqual(await readFile(join(packagedRoot, 'LICENSE')), await readFile(new URL('../LICENSE', import.meta.url)), 'Every distribution must carry the project license')
+  assert.deepEqual(await readFile(join(packagedRoot, 'plugins/logic-margin/LICENSE')), await readFile(new URL('../LICENSE', import.meta.url)), 'The independently installed plugin must carry the project license')
   const executable = native ? process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin' : 'logic-margin.mjs'
   packagedCli = join(packagedRoot, 'plugins/logic-margin/skills/logic-margin/scripts', executable)
   packagedCommand = native ? [packagedCli] : [process.execPath, packagedCli]

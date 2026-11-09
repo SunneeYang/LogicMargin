@@ -28,6 +28,8 @@ This package targets local execution: MCP and the source workspace must be on th
 
 Publishing to npm, adding a GitHub topic, submitting to a community catalog, and showing up in a chosen Discover index are separate actions. No DeepSeek model-account login is required to load this plugin or connect its local MCP.
 
+This package uses the MIT license included in `LICENSE`. Native ZIPs retain their third-party notices. The release workflow prepares the tgz, its SHA-256 file, and the five native ZIPs together; npm publication and market submissions remain separate actions.
+
 ## 中文
 
 适配 DSH `0.2.2-rc.1`：加载后启动或复用 Go 后台，接入官方 MCP Client，并注册 `logic-margin` 技能。安装生成的 tgz 后，在实际使用的 profile 重载并核对技能与工具；不要运行 Codex 专用 `server setup`。

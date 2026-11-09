@@ -245,6 +245,8 @@ npm run test:go:e2e # Go 服务上的桌面/手机视口与主题交互
 
 ## 致谢
 
+LogicMargin 采用 [MIT 许可](LICENSE)，发行包携带项目许可并保留第三方许可说明。
+
 特别感谢 **[Crit](https://github.com/tomasz-tomczyk/crit)** 为浏览器批注、明确提交与 Agent 等待评审的工作流提供启发。LogicMargin 借鉴这些交互机制，围绕业务流程节点与逻辑关系，自行实现图上批注、跨轮复核与评审任务管理。相关主源与设计取舍记录在 [Crit 参考说明](docs/crit-reference.md)。
 
 感谢 **[React Flow / xyflow](https://github.com/xyflow/xyflow)** 提供流程图画布基础。

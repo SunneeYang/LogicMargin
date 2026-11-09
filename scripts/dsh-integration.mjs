@@ -41,7 +41,7 @@ process.chdir(work)
 const report = {
   startedAt: new Date().toISOString(), platform: `${process.platform}/${process.arch}`, node: process.version,
   archiveSHA256: createHash('sha256').update(await readFile(archive)).digest('hex'),
-  tests: {}, toolsCalled: [], modelsLoaded: 0, realProfilesTouched: false,
+  tests: {}, toolsCalled: [], modelPromptsSubmitted: 0, realProfilesTouched: false,
   limits: ['No Desktop/UI or model-inference acceptance', 'Only this host platform executes the native launcher', 'Caller cancellation is observable; remote handler cancellation is not instrumented'],
 }
 const mark = (name, value = true) => { report.tests[name] = value; console.log(`[dsh] ${name}: ${JSON.stringify(value)}`) }
@@ -59,7 +59,22 @@ const cli = async args => {
   })
   return stdout
 }
-let ctx, packageDir, base, isolatedRegistry
+let ctx, app, packageDir, base, isolatedRegistry
+const writeReport = async value => {
+  await mkdir(dirname(output), { recursive: true })
+  await writeFile(output, JSON.stringify(value, null, 2) + '\n')
+}
+const closeHost = async () => {
+  if (!app) return
+  // DSH may force process.exit on teardown failure; persist failure first and never exit successfully.
+  await writeReport({ ...report, ok: false, error: { name: 'CleanupIncomplete', message: 'Default Web Host cleanup did not settle' }, finishedAt: new Date().toISOString() })
+  const exitCode = process.exitCode ?? 0
+  process.exitCode = 1
+  await app.shutdown.shutdown(1)
+  process.exitCode = exitCode
+  app = undefined
+  ctx = undefined
+}
 const native = async args => {
   assert.ok(packageDir, 'The actual installed bundle must exist before invoking its launcher')
   const { launcherCommand } = await import('../plugins/deepseek-harness/native.js')
@@ -100,7 +115,7 @@ try {
   const hostManifest = await json(join(dshRoot, 'package.json'))
   assert.equal(hostManifest.version, '0.2.2-rc.1', 'This integration baseline is intentionally version-specific')
   report.dshVersion = hostManifest.version
-  await cli(['--profile', profileName, '--from-default-profile', 'headless', '--dump-config'])
+  await cli(['--profile', profileName, '--from-default-profile', 'web', '--dump-config'])
   await cli(['plugin', '--profile', profileName, 'add', archive, '--ignore-scripts', '--store-dir', join(directory, 'pnpm-store')])
   const composed = await cli(['--profile', profileName, '--dump-config'])
   assert.match(composed, /logic-margin/)
@@ -108,49 +123,42 @@ try {
 
   const installAnchor = join(dshRoot, 'package.json'), hostRequire = createRequire(installAnchor)
   const hostImport = name => import(pathToFileURL(hostRequire.resolve(name)).href)
-  const { boot, loadProfile, createRuntimeResolution, PluginPackages } = await hostImport('@deepseek-ai/dsh-app-boot')
-  const [SystemPrompt, ToolRuntime, NativeExecutor, SkillRegistry, { ToolCallId }] = await Promise.all([
-    hostImport('@deepseek-ai/dsh-system-prompt').then(m => m.default),
-    hostImport('@deepseek-ai/dsh-tools').then(m => m.default),
-    hostImport('@deepseek-ai/dsh-tool-executor-native'),
-    hostImport('@deepseek-ai/dsh-skill').then(m => m.default),
-    hostImport('@deepseek-ai/dsh-llm'),
-  ])
+  const { loadProfile } = await hostImport('@deepseek-ai/dsh-app-boot')
+  const { ToolCallId } = await hostImport('@deepseek-ai/dsh-llm')
+  const { createLaunchEnvironmentSnapshot } = await hostImport('@deepseek-ai/dsh-launch-environment')
+  const { runProfile } = await import(pathToFileURL(join(dshRoot, 'lib/profile-boot.js')).href)
   const profile = loadProfile('dsh', profileName, installAnchor, dshHome, { userLayer: false })
   assert.deepEqual(profile.skippedBundles, [])
   const layer = profile.layers.find(value => value.packageName === 'dsh-plugin-logicmargin')
   assert.ok(layer, 'Real profile bundle discovery must find LogicMargin')
   packageDir = layer.packageDir
-  const emptyRoot = join(work, 'cordis.yml')
-  await writeFile(emptyRoot, '[]\n')
   const mount = async () => {
-    const resolution = await createRuntimeResolution({ installAnchor, profile, home: dshHome })
-    const context = await bounded(boot('dsh', emptyRoot, layer.patches, async host => {
-      await host.plugin(PluginPackages, { resolution })
-      await host.plugin(SystemPrompt)
-      await host.plugin(ToolRuntime)
-      await host.plugin(NativeExecutor)
-      await host.plugin(SkillRegistry)
-    }), 310_000, 'Installed bundle activation')
+    // The default Web startup prints a temporary login token; keep it out of test logs.
+    const log = console.log
+    console.log = (...values) => { if (!String(values[0]).startsWith('dsh web: ')) log(...values) }
     try {
-      const pluginURL = pathToFileURL(join(packageDir, 'index.js')).href
-      const peers = {}
-      for (const name of ['@deepseek-ai/cordis', '@deepseek-ai/schemastery', '@deepseek-ai/dsh-mcp-client', '@deepseek-ai/dsh-skill-filesystem', '@deepseek-ai/dsh-subprocess']) {
-        const actual = context.pluginPackages.packageOf(name, pluginURL)
-        assert.ok(actual, `${name} must resolve through the host profile resolver`)
-        const expected = hostRequire.resolve(`${name}/package.json`)
-        assert.equal(resolve(actual.manifestPath), resolve(expected), `${name} must share the installation instance`)
-        peers[name] = actual.version
-      }
-      report.peerVersions = peers
-      return context
-    } catch (error) {
-      await bounded(context.fiber.dispose(), 10_000, 'Failed peer validation cleanup')
-      throw error
+      app = await bounded(runProfile({
+        environment: createLaunchEnvironmentSnapshot([{ source: 'process', values: process.env }]),
+        profile: profileName, patchFiles: [], args: ['--host', '127.0.0.1', '--port', '0', '--no-open'],
+      }), 310_000, 'Default Web profile activation')
+    } finally { console.log = log }
+    const context = app.ctx
+    const pluginURL = pathToFileURL(join(packageDir, 'index.js')).href
+    const peers = {}
+    for (const name of ['@deepseek-ai/cordis', '@deepseek-ai/schemastery', '@deepseek-ai/dsh-mcp-client', '@deepseek-ai/dsh-skill-filesystem', '@deepseek-ai/dsh-subprocess']) {
+      const actual = context.pluginPackages.packageOf(name, pluginURL)
+      assert.ok(actual, `${name} must resolve through the host profile resolver`)
+      const expected = hostRequire.resolve(`${name}/package.json`)
+      assert.equal(resolve(actual.manifestPath), resolve(expected), `${name} must share the installation instance`)
+      peers[name] = actual.version
     }
+    report.peerVersions = peers
+    return context
   }
   console.log('[dsh] activating actual package; fixed-version native release may download into isolated cache')
   ctx = await mount()
+  assert.equal(ctx.webServer.host, '127.0.0.1')
+  mark('fullDefaultWebProfileWithoutModelPrompt')
   const running = await registry()
   assert.equal(running.version, '0.9.6')
   const initialPid = running.pid
@@ -176,6 +184,30 @@ try {
   const schemas = ctx.tools.schemas().map(value => value.name)
   for (const name of rawNames) assert.ok(schemas.includes(`mcp__logic_margin__${name}`), name)
   mark('allElevenMcpToolsDiscovered')
+  const webOrigin = ctx.webServer.getOrigin()
+  const login = await fetch(ctx.connection.authenticatedUrl(webOrigin), { redirect: 'manual', signal: AbortSignal.timeout(5000) })
+  assert.equal(login.status, 303)
+  const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
+  assert.ok(cookie)
+  const webRpc = async (method, args) => {
+    const response = await fetch(`${webOrigin}/api/${method}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', origin: webOrigin, cookie },
+      body: JSON.stringify({ type: 'client-request', rpcId: randomUUID(), method, payload: { args } }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    assert.equal(response.status, 200)
+    const result = await response.json()
+    assert.equal(result.result.ok, true, `${method} failed`)
+    return result.result.value
+  }
+  const inventory = await webRpc('pluginInventory/list', {})
+  const configured = [...ctx.loader.entries()].find(value => value.options.id === 'logic-margin')
+  assert.ok(configured)
+  assert.ok(inventory.entries.some(value => value.entryId === configured.id && value.fiberPhase === 'active'))
+  const webSession = await webRpc('session/create', { request: { cwd: work, agentPreset: 'standard' } })
+  const skills = await webRpc('skills/list', { request: { sessionId: webSession.sessionId } })
+  assert.ok(skills.skills.some(value => value.name === 'logic-margin'))
+  mark('authenticatedWebInventoryAndSessionSkillCatalog', { agentSessionCreated: true, modelPromptSubmitted: false })
   let serial = 0
   const execute = async (name, args, signal = AbortSignal.timeout(30_000)) => {
     const batch = await ctx.tools.execute({
@@ -317,10 +349,9 @@ try {
     const health = await fetch(base + '/api/health', { signal: AbortSignal.timeout(3000) }).then(value => value.json())
     assert.equal(health.pid, initialPid)
     mark('unloadWithdrawsToolsAndSkillButRetainsSharedDaemon')
-    await bounded(ctx.fiber.dispose(), 10_000, 'Host dispose')
-    ctx = undefined
     const previousURL = base
     await stop()
+    await closeHost()
     await native(['server', 'start'])
     await registry()
     assert.equal(base, previousURL, 'Restart must preserve the registered port')
@@ -339,16 +370,16 @@ try {
   process.exitCode = 1
 } finally {
   const cleanup = []
-  if (ctx) {
-    try { await bounded(ctx.fiber.dispose(), 10_000, 'Final Host disposal') } catch (error) { cleanup.push(`Host disposal: ${error.message}`) }
-  }
   if (packageDir) {
     try { await stop() } catch (error) { cleanup.push(`Isolated service stop: ${error.message}`) }
   }
+  if (cleanup.length) report.cleanupErrors = cleanup
+  if (app) {
+    try { await closeHost() } catch (error) { cleanup.push(`Host disposal: ${error.message}`) }
+  }
   if (cleanup.length) { report.cleanupErrors = cleanup; report.ok = false; process.exitCode = 1 }
   report.finishedAt = new Date().toISOString()
-  await mkdir(dirname(output), { recursive: true })
-  await writeFile(output, JSON.stringify(report, null, 2) + '\n')
+  await writeReport(report)
   console.log(`[dsh] report ${output}; ok=${report.ok}`)
   if (!report.ok) console.error(JSON.stringify({ error: report.error, cleanupErrors: report.cleanupErrors }))
 }
