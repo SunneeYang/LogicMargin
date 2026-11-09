@@ -55,7 +55,11 @@ func TestAcquireLockRetriesWindowsSharingConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer windows.CloseHandle(held)
+	defer func() {
+		if held != windows.InvalidHandle {
+			_ = windows.CloseHandle(held)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	release, err := AcquireLock(ctx, path, 3*time.Second)
 	cancel()
@@ -68,6 +72,7 @@ func TestAcquireLockRetriesWindowsSharingConflict(t *testing.T) {
 	if err := windows.CloseHandle(held); err != nil {
 		t.Fatal(err)
 	}
+	held = windows.InvalidHandle
 	release, err = AcquireLock(t.Context(), path, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)

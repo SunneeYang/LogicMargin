@@ -1,4 +1,22 @@
-# Go 迁移候选验收
+# Go 迁移与 0.9.0 发行验收
+
+## 0.9.0 发行前平台门禁
+
+2026-11-09，运行时源码 `566cc96` 的[多平台预发布 CI](https://github.com/SunneeYang/LogicMargin/actions/runs/42564138282) 全部通过：
+
+| 验证 | 结果与范围 |
+| --- | --- |
+| macOS、Linux、Windows 原生 | Node 单元测试、类型检查与网页构建、版本/打包检查、两个 bundle 校验、Go 普通与 race 测试、原生插件测试、Node/Go 兼容对照均通过 |
+| Windows 启动器 | PowerShell 5.1 参数、空参数/引号/反斜杠、中文输出、物理工作目录、摘要校验、缓存复用与损坏包拒绝通过；摘要直接使用 .NET，不依赖 `Get-FileHash` 自动加载 |
+| Windows 并发启动 | 独占句柄下限时等待/取消、陈旧锁恢复、单写入者，以及五个原生进程同时启动和崩溃恢复通过 |
+| Linux 网页验收 | 74 项 Chromium 用例通过，包含三种代码视图、结构重点、移动局部对照、上下文扩展、总览、语言与状态保留 |
+| 五目标发行构建 | `darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64` 的 ZIP 与同名 SHA-256 文件全部生成 |
+
+正式分发以 [v0.9.0 Release](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.0) 和标签触发的发行门禁为准。三系统 CI 原生运行不等于五种架构都经过实体设备验收；Safari/Firefox、实体手机、真实 Tailscale 与长期多人负载仍未覆盖。
+
+## 历史迁移候选记录
+
+下面各阶段保留迁移时的程序、环境、测量和平台缺口，不代表 0.9.0 当前发行状态；旧 ZIP 与旧性能样本不能替代上面的平台门禁。
 
 日期：2026-11-09。工作分支 `arch/go-backend`，基线 `73890315827d0c335f360fcf467c33049fdb17cf` / 0.8.7。以下结果来自 Apple M4 Pro、macOS 27.0、Go 1.27.3、Node 26.13.0。验收时尚未提交、推送或发布；主线插件和正式会话服务未修改。
 
