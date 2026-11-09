@@ -287,7 +287,8 @@ public class LauncherFixture {
   await writeFile(sentinel, 'existing live review')
   const trace = join(root, 'downloads.log')
   const url = `https://github.com/SunneeYang/LogicMargin/releases/download/v${version}/${name}.zip`
-  const download = `function Invoke-WebRequest {
+  const download = `function Get-FileHash { throw 'Native bootstrap must not depend on Get-FileHash autoloading' }
+  function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing, [int]$TimeoutSec, [int]$MaximumRedirection)
     if ($TimeoutSec -ne 120 -or $MaximumRedirection -ne 5) { throw 'Download must have a time/redirect bound' }
     Add-Content -LiteralPath ${psQuote(trace)} -Value $Uri

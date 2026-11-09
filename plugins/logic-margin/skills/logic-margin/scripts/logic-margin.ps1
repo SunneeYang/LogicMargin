@@ -52,7 +52,13 @@ try {
                     throw 'Invalid release SHA-256 file.'
                 }
                 $expected = $Matches[1]
-                if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $expected) { throw "SHA-256 mismatch for $asset" }
+                $hasher = [Security.Cryptography.SHA256]::Create()
+                try {
+                    $archiveStream = [IO.File]::OpenRead($zip)
+                    try { $actual = [BitConverter]::ToString($hasher.ComputeHash($archiveStream)).Replace('-', '') }
+                    finally { $archiveStream.Dispose() }
+                } finally { $hasher.Dispose() }
+                if ($actual -ne $expected) { throw "SHA-256 mismatch for $asset" }
                 Add-Type -AssemblyName System.IO.Compression.FileSystem
                 $archive = [IO.Compression.ZipFile]::OpenRead($zip)
                 $candidate = Join-Path $temporary 'logic-margin.exe'
