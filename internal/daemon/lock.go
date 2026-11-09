@@ -154,7 +154,7 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 				}
 			}
 			stale, err := staleLock(path)
-			if err != nil {
+			if err != nil && !lockProbeBusy(err) {
 				return nil, err
 			}
 			if stale {
@@ -169,6 +169,12 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 			continue
 		}
 		directory, err := os.OpenRoot(path)
+		for err != nil && lockProbeBusy(err) && time.Now().Before(deadline) {
+			if err := pause(ctx, 50*time.Millisecond); err != nil {
+				return nil, err
+			}
+			directory, err = os.OpenRoot(path)
+		}
 		if err != nil {
 			return nil, err
 		}
