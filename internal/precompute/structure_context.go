@@ -3,6 +3,7 @@ package precompute
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 	"unicode/utf8"
@@ -11,7 +12,7 @@ import (
 )
 
 // ComputeStructureWithContext never reads source from disk or repairs saved text.
-func ComputeStructureWithContext(ctx context.Context, before, after, language string, a, b *StructureContext) (StructureResult, error) {
+func ComputeStructureWithContext(ctx context.Context, before, after, language string, a, b *StructureContext) (result StructureResult, err error) {
 	if a == nil || b == nil {
 		return ComputeStructure(ctx, before, after, language)
 	}
@@ -21,6 +22,15 @@ func ComputeStructureWithContext(ctx context.Context, before, after, language st
 	if err != nil {
 		return base, err
 	}
+	defer func() {
+		if err != nil {
+			if callerErr := ctx.Err(); callerErr != nil {
+				err = callerErr
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				result, err = structureFallback(base, "budget"), nil
+			}
+		}
+	}()
 	full, err := computeStructure(work, a.Code, b.Code, language, structureMaxUTF16, structureMaxLines)
 	if err != nil {
 		return base, err
@@ -54,7 +64,7 @@ func (e *Engine) structureDocument(ctx context.Context, code, language string) (
 	return raw, err
 }
 
-func (e *Engine) StructureWithContext(ctx context.Context, before, after, language string, a, b *StructureContext) (json.RawMessage, string, error) {
+func (e *Engine) StructureWithContext(ctx context.Context, before, after, language string, a, b *StructureContext) (raw json.RawMessage, status string, err error) {
 	if a == nil || b == nil {
 		return e.Structure(ctx, before, after, language)
 	}
@@ -66,6 +76,25 @@ func (e *Engine) StructureWithContext(ctx context.Context, before, after, langua
 	if err != nil {
 		return nil, "", err
 	}
+	fullKey := artifactKey(StructureAlgorithm()+"-full", []string{language, artifactDigest([]byte(leftContext.Code)), artifactDigest([]byte(rightContext.Code))})
+	key := artifactKey(StructureAlgorithm()+"-projection", []any{fullKey, base.Before.Digest, base.After.Digest, leftContext.From, leftContext.To, rightContext.From, rightContext.To})
+	base.Key = key
+	defer func() {
+		if err == nil {
+			return
+		}
+		if callerErr := ctx.Err(); callerErr != nil {
+			raw, status, err = nil, "", callerErr
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			if e.ctx.Err() != nil {
+				raw, status, err = nil, "", ErrClosed
+				return
+			}
+			// A wait deadline must not overwrite shared work that can still succeed.
+			raw, err = json.Marshal(structureFallback(base, "budget"))
+			status = "miss"
+		}
+	}()
 	// Dependencies are obtained on the caller, never by a worker waiting on its pool.
 	left, err := e.structureDocument(work, leftContext.Code, language)
 	if err != nil {
@@ -78,7 +107,6 @@ func (e *Engine) StructureWithContext(ctx context.Context, before, after, langua
 	if err != nil {
 		return nil, "", err
 	}
-	fullKey := artifactKey(StructureAlgorithm()+"-full", []string{language, artifactDigest([]byte(leftContext.Code)), artifactDigest([]byte(rightContext.Code))})
 	full, _, err := e.getStructure(work, fullKey, len(leftContext.Code)+len(rightContext.Code)+len(left)+len(right), func(ctx context.Context) ([]byte, error) {
 		var a, b structureDocumentArtifact
 		if err := json.Unmarshal(left, &a); err != nil {
@@ -109,7 +137,6 @@ func (e *Engine) StructureWithContext(ctx context.Context, before, after, langua
 	if err != nil {
 		return nil, "", err
 	}
-	key := artifactKey(StructureAlgorithm()+"-projection", []any{fullKey, base.Before.Digest, base.After.Digest, leftContext.From, leftContext.To, rightContext.From, rightContext.To})
 	return e.getStructure(work, key, len(full)+len(before)+len(after), func(ctx context.Context) ([]byte, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
