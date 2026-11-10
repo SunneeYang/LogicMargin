@@ -28,6 +28,8 @@ export async function closeSettings(page: Page) {
 }
 
 export async function openInspector(page: Page, tab: 'detail' | 'comments' | 'drafts' | 'changes' = 'comments') {
+  const openDiscussion = page.locator('[data-composer][data-state="open"]')
+  if (await openDiscussion.isVisible()) await openDiscussion.getByRole('button', { name: '关闭讨论', exact: true }).click()
   const inspector = page.locator('.inspector')
   if (!(await inspector.getAttribute('class'))?.includes('is-open')) {
     await page.getByRole('button', { name: /^评审面板/ }).click()

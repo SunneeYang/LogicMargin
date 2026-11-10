@@ -162,12 +162,15 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 			}
 			stale, err := staleLock(path)
 			if err != nil && !lockProbeBusy(err) {
-				return nil, err
+				return nil, fmt.Errorf("探测服务锁：%w", err)
 			}
 			if stale {
 				continue
 			}
 			if !time.Now().Before(deadline) {
+				if err != nil {
+					return nil, fmt.Errorf("探测服务锁：%w", err)
+				}
 				return nil, fmt.Errorf("服务锁仍被其他进程占用：%s", path)
 			}
 			if err := pause(ctx, 50*time.Millisecond); err != nil {
@@ -183,7 +186,7 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 			directory, err = os.OpenRoot(path)
 		}
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("确认服务锁：%w", err)
 		}
 		current, err := directory.Stat(".")
 		if err != nil || !os.SameFile(identity, current) {

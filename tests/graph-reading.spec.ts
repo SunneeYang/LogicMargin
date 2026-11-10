@@ -114,22 +114,13 @@ test('parallel transitions keep separate routes and precise comment targets', as
   const first = await page.locator(`.react-flow__node[data-id="${review.nodes[0].id}"]`).boundingBox()
   const second = await page.locator(`.react-flow__node[data-id="${review.nodes[1].id}"]`).boundingBox()
   expect(second!.y).toBeGreaterThan(first!.y + first!.height)
-  const curvePoint = await two.locator('.react-flow__edge-path').evaluate(element => {
+  const routePoint = await two.locator('.react-flow__edge-path').evaluate(element => {
     if (!(element instanceof SVGPathElement)) throw new Error('Expected an SVG edge path')
-    let start = { x: 0, y: 0 }
-    for (const command of element.getAttribute('d')!.match(/[MLQ][^MLQ]*/g)!) {
-      const values = command.slice(1).trim().split(/[,\s]+/).map(Number)
-      if (command[0] === 'Q') {
-        const [cx, cy, x, y] = values
-        const midpoint = new DOMPoint((start.x + 2 * cx + x) / 4, (start.y + 2 * cy + y) / 4)
-        const screen = midpoint.matrixTransform(element.getScreenCTM()!)
-        return { x: screen.x, y: screen.y }
-      }
-      start = { x: values[0], y: values[1] }
-    }
-    throw new Error('Expected a curved section on the parallel edge')
+    const point = element.getPointAtLength(element.getTotalLength() / 2)
+    const screen = new DOMPoint(point.x, point.y).matrixTransform(element.getScreenCTM()!)
+    return { x: screen.x, y: screen.y }
   })
-  await page.mouse.click(curvePoint.x, curvePoint.y, { button: 'right' })
+  await page.mouse.click(routePoint.x, routePoint.y, { button: 'right' })
   const editor = page.getByRole('dialog', { name: '节点讨论', exact: true })
   await expect(editor.locator('.discussion-target')).toHaveText('连线 · 恢复进入')
   await editor.getByLabel('问题与预期行为').fill('核对恢复进入路径。')

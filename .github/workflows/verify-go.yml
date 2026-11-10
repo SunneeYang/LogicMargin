@@ -49,6 +49,9 @@ jobs:
       - run: node scripts/build-graph-precompute.mjs --check
       - run: node scripts/build-structure-parser.mjs --check
       - run: npm run build:go
+      - name: Exercise Windows lock directory competition
+        if: runner.os == 'Windows'
+        run: go test ./internal/daemon -run 'TestWindowsLockProbeBusyErrors|TestAcquireLockSurvivesWindowsDestinationChurn' -count=25
       - run: go test ./... -count=1
       - run: go test -race ./... -count=1
       - run: npm run test:agent
