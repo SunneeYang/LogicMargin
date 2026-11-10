@@ -663,14 +663,30 @@ func TestMCPDeleteAbortsAllPendingCalls(t *testing.T) {
 
 func TestMCPIdleTimerWaitsForAllHTTPResponses(t *testing.T) {
 	s := testServer(t)
+	completed := make(chan struct{}, 2)
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.serveMCP(w, r)
+		if r.Method == http.MethodPost {
+			completed <- struct{}{}
+		}
+	}))
+	t.Cleanup(endpoint.Close)
 	client := mcp.NewClient(&mcp.Implementation{Name: "idle-test", Version: "1"}, nil)
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
-	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: s.URL + "/mcp", DisableStandaloneSSE: true}, &mcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: endpoint.URL + "/mcp", DisableStandaloneSSE: true}, &mcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
+	// Client responses can arrive before the initialize/initialized HTTP handlers return.
+	for range 2 {
+		select {
+		case <-completed:
+		case <-ctx.Done():
+			t.Fatal("initialization HTTP handlers did not finish")
+		}
+	}
 	first, ok := s.beginMCPRequest(session.ID())
 	if !ok {
 		t.Fatal("session closed before activity")
