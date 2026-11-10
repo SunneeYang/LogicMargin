@@ -9,6 +9,12 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 用户要求安装、检查或更新插件时，读取 [插件安装与更新](references/plugin-updates.md)，核对实际安装结果后报告。首次连接、工具缺失或连接故障时，读取 [连接、恢复与 CLI 兼容](references/mcp-workflow.md)。
 
+## 确定评审访问方式
+
+新建评审前，先结合已有对话识别 Agent 的执行主机与用户打开评审页的设备，检查当前电脑实际可用的网络连接和可达地址。根据这些事实提出适合用户访问设备的选项，用实际设备名或地址说明访问范围，不预设固定选项或特定网络服务。用户设备信息尚不明确且影响判断时再询问。
+
+访问范围尚未明确时，先询问用户并等待选择，再配置共享和创建评审。已有明确选择时核验并沿用；同一会话恢复或发布新版不重复询问。确认访问方式后，按对应监听地址和可达地址生成分享链接，核对的范围不足以证明跨设备可达时如实说明。
+
 ## 建立连接
 
 将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.6 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
@@ -19,7 +25,7 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 核对返回的 `mcpUrl`，复用已运行的兼容后台。正常评审使用 `logic_margin` MCP 工具；首次尚未注册时执行 `server setup`，它只更新当前 Codex home 下的 LogicMargin MCP 地址和工具超时。返回 `reloadRequired: true` 后，在原宿主重载或重连 MCP，并核实工具已可用。仅启动后台或写入配置，不代表当前会话已加载工具；未加载时先报告连接状态，不以反复 CLI 等待冒充 MCP 等待。
 
-MCP 只接受本机连接。用户要求 Tailscale/局域网网页访问时，按已授权范围设置 HTTP 监听和 `public_url`；这不开放远程 MCP。需要调整监听、处理旧版本或连接失败时按连接参考执行。
+MCP 只接受本机连接。按已确认的网页访问范围设置 HTTP 监听和 `public_url`；共享链接与实际监听必须匹配，`public_url` 本身不会开放网络访问。需要调整监听、处理旧版本或连接失败时按连接参考执行。
 
 ## 发起审查
 
