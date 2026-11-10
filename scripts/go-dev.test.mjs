@@ -6,7 +6,7 @@ import { request } from 'node:http'
 import { networkInterfaces, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { promisify } from 'node:util'
+import { promisify, stripVTControlCharacters } from 'node:util'
 import { pathToFileURL } from 'node:url'
 import { createServer as createViteServer, preview } from 'vite'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -95,8 +95,8 @@ test('foreground helper rejects a second writer and reaps a failed startup', { t
 
 test('Vite proxies actual Go health/API/MCP and source CLI, preserving origins and cleanup', { timeout: 120000 }, async t => {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-development-check-'))
-  const env = { ...process.env, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions'), LOGIC_MARGIN_HOME: join(directory, 'unused-managed-home') }
-  delete env.LOGIC_MARGIN_URL; delete env.LOGIC_MARGIN_PUBLIC_URL
+  const env = { ...process.env, FORCE_COLOR: '1', LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions'), LOGIC_MARGIN_HOME: join(directory, 'unused-managed-home') }
+  delete env.LOGIC_MARGIN_URL; delete env.LOGIC_MARGIN_PUBLIC_URL; delete env.NO_COLOR
   const child = spawn(process.execPath, ['scripts/go-dev.mjs', '--host', '127.0.0.1', '--port', '0'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
   let raw = '', stderr = '', backendPid, client
   child.stderr.setEncoding('utf8').on('data', chunk => { stderr = (stderr + chunk).slice(-16000) })
@@ -112,11 +112,14 @@ test('Vite proxies actual Go health/API/MCP and source CLI, preserving origins a
   const url = await within(new Promise((resolve, reject) => {
     child.stdout.setEncoding('utf8').on('data', chunk => {
       raw = (raw + chunk).slice(-16000)
-      const match = raw.match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)
+      const match = stripVTControlCharacters(raw).match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+)/)
       if (match) resolve(match[1])
     })
     exited.then(() => reject(new Error(`dev exited before ready: ${stderr}\n${raw}`)), reject)
-  }), 90000, 'Vite/Go startup timed out')
+  }), 90000, 'Vite/Go startup timed out').catch(error => {
+    throw new Error(`${error.message}\n${stderr}\n${raw}`, { cause: error })
+  })
+  assert.notEqual(raw, stripVTControlCharacters(raw), 'dev startup must exercise colored terminal output')
   const health = await (await fetch(`${url}/api/health`)).json()
   assert.equal(health.service, 'logic-margin'); assert.notEqual(health.pid, child.pid)
   assert.match(health.instanceId, /^[a-f0-9-]{36}$/); backendPid = health.pid
