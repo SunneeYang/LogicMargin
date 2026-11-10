@@ -1,0 +1,35 @@
+name: Diagnose Windows Node lock
+
+on:
+  push:
+    branches: ['debug/windows-node-lock']
+
+permissions:
+  contents: read
+
+jobs:
+  node-lock:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - run: node --test server/process-lock-retry.test.ts server/process-lock.test.ts server/daemon.test.ts
+      - name: Repeat concurrent daemon startup and recovery
+        shell: pwsh
+        run: |
+          1..25 | ForEach-Object {
+            node --test --test-name-pattern="concurrent agent processes|crashed daemon" server/daemon.test.ts
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Repeat full Node test context
+        shell: pwsh
+        run: |
+          1..5 | ForEach-Object {
+            npm test
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
