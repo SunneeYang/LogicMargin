@@ -440,7 +440,7 @@ func Run(ctx context.Context, args []string, out, errOut io.Writer, opts Options
 		}
 	}
 	if command == "wait" || o.wait {
-		return waitForSubmission(c, current, o, out, errOut, opts.ConsumeSubmission)
+		return waitForSubmission(c, current, o, out, errOut, opts.ConsumeSubmission && !o.noConsume)
 	}
 	if command == "get" {
 		return writeJSON(out, current)

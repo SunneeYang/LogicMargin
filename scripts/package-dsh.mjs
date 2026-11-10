@@ -11,7 +11,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export function harnessSkill(source) {
   const start = source.indexOf('## 建立连接\n'), end = source.indexOf('## 发起审查\n')
   if (start < 0 || end <= start) throw new Error('Shared skill connection markers changed; review the DSH projection')
-  return source.slice(0, start) + `## 建立连接\n\n此技能由 DeepSeek Harness 插件注册；插件已用官方 MCP Client 接入本机 Go 服务，工具名为 \`mcp__logic_margin__start_review\`、\`mcp__logic_margin__wait_review\` 等。先核对实际工具可用，再发起评审。\n\n服务或工具不可用时读取 [DSH 连接与恢复](references/mcp-workflow.md)，重载此 DSH 插件；需要启动服务时使用本技能 scripts/ 中的固定版本 launcher 执行 \`server start\`。不要运行 Codex 专用 \`server setup\`。安装/更新只按 [DSH 插件安装与更新](references/plugin-updates.md) 执行，不使用网页的 Codex 一键更新。\n\nMCP 与源码工作区必须同机。Tailscale 仅分享网页，不能远程调用读取源码的 MCP。\n\n` + source.slice(end)
+  return source.slice(0, start) + `## 建立连接\n\n此技能由 DeepSeek Harness 插件注册；插件使用官方 MCP Client 接入本机 Go 服务，工具名为 \`mcp__logic_margin__start_review\`、\`mcp__logic_margin__wait_review\` 等。先从本技能 scripts/ 定位固定版本 launcher，记为 \`LM_CLI\`，通过宿主终端运行 \`server status\` 核对身份、版本和原端口，再实际调用只读 \`mcp__logic_margin__list_reviews\`（优先已知 context）。成功返回才确认当前 MCP 链路可用，工具名字或 HTTP 健康不足以证明握手成功。\n\n握手或工具装载失败时，按 [DSH 连接与恢复](references/mcp-workflow.md) 区分启动器/制品、HTTP 服务和宿主连接，重载插件尝试一次；后台健康兼容而 MCP 仍不可用，就在原任务授权内用原生 CLI 回退，等待使用 \`wait SESSION_ID --no-consume\`，实际读完反馈后再领取。保留同一 session 和已处理游标，说明宿主长等待限制。\n\n服务不存在时按参考安全执行 \`server start\`。不要运行 Codex 专用 \`server setup\`。安装/更新按 [DSH 插件安装与更新](references/plugin-updates.md) 执行，不使用网页的 Codex 一键更新。MCP 与源码工作区同机；网页共享仍先按前节确认访问范围，MCP 保持本机边界。\n\n` + source.slice(end)
 }
 
 export async function packageDsh(output = join(root, 'artifacts')) {

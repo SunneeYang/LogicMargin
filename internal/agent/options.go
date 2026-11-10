@@ -37,6 +37,7 @@ Options: --url <API base URL> (explicit remote service; otherwise auto-start loc
 New review: --context <thread/workflow> --purpose <review purpose>
             --cleanup-on-approval (archive after the agent receives approval)
 Waiting: --cleanup-on-approval also enables archival for this wait/resume call.
+         --no-consume leaves feedback acknowledgement and approval cleanup to explicit commands.
 Sources: --source-root <directory> (verify/start/revise; default current working directory)
 Baseline: --baseline-file <before.json> --baseline-source-root <baseline directory>
           (start/verify; an embedded baseline needs only --baseline-source-root)
@@ -65,6 +66,7 @@ type cliOptions struct {
 	values                                         map[string]string
 	url, publicURL                                 string
 	wait, baselineReview, cleanupOnApproval, force bool
+	noConsume                                      bool
 	baseRound                                      float64
 	timeout                                        time.Duration
 	explicitURL, explicitPublicURL                 bool
@@ -142,6 +144,9 @@ func parseArgs(args []string, defaults Options) ([]string, cliOptions, bool, err
 			continue
 		case "--wait":
 			o.wait = true
+			continue
+		case "--no-consume":
+			o.noConsume = true
 			continue
 		case "--baseline-review":
 			o.baselineReview = true
@@ -275,6 +280,7 @@ func validateArgs(p []string, o cliOptions) error {
 		{command == "revise" && (trim(o.value("summary")) == "" || utf16Len(o.value("summary")) > 10000), "revise 需要 --summary <本轮实际变化说明>，最多 10000 字符"},
 		{o.has("unchanged-reason") && (trim(o.value("unchanged-reason")) == "" || utf16Len(o.value("unchanged-reason")) > 10000), "流程未变的原因须为非空文本，最多 10000 字符"},
 		{(o.has("after") || o.has("timeout")) && command != "wait" && !o.wait, "--after 和 --timeout 需要 wait 命令或 --wait"},
+		{o.noConsume && command != "wait" && !o.wait, "--no-consume 需要 wait 命令或 --wait"},
 		{o.wait && !contains(command, "start", "revise", "resume", "wait"), "此命令不支持 --wait"},
 		{o.has("context") && !contains(command, "start", "list"), "--context 仅用于 start 或 list"},
 		{o.has("purpose") && command != "start", "--purpose 仅用于 start"},

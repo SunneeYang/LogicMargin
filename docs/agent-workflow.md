@@ -1,22 +1,24 @@
 # LogicMargin 代理评审流程
 
-正常评审由原 Agent 通过 HTTP MCP 完成。一个 LogicMargin 后台进程同时提供 `/mcp`、评审 API 与网页；CLI 只在启动、诊断和恢复时短暂运行。源码修改、测试和 Git 操作仍在原 Agent 的授权工作区完成。
+正常评审由原 Agent 通过 HTTP MCP 完成。一个 LogicMargin 后台进程同时提供 `/mcp`、评审 API 与网页；CLI 用于启动、诊断和 MCP 不可用时的恢复。源码修改、测试和 Git 操作仍在原 Agent 的授权工作区完成。
 
 网页批注和“提交本轮”是两个动作。保存单条批注只更新会话；提交意见或确认通过才让等待工具返回。代理回复不会自动解决批注，最终复核由人完成。
 
 ## 连接服务
 
-0.9.6 默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server setup`。
+默认使用 Go 原生 CLI，用户无需安装 Node.js 或 Go。将平台 ZIP 内 `skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）的绝对路径记为 `LM_CLI`；Git marketplace 对应使用 `scripts/logic-margin.sh` / `scripts/logic-margin.ps1`，首次启动下载并校验与插件固定版本一致的本平台程序。PowerShell 用 `& $LM_CLI` 替换下面的 `"$LM_CLI"` 调用，例如 `& $LM_CLI server status`。
 
-首次使用执行：
+新建或首次打开评审前，先检查 Agent 执行主机、用户访问设备与实际可用网络。访问范围不明确时询问并等待选择，再配置监听、创建和打开页面；恢复同一会话沿用已核实的选择。
+
+先检查后台：
 
 ```sh
-"$LM_CLI" server setup
+"$LM_CLI" server status
 ```
 
-它启动或复用后台，并通过短暂的 Codex 配置进程，注册当前 `CODEX_HOME` 用户配置中的 `logic_margin` HTTP MCP 地址与 `tool_timeout_sec`。默认工具超时为 86400 秒，保留已设置的更长值；同名不同服务或禁用配置会报错而不覆盖。配置进程不运行模型，完成后退出。
+核对身份、兼容版本、原端口和数据目录，确认可安全启动时才用 `server start`。Codex 首次尚未注册时执行 `server setup`：它启动或复用后台，并通过短暂的 Codex 配置进程注册当前 `CODEX_HOME` 的 `logic_margin` HTTP MCP 地址与 `tool_timeout_sec`。默认工具超时为 86400 秒，保留已设置的更长值；同名不同服务或禁用配置会报错而不覆盖。配置进程不运行模型，完成后退出。DSH 由插件管理连接，不运行 Codex 专用 setup。
 
-核对返回的 `mcpUrl` 与 MCP 配置结果，然后在原宿主重载或重连 MCP。返回 `reloadRequired: true` 不是工具已经加载；确认工具可调用后才进入等待。后续只需 `server start` 检查并复用后台，正常评审使用下文 MCP 工具。配置、监听、更新和 CLI 兼容详见 [插件文档](agent-plugin.md)。
+核对返回的 `mcpUrl` 与 MCP 配置结果。需要时通过原宿主重载或重连一次，再实际调用只读 `list_reviews`；返回成功才确认当前 MCP 可用。`reloadRequired: true`、HTTP 健康和工具名字可见都不能代替实际调用。健康兼容后台上的握手或工具装载故障按 [连接与 CLI 回退](../plugins/logic-margin/skills/logic-margin/references/mcp-workflow.md) 继续原评审；配置、监听和更新详见 [插件文档](agent-plugin.md)。
 
 ## 发起与等待
 
@@ -104,7 +106,7 @@ Agent 在原工作区处理意见，验证相应改动，再生成新版图，�
 "$LM_CLI" server status
 ```
 
-后台健康且兼容时重连 MCP；没有登记或确认进程已退出时用 `server start` 拉起；进程仍在但不健康、身份不符、端口冲突时保留现场并诊断，避免另起写入实例。版本不匹配时，经身份核验 `server stop` 并确认旧进程退出后再启动新版，保留实际会话目录和原 session ID。升级停服、备份与重连步骤见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。CLI 不依赖失效的 MCP 服务，恢复保持原端口和会话目录。
+后台健康兼容时，用宿主重连能力尝试一次并实际调用只读 `list_reviews`；仍失败或宿主没有重连能力时，在原授权内自动使用 CLI，等待带 `--no-consume`，读完后显式领取，核对通过与清理授权后再归档。完整分支见 [连接与 CLI 回退](../plugins/logic-margin/skills/logic-margin/references/mcp-workflow.md)。没有登记或确认进程已退出时才用 `server start` 拉起；进程仍在但不健康、身份不符、端口冲突时保留现场并诊断，避免另起写入实例。版本不匹配按 [升级与数据连续性](agent-plugin.md#升级与数据连续性) 处理，保留实际目录、原端口和 session ID。CLI 不依赖失效的 MCP 服务；其等待自动唤醒能力仍取决于宿主终端。
 
 重连后调用 `get_review`，核对目的、上下文、来源工程、固定提交和当前轮次。需要定位任务时用 `list_reviews` 的 `context` 与 `state: "all"`。领取过但尚未完成处理的意见从历史补做；继续等待可给 `wait_review` 传 `after_submission`，使用最后实际处理的固定提交 ID。
 
@@ -136,3 +138,5 @@ Agent 在原工作区处理意见，验证相应改动，再生成新版图，�
 ```
 
 CLI `wait` 保留自动领取和已授权策略下输出最终通过结果后归档的行为；MCP `wait_review` 则分开交付、领取与归档。兼容宿主反复返回 CLI 运行句柄时，继续等待仍可能触发模型调用，应明确说明，不能称为已接通 MCP 长等待。
+
+技能自动回退必须先确认 `--help` 支持 `--no-consume`，再用 `wait SESSION_ID --no-consume`（有游标时另加 `--after SUBMISSION_ID`）。该模式仅交付固定结果，实际读完后显式 `ack`；不会自动归档。旧 CLI 缺少该开关时仍可只读诊断，不能省略开关执行安全等待。

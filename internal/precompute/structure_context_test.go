@@ -263,9 +263,129 @@ func TestStructureContextCancellationAndClosedEngine(t *testing.T) {
 	if _, err := ComputeStructureWithContext(ctx, a.Code, a.Code, "go", a, a); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
+	expired, stop := context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
+	defer stop()
+	if _, _, err := engine.StructureWithContext(expired, a.Code, a.Code, "go", a, a); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("caller deadline became a budget fallback", err)
+	}
+	if _, err := ComputeStructureWithContext(expired, a.Code, a.Code, "go", a, a); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("pure computation hid caller deadline", err)
+	}
 	engine.Close()
 	if _, _, err := engine.StructureWithContext(t.Context(), a.Code, a.Code, "go", a, a); err != ErrClosed {
 		t.Fatal(err)
+	}
+}
+
+func TestStructureContextInternalDeadlineDoesNotPoisonSharedCache(t *testing.T) {
+	for _, action := range []string{"internal-deadline", "caller-cancel", "engine-close"} {
+		t.Run(action, func(t *testing.T) {
+			engine := NewEngine("")
+			defer engine.Close()
+			before := "package p\nfunc f(){return 1}\n"
+			after := strings.Replace(before, "return 1", "return 2", 1)
+			a, b := contextWindow(t, before, "return 1"), contextWindow(t, after, "return 2")
+			key := artifactKey(StructureAlgorithm()+"-document", []string{"go", artifactDigest([]byte(before))})
+			started, release := make(chan struct{}), make(chan struct{})
+			seeded := make(chan error, 1)
+			go func() {
+				_, _, err := engine.getStructure(t.Context(), key, len(before), func(ctx context.Context) ([]byte, error) {
+					close(started)
+					select {
+					case <-release:
+						return nil, context.DeadlineExceeded
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					}
+				})
+				seeded <- err
+			}()
+			<-started
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			type outcome struct {
+				raw    json.RawMessage
+				status string
+				err    error
+			}
+			done := make(chan outcome, 1)
+			go func() {
+				raw, status, err := engine.StructureWithContext(ctx, "return 1", "return 2", "go", a, b)
+				done <- outcome{raw, status, err}
+			}()
+			deadline := time.Now().Add(5 * time.Second)
+			for engine.Stats().Shared == 0 {
+				if time.Now().After(deadline) {
+					t.Fatal("structure caller never shared the document job")
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if action == "caller-cancel" {
+				cancel()
+			} else if action == "engine-close" {
+				engine.Close()
+			} else {
+				close(release)
+			}
+			got := <-done
+			if action != "internal-deadline" {
+				want := context.Canceled
+				if action == "engine-close" {
+					want = ErrClosed
+				} else {
+					close(release)
+				}
+				if !errors.Is(got.err, want) || len(got.raw) != 0 {
+					t.Fatal("lifecycle error became fallback", got, want)
+				}
+				<-seeded
+				return
+			}
+			if err := <-seeded; !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatal("deadline fixture did not run", err)
+			}
+			var result StructureResult
+			if got.err != nil || json.Unmarshal(got.raw, &result) != nil || result.Mode != "text" || result.Reason != "budget" || len(result.Key) != 64 {
+				t.Fatal("internal deadline escaped as an error", string(got.raw), got.err)
+			}
+			assertProjected(t, result, "return 1", "return 2")
+			if result.FormattingOnly || len(result.Highlights.Before)+len(result.Highlights.After)+len(result.Scopes)+len(result.Moves) != 0 || engine.Stats().MemoryBytes != 0 {
+				t.Fatal("temporary fallback retained marks or poisoned shared cache", result, engine.Stats())
+			}
+			raw, _, err := engine.StructureWithContext(t.Context(), "return 1", "return 2", "go", a, b)
+			var recovered StructureResult
+			if err != nil || json.Unmarshal(raw, &recovered) != nil || recovered.Mode != "structural" || recovered.Key != result.Key {
+				t.Fatal("shared work did not recover with the same projection identity", string(raw), err)
+			}
+			cached, status, err := engine.StructureWithContext(t.Context(), "return 1", "return 2", "go", a, b)
+			if err != nil || status != "memory" || string(cached) != string(raw) {
+				t.Fatal("successful work was not cached", status, err)
+			}
+		})
+	}
+}
+
+func TestStructureContextParsedBudgetRemainsCacheable(t *testing.T) {
+	engine := NewEngine("")
+	defer engine.Close()
+	before := "package p\nfunc f(){return 1}\n"
+	after := strings.Replace(before, "return 1", "return 2", 1)
+	a, b := contextWindow(t, before, "return 1"), contextWindow(t, after, "return 2")
+	key := artifactKey(StructureAlgorithm()+"-document", []string{"go", artifactDigest([]byte(before))})
+	if _, _, err := engine.getStructure(t.Context(), key, len(before), func(context.Context) ([]byte, error) {
+		return json.Marshal(structureDocumentArtifact{SchemaVersion: SchemaVersion, Algorithm: StructureAlgorithm(), Key: key, Reason: "budget"})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _, err := engine.StructureWithContext(t.Context(), "return 1", "return 2", "go", a, b)
+	var result StructureResult
+	if err != nil || json.Unmarshal(raw, &result) != nil || result.Mode != "text" || result.Reason != "budget" {
+		t.Fatal("parser budget was not retained", string(raw), err)
+	}
+	assertProjected(t, result, "return 1", "return 2")
+	cached, status, err := engine.StructureWithContext(t.Context(), "return 1", "return 2", "go", a, b)
+	if err != nil || status != "memory" || string(cached) != string(raw) || engine.Stats().Computations != 4 {
+		t.Fatal("computed budget artifact was not reused", status, err, engine.Stats())
 	}
 }
 
@@ -293,15 +413,20 @@ func TestStructureContextLargeFullSource(t *testing.T) {
 			if err != nil || json.Unmarshal(raw, &result) != nil {
 				t.Fatal("large complete file did not yield a valid result", err)
 			}
+			assertProjected(t, result, old, current)
 			if sample.name == "tokens" && result.Mode == "text" && result.Reason == "budget" {
 				if result.FormattingOnly || len(result.Highlights.Before)+len(result.Highlights.After)+len(result.Scopes)+len(result.Moves) != 0 {
 					t.Fatal("budget fallback retained structural marks", result)
 				}
 				t.Log("dense source reached its production budget; saved text remains intact")
+				if stats := engine.Stats(); stats.MemoryBytes > memoryBudget || stats.Computations > 4 {
+					t.Fatal(stats)
+				}
+				// A wait-budget fallback is transient; shared work may later succeed.
+				return
 			} else if result.Mode != "structural" || len(result.Highlights.After) == 0 {
 				t.Fatal("large complete file did not yield snippet structure", result.Mode, result.Reason)
 			}
-			assertProjected(t, result, old, current)
 			cached, status, err := engine.StructureWithContext(t.Context(), old, current, "go", a, b)
 			if err != nil || status != "memory" || string(cached) != string(raw) {
 				t.Fatal("large-source result was not reused", status, err)
