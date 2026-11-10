@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.14-2563eb?style=flat-square" alt="Version 0.9.14" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.15-2563eb?style=flat-square" alt="Version 0.9.15" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -101,7 +101,7 @@ Structural focus is applied automatically for supported Go and JavaScript/TypeSc
 
 ## Quickstart
 
-**0.9.14 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
+**0.9.15 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
 
 ### Use it with an agent
 
@@ -133,7 +133,7 @@ codex plugin add logic-margin@logic-margin-local
 
 Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, use [Release v0.9.14](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.14). Choose `logic-margin-agent-0.9.14-TARGET.zip` and its `.zip.sha256`:
+For installation without Git, use [Release v0.9.15](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.15). Choose `logic-margin-agent-0.9.15-TARGET.zip` and its `.zip.sha256`:
 
 | Platform | TARGET |
 | --- | --- |
@@ -147,7 +147,7 @@ Each ZIP contains one native executable and the plugin files. It runs directly f
 
 ### Try it in your browser
 
-For source development, clone the repository and run from its root:
+For source development, install Node.js and the Go version required by `go.mod`, clone the repository, and run from its root:
 
 ```sh
 npm ci
@@ -228,21 +228,24 @@ Requires the Node.js version supported by `package.json` tooling and the Go vers
 
 ```sh
 npm ci
-npm run dev         # UI development with the legacy Node API
-npm test            # Frontend/model tests and legacy Node compatibility oracle
+npm run review -- --help # Build and run the current source Go CLI
+npm run dev         # Vite HMR + source-built Go API/MCP
+npm test            # Go backend + frontend/model tests
 npm run build       # TypeScript checks and frontend build
 npm run build:go    # Native Go service with embedded UI
 npm run test:go     # Go runtime tests
 npm run test:go:agent  # Native distribution integration tests
-npm run test:go:compat # Node/Go compatibility checks
+npm run test:go:compat # Fixed legacy data + native process recovery checks
 
 npx playwright install chromium
-npm run test:go:e2e # Go service with desktop/mobile viewport and theme tests
+npm run test:go:e2e # Default Go service; full browser suite
 ```
 
 If Chrome is already installed, you can also run `PLAYWRIGHT_CHANNEL=chrome npm run test:go:e2e`.
 
-Built with React 19, TypeScript, React Flow, Vite, and a local Go HTTP service. The legacy Node backend is retained as a developer compatibility oracle. See the [plugin guide](docs/agent-plugin.md#开发与验证) for native builds and [migration validation](docs/go-backend-validation.md) for the historical test scope. Five-target cross-compilation is separate from native acceptance; the migration record reports actual execution on macOS ARM64 only.
+The dev driver starts a foreground Go service with a temporary private registry and proxies `/api` and `/mcp` through Vite without changing Host/Origin. Development reviews remain in repository `.logic-margin/sessions` (`LOGIC_MARGIN_DATA_DIR` overrides it); tests use disposable private directories. Stop the driver to stop both processes; restart it after Go edits. `npm run preview` runs the built frontend with the same Go proxy. `npm run review -- ...` builds the current source Go executable before forwarding arguments. Use `--url http://127.0.0.1:5173` for the dev service; without it, native CLI commands use the normal managed-service home.
+
+Built with React 19, TypeScript, React Flow, Vite, and a local Go HTTP service. Development, CLI, backend tests and browser tests all use Go; fixed historical fixtures retain compatibility coverage. See the [plugin guide](docs/agent-plugin.md#开发与验证) for native builds and [migration validation](docs/go-backend-validation.md) for the historical test scope. Five-target cross-compilation is separate from native acceptance; the migration record reports actual execution on macOS ARM64 only.
 
 </details>
 

@@ -1,6 +1,9 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
+// Development-only public examples, with API/MCP proxied to the same real Go server.
+export const sourceExampleURL = 'http://127.0.0.1:4174'
+
 export async function openMenu(page: Page, selector: string) {
   if (selector === '.appearance-menu') return openSettings(page)
   const menu = page.locator(selector)

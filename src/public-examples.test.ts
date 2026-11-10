@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
-import { verifyReviewSources } from '../bin/source-verification.ts'
 import { parseReview } from './model.ts'
 import { sampleReview } from './sample.ts'
 
@@ -36,8 +34,6 @@ test('public examples bind only to authored repository rules with current digest
       }
     }
     assert.doesNotMatch(JSON.stringify(review), /(?:\/Users\/|\/home\/|[A-Z]:\\Users\\|https?:\/\/)/)
-    const verified = await verifyReviewSources(structuredClone(review), fileURLToPath(new URL('../', import.meta.url)))
-    assert.deepEqual(verified.files, review.snapshot.files)
   }
   const embedded = read('public/layout-prototype.html').match(/<script[^>]*id="review-data"[^>]*>([\s\S]*?)<\/script>/)
   assert.ok(embedded)

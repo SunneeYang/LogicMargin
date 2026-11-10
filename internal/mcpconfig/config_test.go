@@ -54,7 +54,7 @@ func TestConfigHelper(t *testing.T) {
 		case "config/read":
 			result = map[string]any{"config": config, "layers": []any{map[string]any{"name": map[string]any{"type": "user", "profile": nil}, "version": "fixture-version"}}}
 		case "config/batchWrite":
-			if mode == "error" {
+			if mode == "error" || mode == "no-write" {
 				fmt.Fprintf(os.Stdout, "{\"id\":%v,\"error\":{\"message\":\"fixture-secret\"}}\n", message["id"])
 				continue
 			}
@@ -166,5 +166,22 @@ func TestConfigureFailureDoesNotExposeChildOutput(t *testing.T) {
 		if err == nil || strings.Contains(err.Error(), "fixture-secret") {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestConfigurePreservesLongTimeoutWithoutBatchWrite(t *testing.T) {
+	const base = "http://127.0.0.1:50123/mcp"
+	path, opts := fixture(t, map[string]any{"model": "keep", "mcp_servers": map[string]any{
+		"other":        map[string]any{"command": "keep"},
+		"logic_margin": map[string]any{"url": base, "enabled": true, "tool_timeout_sec": float64(172800), "disabled_tools": []any{"kept-tool"}},
+	}}, "no-write")
+	before, _ := os.ReadFile(path)
+	result, err := Configure(t.Context(), base, "0.9.14", opts)
+	if err != nil || result.ToolTimeoutSec != 172800 {
+		t.Fatal(result, err)
+	}
+	after, _ := os.ReadFile(path)
+	if string(before) != string(after) {
+		t.Fatal("existing configuration was rewritten")
 	}
 }

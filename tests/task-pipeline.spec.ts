@@ -1,3 +1,4 @@
+import { sourceExampleURL } from './ui.ts'
 import { test, expect } from '@playwright/test'
 import { commentScope, expectRevision, openMenu, openPipelineReview, openInspector } from './ui.ts'
 import type { Download } from '@playwright/test'
@@ -5,6 +6,8 @@ import type { ReviewDocument, ReviewRecord } from '../src/types.ts'
 import { sampleReview } from '../src/sample.ts'
 import { addComment } from '../src/model.ts'
 import { makeDraft } from '../src/workspace.ts'
+
+test.use({ baseURL: sourceExampleURL })
 
 async function readDownload<T>(download: Download): Promise<T> {
   const stream = await download.createReadStream()

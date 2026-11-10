@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { execFile, spawn, spawnSync } from 'node:child_process'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
 import type { TestContext } from 'node:test'
+import { startGo, goBinary } from './go-process.mjs'
 import { sampleReview } from '../src/sample.ts'
 
 const execute = promisify(execFile)
@@ -61,8 +61,9 @@ function object(value: unknown): Record<string, unknown> {
 
 async function setup(t: TestContext) {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-real-codex-mcp-'))
-  const codexHome = join(directory, 'codex'), serviceHome = join(directory, 'logic-margin')
+  const codexHome = join(directory, 'codex')
   await mkdir(codexHome)
+  let service
   const children: ChildProcessWithoutNullStreams[] = []
   t.after(async () => {
     for (const child of children.reverse()) {
@@ -73,31 +74,15 @@ async function setup(t: TestContext) {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
       await closed
     }
+    await service?.stop()
     await rm(directory, { recursive: true, force: true })
   })
-  const daemonModule = pathToFileURL(fileURLToPath(new URL('./daemon.ts', import.meta.url))).href
-  const entry = join(directory, 'daemon.mts')
-  await writeFile(entry, `import {runDaemon,runtimeVersion} from ${JSON.stringify(daemonModule)};await runDaemon({home:${JSON.stringify(serviceHome)},host:'127.0.0.1',port:0,instanceId:'codex-test-instance',shutdownToken:'codex-test-stop',version:runtimeVersion,assets:{'/index.html':{body:Buffer.from('<html>test</html>').toString('base64'),type:'text/html'}}});`)
-  const daemon = spawn(process.execPath, [entry], { cwd: directory, env: { ...process.env, LOGIC_MARGIN_HOME: serviceHome }, stdio: ['pipe', 'pipe', 'pipe'] })
-  children.push(daemon); daemon.stderr.resume()
-  const ready = await new Promise<Record<string, unknown>>((resolve, reject) => {
-    let raw = ''
-    const timer = setTimeout(() => reject(new Error('isolated daemon startup timed out')), 10000)
-    daemon.once('error', error => { clearTimeout(timer); reject(error) })
-    daemon.once('exit', () => { clearTimeout(timer); reject(new Error('isolated daemon exited before startup')) })
-    daemon.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-      raw += chunk
-      if (!raw.includes('\n')) return
-      clearTimeout(timer); resolve(object(JSON.parse(raw.split('\n')[0])))
-    })
-  })
-  assert.equal(ready.pid, daemon.pid)
-  const url = String(ready.url)
-  const configureModule = pathToFileURL(fileURLToPath(new URL('../bin/mcp-config.ts', import.meta.url))).href
-  const configure = join(directory, 'configure.mts')
-  await writeFile(configure, `import {configureCodexMcp} from ${JSON.stringify(configureModule)};console.log(JSON.stringify(await configureCodexMcp(${JSON.stringify(`${url}/mcp`)})));`)
-  const configured = await execute(process.execPath, [configure], { cwd: directory, env: { ...process.env, CODEX_HOME: codexHome }, timeout: 15000 })
-  assert.equal(object(JSON.parse(configured.stdout)).toolTimeoutSec, 86400)
+  service = await startGo({ dataDir: join(directory, 'sessions'), cwd: directory })
+  const daemon = service.child
+  const url = service.url
+  const configured = await execute(goBinary, ['server', 'setup'], { cwd: directory,
+    env: { ...process.env, LOGIC_MARGIN_HOME: service.home, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions'), CODEX_HOME: codexHome }, timeout: 15000 })
+  assert.equal(object(object(JSON.parse(configured.stdout)).mcp).toolTimeoutSec, 86400)
   const codex = spawn('codex', ['app-server'], { cwd: directory, env: { ...process.env, CODEX_HOME: codexHome }, stdio: ['pipe', 'pipe', 'pipe'] })
   children.push(codex)
   const connection = rpc(codex)
@@ -172,4 +157,23 @@ test('real Codex waits beyond its default timeout without generating a model tur
   assert.ok(!service.methods.includes('turn/start'))
   assert.ok(!service.notifications.some(method => method === 'turn/started'))
   t.diagnostic(`real Codex held one tool call for ${Date.now() - began}ms; no turn/start was sent`)
+})
+
+
+test('real Codex setup preserves unrelated TOML and is idempotent', { skip, timeout: 30000 }, async t => {
+  const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-real-config-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const codexHome = join(directory, 'codex')
+  await mkdir(codexHome)
+  const config = join(codexHome, 'config.toml')
+  await writeFile(config, '# Preserve this comment\nmodel = "preserved-test-model"\n[mcp_servers.kept]\nurl = "http://127.0.0.1:50124/mcp"\n')
+  const service = await startGo({ dataDir: join(directory, 'sessions') })
+  t.after(() => service.stop())
+  const run = () => execute(goBinary, ['server', 'setup'], { cwd: directory, timeout: 15000,
+    env: { ...process.env, CODEX_HOME: codexHome, LOGIC_MARGIN_HOME: service.home, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions') } })
+  assert.equal(JSON.parse((await run()).stdout).mcp.toolTimeoutSec, 86400)
+  const first = await readFile(config, 'utf8')
+  for (const value of ['# Preserve this comment', 'model = "preserved-test-model"', '[mcp_servers.kept]', '[mcp_servers.logic_margin]', 'tool_timeout_sec = 86400']) assert.ok(first.includes(value))
+  assert.equal(JSON.parse((await run()).stdout).mcp.reloadRequired, true)
+  assert.equal(await readFile(config, 'utf8'), first)
 })

@@ -29,9 +29,9 @@
 | MCP | `server/mcp.ts`、`server/mcp-tools.ts` | 现有工具名和参数、HTTP 传输、取消/断线、长时间人工等待、明确领取 |
 | CLI 与后台管理 | `bin/main.ts`、`bin/logic-margin.ts`、`server/daemon.ts` | 源码核验、启动/复用/停止、进程身份与锁、配置流程和退出状态 |
 | 共享运行时逻辑 | `src/model.ts`、`src/workspace.ts`、`src/revisions.ts`、`src/session-lifecycle.ts` | 数据校验、状态转换、反馈包与通过记录、逻辑身份和轮次规则 |
-| 发行与安装 | `scripts/package-agent.mjs`、Release workflow、插件技能入口 | Go 可执行文件、内嵌网页、按 OS/架构选包、校验与版本信息；发行入口不回调 Node |
+| 发行与安装 | [历史 Node 打包器](https://github.com/SunneeYang/LogicMargin/blob/13e5150631dcfcedec9182b1de221815a8257d71/scripts/package-agent.mjs)、Release workflow、插件技能入口 | Go 可执行文件、内嵌网页、按 OS/架构选包、校验与版本信息；发行入口不回调 Node |
 
-现有 TypeScript 后端和测试保留为开发兼容 oracle，正常安装与发行使用 Go 原生入口；两个后端不得同时写同一会话目录。
+迁移阶段曾保留 TypeScript 后端和测试作为兼容 oracle；当前已删除旧实现，保留固定历史 JSON/gzip/catalog 契约，开发与测试统一使用 Go。
 
 ## 必须保持的兼容语义
 
@@ -93,13 +93,13 @@ Go 迁移也为多用户同时审查做准备。2026-11-09 用户明确：本次
 - [x] macOS、Linux、Windows 原生 CI、74 项 Linux 网页验收与五目标 ZIP 构建；具体范围见[发行前平台门禁](go-backend-validation.md#090-发行前平台门禁)。
 - [ ] 服务 CPU/峰值 RSS、写入/发布负载及其他目标平台实际运行对比。
 
-0.9.2 的正常发行入口为 Go，Git marketplace 通过 `.sh` / `.ps1` 启动器下载并校验与插件固定版本一致的官方原生包；平台 ZIP 直接运行包内程序。旧 Node 入口仅作开发兼容对照。现有安装升级需先识别并停止身份确认的旧后台、备份并保留实际会话目录，再重启与重连 MCP，详见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。
+0.9.2 的正常发行入口为 Go，Git marketplace 通过 `.sh` / `.ps1` 启动器下载并校验与插件固定版本一致的官方原生包；平台 ZIP 直接运行包内程序。旧 Node 入口现已删除。现有安装升级需先识别并停止身份确认的旧后台、备份并保留实际会话目录，再重启与重连 MCP，详见 [升级与数据连续性](agent-plugin.md#升级与数据连续性)。
 
 ## 当前开发与发行入口
 
 Go 运行时模块位于 `internal/review`、`internal/agent`、`internal/service`、`internal/daemon`、`internal/mcpconfig`；`cmd/logic-margin` 是唯一程序入口。HTTP/MCP 与 CLI 复用同一套评审操作；后台管理只在终端入口解析，避免 Go 包循环依赖。
 
-开发与构建需要 Node.js 和 Go；发行程序运行不依赖这些工具。`npm test` 和旧 `npm run review --` 仅用于 Node 兼容 oracle，正常 CLI 不再通过 Node 调用。以下命令用于 Go 路径；本地 AGENTS 要求 harness 时须包裹执行，公共构建本身不依赖该工具：
+开发与构建需要 Node.js 和 Go；发行程序运行不依赖这些工具。`npm test` 覆盖 Go 后端与前端；`npm run review --` 构建当前源码 Go CLI。Node 只负责构建和子进程编排。以下命令用于 Go 路径；本地 AGENTS 要求 harness 时须包裹执行，公共构建本身不依赖该工具：
 
 ```sh
 npm run build:go
@@ -113,3 +113,17 @@ npm run test:go:e2e -- tests/session.spec.ts tests/baseline-review.spec.ts tests
 发行 tag 为 `v0.9.2`，五目标 `darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64` 各生成 `logic-margin-agent-0.9.2-TARGET.zip` 及同名 `.zip.sha256`。包内直接运行 `scripts/logic-margin`，Windows 为 `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI`。完整使用方式见 [原生插件说明](go-agent-plugin.md)。[发行前平台门禁](go-backend-validation.md#090-发行前平台门禁)已在三类操作系统 CI 执行；五目标交叉构建仍不能替代每种架构与真实设备验收。下面的 macOS ARM64 记录属于迁移阶段的历史范围。
 
 实现过程中修复了两个独立边界：进程锁先在临时目录写好 owner，再以系统不覆盖重命名原子公布，并绑定目录身份进行回收/释放，避免并发回收旧锁产生第二个 Go 写入者；Codex 配置命令由 Unix 进程组或 Windows Job 管理，关闭空闲管道、限制等待并回收包装器的子进程。macOS 的并发锁回收、目录替换释放、包装器超时回归与 race 检查已通过；其他平台的实际运行仍以最终验收记录为准。
+
+
+## Go-only 开发与测试
+
+从 `13e5150631dcfcedec9182b1de221815a8257d71` 冻结兼容 oracle 后，移除 `server/`、`bin/`、Node/Bun 打包器和 Node 专属 inspector/IPC 性能脚本。唯一后端/CLI 是 `cmd/logic-margin`；前端、DSH JS 适配器、Goja 算法 bundle 和 V8 布局 oracle 保留。
+
+- `npm run dev`：构建当前 Go，前台进程使用私有临时 registry，Vite HMR 同源代理 API/MCP；开发数据仍默认工程 `.logic-margin/sessions`，`LOGIC_MARGIN_DATA_DIR` 可覆盖。Go 编辑后重启。
+- `npm run review -- ...`：构建当前源码 Go CLI，参数和退出状态直接转发。连接开发代理时显式 `--url http://127.0.0.1:5173`。
+- `npm test`：Go 后端与前端；`npm run test:e2e` 默认真实 Go 内嵌网页，不再选择 Node 后端。
+- `npm run test:go:compat`：固定旧 JSON/gzip 与真实进程竞争/崩溃恢复；`npm run test:agent`：无 Node PATH 的原生包闭环。
+- `LOGIC_MARGIN_TEST_CODEX_MCP=1 npm run test:codex`：私有 CODEX_HOME 的真实 Codex 发现、崩溃错误、超过 65 秒等待和 TOML 保留，零模型 turn。
+- `precompute-benchmark.mjs`、`structure-diff-benchmark.mjs`：独立 Go 进程创建种子，停止后只复制权威 session JSON，计时进程不 create/GET 触发预热；保留 miss/memory/disk 和 fallback 断言。HTTP wall 不是 Go CPU。
+
+历史数字只代表原测量。固定 review oracle/旧 gzip 是已中和并重新生成的样例，不宣称原始 0.8.7 文件字节未变；来源与摘要见 `internal/review/testdata/README.md`。MCP catalog 在删旧代码前由旧 SDK oracle 捕获，见 `internal/service/testdata/README.md`。

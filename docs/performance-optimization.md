@@ -77,6 +77,8 @@
 
 0.3 冻结数据位于 `artifacts/performance/baseline-0.3.0/`。0.4 原始结果：[服务端](../artifacts/performance/server.json)、[浏览器](../artifacts/performance/browser.json)、[已安装服务](../artifacts/performance/installed-0.4.0.json)。CLI 原基线保留，当前分发包的功能已验证，本轮没有重复运行 CLI 性能采样。
 
+以下命令属于历史 Node 测量工具，在删除前的 `13e5150` 可查阅其脚本快照；它不是原始 0.4.0 测量基线，在该快照运行会产生新样本，不能直接复现原值。当前 Go 入口见文末。
+
 ```sh
 npm run build
 node scripts/perf-server.ts
@@ -84,3 +86,5 @@ env PLAYWRIGHT_CHANNEL=chrome node scripts/perf-browser.mjs
 ```
 
 基准主要 CPU 采样先后运行，所有写入均在临时目录。
+
+旧 Node 专属 `perf-server.ts`、`perf-cli.ts` 与迁移时 `benchmark-go.mjs` 已移除；如需复现历史结果，请使用 [13e5150 历史脚本](https://github.com/SunneeYang/LogicMargin/tree/13e5150631dcfcedec9182b1de221815a8257d71/scripts)。当前 Go 脚本为 `precompute-benchmark.mjs`、`structure-diff-benchmark.mjs` 和浏览器 benchmark；历史数据未改写为 Go 结果。

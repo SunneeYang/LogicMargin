@@ -7,7 +7,6 @@ import { structuralCases, structuralInput, structuralReadingCase, structuralRevi
 import type { StructuralCase } from './fixtures/structural-review.ts'
 import { openMenu } from './ui.ts'
 
-test.skip(process.env.LOGIC_MARGIN_E2E_GO !== '1', 'Requires the current Go runner, structure API and packaged UI')
 
 type Range = { from: number; to: number }
 type Highlights = { before: Range[]; after: Range[] }

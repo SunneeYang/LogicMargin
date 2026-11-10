@@ -346,3 +346,33 @@ func TestTypeScriptSourceOracle(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicExamplesVerifyAgainstRepositorySources(t *testing.T) {
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"src/sample.ts", "public/reviews/task-pipeline.logic-margin.json"} {
+		raw, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if path == "src/sample.ts" {
+			start := bytes.Index(raw, []byte("= {")) + 2
+			end := bytes.LastIndexByte(raw, '}')
+			if start < 0 || end < start {
+				t.Fatal("sample review not found")
+			}
+			raw = raw[start : end+1]
+		}
+		var doc object
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(path, err)
+		}
+		expected := obj(doc["snapshot"])["files"]
+		verified, err := VerifySources(t.Context(), doc, root)
+		if err != nil || !reflect.DeepEqual(verified["files"], expected) {
+			t.Fatal(path, verified, err)
+		}
+	}
+}

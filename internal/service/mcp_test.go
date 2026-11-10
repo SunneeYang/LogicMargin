@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -608,14 +610,17 @@ func TestMCPDefaultSDKNegotiatesLegacyProtocol(t *testing.T) {
 }
 
 func TestTypeScriptMCPCompatibility(t *testing.T) {
-	oracleRoot := os.Getenv("LOGIC_MARGIN_TS_ORACLE_ROOT")
-	if oracleRoot == "" {
-		t.Skip("set LOGIC_MARGIN_TS_ORACLE_ROOT to a TS checkout with node_modules for cross-language MCP verification")
+	sdkRoot := os.Getenv("LOGIC_MARGIN_SDK_ROOT")
+	if sdkRoot == "" {
+		sdkRoot, _ = filepath.Abs("../..")
+	}
+	if _, err := os.Stat(filepath.Join(sdkRoot, "node_modules", "@modelcontextprotocol", "sdk")); err != nil {
+		t.Skip("install npm dev dependencies for the official MCP SDK client check")
 	}
 	s := testServer(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, "node", "testdata/mcp-compat.mjs", oracleRoot, s.URL).CombinedOutput()
+	output, err := exec.CommandContext(ctx, "node", "testdata/mcp-compat.mjs", sdkRoot, s.URL).CombinedOutput()
 	if err != nil {
 		t.Fatalf("TS MCP compatibility: %v\n%s", err, output)
 	}
@@ -692,5 +697,46 @@ func TestMCPIdleTimerWaitsForAllHTTPResponses(t *testing.T) {
 		case <-deadline.C:
 			t.Fatal("idle session was not disposed")
 		}
+	}
+}
+
+func TestMCPCatalogMatchesFrozenLegacyContract(t *testing.T) {
+	s := testServer(t)
+	client := connectMCP(t, s)
+	catalog, err := client.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual := []any{}
+	for _, tool := range catalog.Tools {
+		raw, err := json.Marshal(tool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var shape map[string]any
+		if err := json.Unmarshal(raw, &shape); err != nil {
+			t.Fatal(err)
+		}
+		entry := map[string]any{}
+		for _, key := range []string{"name", "description", "inputSchema", "annotations"} {
+			if value, ok := shape[key]; ok {
+				entry[key] = value
+			}
+		}
+		actual = append(actual, entry)
+	}
+	sort.Slice(actual, func(i, j int) bool {
+		return actual[i].(map[string]any)["name"].(string) < actual[j].(map[string]any)["name"].(string)
+	})
+	raw, err := os.ReadFile("testdata/mcp-catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var expected []any
+	if err := json.Unmarshal(raw, &expected); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatal("Go MCP catalog diverged from the fixed 13e5150 Node contract")
 	}
 }

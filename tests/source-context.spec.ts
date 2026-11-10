@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto'
 import { structuralInput, structuralReview } from './fixtures/structural-review.ts'
 import { validStructure } from '../src/structural-code-diff.ts'
 
-test.skip(process.env.LOGIC_MARGIN_E2E_GO !== '1', 'Requires full-source context support in the Go service')
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
 for (const language of ['go', 'ts', 'tsx']) test(`${language}: verified full context repairs truncated evidence without exposing source`, async ({ request, page }) => {

@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { cpus, platform, release, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { createInterface } from 'node:readline'
+import { startGo, seedGoSessions } from './go-process.mjs'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -96,7 +95,7 @@ async function main(output) {
     binary: { path: binary },
     scope: {
       httpWallMs: 'Sequential loopback fetch through complete identity-encoded response body; excludes request JSON encoding and response JSON parsing. Includes source resolution, cache IO, scheduling, compute and HTTP serialization.',
-      first: 'First POST to a fresh private derived cache, asserted miss. Sessions are seeded before server launch using the existing SessionStore; no HTTP session GET/create triggers prewarming before first measurements.',
+      first: 'First POST to a fresh private derived cache, asserted miss. Sessions are created on a separate Go process, stopped, and only authoritative JSON is copied; the measured process never creates/GETs sessions before first measurements.',
       memory: 'Ten sequential repeats, each asserted memory; no OS cache flush or statistical speedup claim.',
       disk: 'First repeat after one program restart, asserted disk; filesystem caches are not flushed.',
       goCpuMs: null,
@@ -110,48 +109,11 @@ async function main(output) {
   const controller = new AbortController()
   const abort = () => { controller.abort(new Error('Benchmark interrupted')); active?.child.kill('SIGTERM') }
   process.once('SIGINT', abort); process.once('SIGTERM', abort)
-  const within = async (promise, ms, label) => {
-    let timer
-    try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(label)), ms) })]) }
-    finally { clearTimeout(timer) }
-  }
-  async function stop() {
-    if (!active) return
-    const server = active
-    if (server.child.exitCode === null && server.child.signalCode === null) {
-      if (server.url) await fetch(`${server.url}/api/shutdown`, { method: 'POST',
-        headers: { 'x-logic-margin-token': server.token }, signal: AbortSignal.timeout(2000) }).catch(() => {})
-      try { await within(server.exited, 5000, 'graceful shutdown timeout') }
-      catch {
-        server.child.kill('SIGTERM')
-        try { await within(server.exited, 2000, 'termination timeout') }
-        catch { server.child.kill('SIGKILL'); await server.exited }
-      }
-    } else await server.exited
-    server.lines.close(); active = undefined
-  }
+  async function stop() { await active?.stop(); active = undefined }
   async function start(data) {
     controller.signal.throwIfAborted()
-    const home = join(temp, 'home'), token = randomUUID()
-    const child = spawn(binary, ['_serve', '--home', home, '--data-dir', data, '--host', '127.0.0.1', '--port', '0',
-      '--instance-id', 'precompute-benchmark', '--shutdown-token', token], {
-      cwd: temp, env: { ...process.env, PATH: join(temp, 'no-js-runtimes'), LOGIC_MARGIN_HOME: home, LOGIC_MARGIN_DATA_DIR: data },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    let stderr = ''
-    child.stderr.setEncoding('utf8').on('data', chunk => { stderr = (stderr + chunk).slice(-8192) })
-    const exited = new Promise(resolve => child.once('close', (code, signal) => resolve({ code, signal })))
-    const lines = createInterface({ input: child.stdout })
-    active = { child, exited, lines, token }
-    const ready = new Promise((resolve, reject) => {
-      child.once('error', reject)
-      lines.once('line', line => { try { resolve(JSON.parse(line).url) } catch (error) { reject(error) } })
-      exited.then(() => reject(new Error(stderr || 'Go program exited before readiness')))
-    })
-    const base = await within(ready, 15000, 'Go startup timeout')
-    assert.equal(new URL(base).hostname, '127.0.0.1')
-    active.url = base
-    return base
+    active = await startGo({ binary, dataDir: data, cwd: temp, env: { ...process.env, PATH: join(temp, 'no-js-runtimes') } })
+    return active.url
   }
   async function json(base, path, body, measured = false) {
     controller.signal.throwIfAborted()
@@ -173,9 +135,7 @@ async function main(output) {
     temp = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-precompute-bench-'))
     await mkdir(join(temp, 'no-js-runtimes'))
     const data = join(temp, 'sessions')
-    const { SessionStore } = await import('../server/session-store.ts')
     const { contextReview } = await import('../tests/fixtures/context-review.ts')
-    const store = new SessionStore(data)
     const fixtures = []
     for (const sample of [{ name: 'short', lines: 194, nodes: 12 }, { name: 'long', lines: 1998, nodes: 48 }, { name: 'wide', lines: 1998, nodes: 96 }]) {
       const review = contextReview(sample.lines)
@@ -194,7 +154,7 @@ async function main(output) {
         evidence: index ? [] : original.evidence }))
       review.edges = review.nodes.slice(1).map((node, index) => ({ id: `edge-${index}`, sceneId: original.sceneId,
         source: review.nodes[index].id, target: node.id, label: index % 4 ? '继续' : '条件通过', detail: 'synthetic fixture' }))
-      const state = await store.create(review)
+      const [state] = await seedGoSessions([review], data, binary)
       // All source material below is from this saved session; never resolve its paths in the checkout.
       const before = state.review.baseline.nodes[0].evidence[0], after = state.review.nodes[0].evidence[0]
       const diff = { beforeSnapshot: { kind: 'baseline' }, afterSnapshot: { kind: 'round', round: 1 }, before: reference(before), after: reference(after) }

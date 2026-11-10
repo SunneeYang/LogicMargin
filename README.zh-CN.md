@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.14-2563eb?style=flat-square" alt="版本 0.9.14" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.15-2563eb?style=flat-square" alt="版本 0.9.15" /></a>
   <a href="#快速开始"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 原生程序；用户无需安装 Node.js 或 Go" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="人工评审与 Agent 协作" /></a>
 </p>
@@ -101,7 +101,7 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 ## 快速开始
 
-**0.9.14 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
+**0.9.15 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
 
 ### 交给 Agent 使用
 
@@ -132,7 +132,7 @@ codex plugin add logic-margin@logic-margin-local
 
 沿用原 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`、端口和 session ID。更新后加载新版技能和 CLI 路径，重启服务、重连 MCP；需要修复注册时用 `server setup`。评审数据独立于插件缓存，升级不删除会话。完整步骤见 [升级与数据连续性](docs/agent-plugin.md#升级与数据连续性)。marketplace 跟随注册的 ref，评审过程中不会后台轮询升级。
 
-不依赖 Git 时，从 [Release v0.9.14](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.14) 选择 `logic-margin-agent-0.9.14-TARGET.zip` 及同名 `.zip.sha256`：
+不依赖 Git 时，从 [Release v0.9.15](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.15) 选择 `logic-margin-agent-0.9.15-TARGET.zip` 及同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |
@@ -225,21 +225,24 @@ MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknow
 
 ```sh
 npm ci
-npm run dev         # 网页开发及旧 Node API
-npm test            # 前端/模型测试与旧 Node 兼容对照
+npm run review -- --help # 构建并运行当前源码 Go CLI
+npm run dev         # Vite HMR + 源码构建的 Go API/MCP
+npm test            # Go 后端 + 前端/模型测试
 npm run build       # TypeScript 检查与前端构建
 npm run build:go    # 内嵌网页的 Go 原生服务
 npm run test:go     # Go 运行时测试
 npm run test:go:agent  # 原生分发包集成测试
-npm run test:go:compat # Node/Go 兼容对照
+npm run test:go:compat # 固定旧数据兼容及原生进程恢复
 
 npx playwright install chromium
-npm run test:go:e2e # Go 服务上的桌面/手机视口与主题交互
+npm run test:go:e2e # 默认 Go 服务上的完整浏览器测试
 ```
 
 已有 Chrome 时也可运行 `PLAYWRIGHT_CHANNEL=chrome npm run test:go:e2e`。
 
-技术栈：React 19、TypeScript、React Flow、Vite，以及 Go 本地 HTTP 服务。旧 Node 后端仅保留为开发兼容对照；原生构建见 [插件文档](docs/agent-plugin.md#开发与验证)，历史验证范围见 [迁移验收](docs/go-backend-validation.md)。五目标交叉编译与目标平台实际运行分别验收，迁移记录中仅 macOS ARM64 实际执行。
+开发 driver 用临时私有登记目录启动前台 Go，再由 Vite 同源代理 `/api` 与 `/mcp`，保留 Host/Origin 校验。开发评审继续保存于工程 `.logic-margin/sessions`，可用 `LOGIC_MARGIN_DATA_DIR` 覆盖；测试显式使用私有临时目录。停止 driver 会回收两个进程；Go 改动后重启 driver。`npm run preview` 以前端构建产物搭配相同代理；`npm run review -- ...` 先构建当前源码 Go 程序再转发参数。连接开发服务时传 `--url http://127.0.0.1:5173`；未传时 CLI 沿用正常受管服务目录。
+
+技术栈：React 19、TypeScript、React Flow、Vite，以及 Go 本地 HTTP 服务。开发、CLI、后端测试和浏览器测试均使用 Go；固定历史 fixture 保留兼容断言。原生构建见 [插件文档](docs/agent-plugin.md#开发与验证)，历史验证范围见 [迁移验收](docs/go-backend-validation.md)。五目标交叉编译与目标平台实际运行分别验收，迁移记录中仅 macOS ARM64 实际执行。
 
 </details>
 

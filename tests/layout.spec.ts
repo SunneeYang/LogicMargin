@@ -1,6 +1,9 @@
+import { sourceExampleURL } from './ui.ts'
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { commentScope, openInspector } from './ui.ts'
+
+test.use({ baseURL: sourceExampleURL })
 
 const requirementTitle = '虚构演示 · 任务流水线'
 

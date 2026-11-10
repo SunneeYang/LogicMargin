@@ -2,7 +2,7 @@
 
 LogicMargin 的 DSH 插件启动或复用原生 Go 服务，接入 DSH 官方 MCP Client，并注册 `logic-margin` 技能。流程图、源码核验、固定 B/R、意见领取与多轮复核沿用同一后端。
 
-当前兼容基线为 **DSH `0.2.2-rc.1`、LogicMargin `0.9.14`**。当前 master 文档中的 `mcpManager` 不存在于该发布包；本适配使用双方共有的异步插件接口，不能据此承诺其他 DSH 版本兼容。
+当前兼容基线为 **DSH `0.2.2-rc.1`、LogicMargin `0.9.15`**。当前 master 文档中的 `mcpManager` 不存在于该发布包；本适配使用双方共有的异步插件接口，不能据此承诺其他 DSH 版本兼容。
 
 `agent-tmp-run` 是开发机可选的临时文件 harness，不是公共依赖；以下命令可从仓库根目录执行。有本地 AGENTS 强制要求时仍须使用本地 harness 包裹命令。
 
@@ -14,16 +14,16 @@ LogicMargin 的 DSH 插件启动或复用原生 Go 服务，接入 DSH 官方 MC
 npm run package:dsh
 ```
 
-生成 `artifacts/dsh-plugin-logicmargin-0.9.14.tgz` 和同名 `.sha256`。它包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。不要直接安装 `plugins/deepseek-harness` 源码目录：随包资源由打包脚本生成。
+生成 `artifacts/dsh-plugin-logicmargin-0.9.15.tgz` 和同名 `.sha256`。它包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。不要直接安装 `plugins/deepseek-harness` 源码目录：随包资源由打包脚本生成。
 
 正式发行流水线将它与五个平台的原生 ZIP 一起构建，核对包内版本和许可，写入统一 `SHA256SUMS` 后上传到对应 GitHub Release。该流程不自动发布 npm 或提交市场收录；已发布的 `v0.9.6` Release 不会因修改流水线而自动增加附件。
 
-从 [v0.9.14 Release](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.14) 下载 `dsh-plugin-logicmargin-0.9.14.tgz` 与同名 `.sha256`，核验后按下文安装。GitHub Release 是本包的直接分发入口；npm 与社区 Discover 收录另行发布，不能把 Release 下载等同于已上架市场。
+从 [v0.9.15 Release](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.15) 下载 `dsh-plugin-logicmargin-0.9.15.tgz` 与同名 `.sha256`，核验后按下文安装。GitHub Release 是本包的直接分发入口；npm 与社区 Discover 收录另行发布，不能把 Release 下载等同于已上架市场。
 
 安装到实际使用的 profile：
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.14.tgz
+dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.15.tgz
 ```
 
 重载该插件/profile，核对技能 `logic-margin` 和 `mcp__logic_margin__start_review`、`mcp__logic_margin__wait_review` 工具。让 Agent 在待评审工程中使用 `logic-margin` 技能，读取真实来源、整理评审并给出页面链接。安装成功、技能被发现、MCP 可调用需要分别确认。
@@ -62,7 +62,7 @@ npm run test:dsh
 env \
   LOGIC_MARGIN_DSH_ROOT=/absolute/path/to/node_modules/@deepseek-ai/dsh \
   node scripts/dsh-integration.mjs \
-  artifacts/dsh-plugin-logicmargin-0.9.14.tgz \
+  artifacts/dsh-plugin-logicmargin-0.9.15.tgz \
   .scratch/dsh-web-integration.json
 ```
 

@@ -552,3 +552,64 @@ func TestBaselineAndRecordReadsReturnDefensiveCopies(t *testing.T) {
 	obj(returned["review"], "")["title"] = "caller changed record"
 	assertEqual(t, get(s.GetRecord(id, str(record["id"]))), record)
 }
+
+func TestGrowingHistoryCrosses32MiBAndSurvivesRestart(t *testing.T) {
+	directory := t.TempDir()
+	store := NewStore(directory)
+	defer store.Close()
+	get := must(t)
+	state := get(store.Create(fixture(t), "", nil))
+	doc := obj(state["review"], "")
+	comments := []any{}
+	for i := 0; i < 110; i++ {
+		c := firstComment(fmt.Sprintf("size-%d", i))
+		c["originRound"] = float64(1)
+		c["body"] = "x"
+		comments = append(comments, c)
+	}
+	doc["comments"] = comments
+	state["round"] = float64(30)
+	snapshots := []any{}
+	docs := []Object{doc}
+	for i := 0; i < 30; i++ {
+		snapshotDoc := clone(doc).(Object)
+		docs = append(docs, snapshotDoc)
+		snapshots = append(snapshots, Object{"round": float64(i + 1), "openedAt": state["createdAt"], "review": snapshotDoc})
+	}
+	state["snapshots"] = snapshots
+	const target = 32*1024*1024 - 1000
+	bodyLength := 1 + (target-len(stringify(state)))/(len(docs)*len(comments))
+	for _, d := range docs {
+		for _, c := range objects(d["comments"]) {
+			c["body"] = strings.Repeat("x", bodyLength)
+		}
+	}
+	remaining := target - len(stringify(state))
+	for _, c := range objects(doc["comments"]) {
+		extra := min(remaining, 10000-len(str(c["body"])))
+		c["body"] = str(c["body"]) + strings.Repeat("x", extra)
+		remaining -= extra
+	}
+	raw := []byte(stringify(state))
+	if remaining != 0 || len(raw) != target {
+		t.Fatal("invalid size fixture", remaining, len(raw))
+	}
+	id := str(state["id"])
+	if err := os.WriteFile(store.path(id), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	before := get(store.Get(id, "current"))
+	added := firstComment("size-new")
+	added["body"] = strings.Repeat("x", 10000)
+	saved := get(store.Mutate(id, Object{"round": float64(30), "revision": doc["revision"], "fingerprint": obj(doc["snapshot"], "")["fingerprint"], "mutations": []any{Object{"kind": "add-comment", "comment": added}}}, "current"))
+	if num(saved["version"]) != num(before["version"])+1 || len(objects(obj(saved["review"], "")["comments"])) != 111 {
+		t.Fatal("history growth lost data")
+	}
+	info, err := os.Stat(store.path(id))
+	if err != nil || info.Size() <= 32*1024*1024 {
+		t.Fatal("did not cross former limit", info, err)
+	}
+	restarted := NewStore(directory)
+	defer restarted.Close()
+	assertEqual(t, get(restarted.Get(id, "current")), saved)
+}

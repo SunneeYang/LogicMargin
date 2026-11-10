@@ -32,18 +32,22 @@ export async function buildUi() {
   await readFile(join(destination, 'index.html'))
 }
 
-export async function buildGo(target = hostTarget, output, { uiReady = false } = {}) {
+export async function buildGo(target = hostTarget, output, { uiReady = false, signal } = {}) {
   checkTarget(target)
+  signal?.throwIfAborted()
   if (!uiReady) await buildUi()
+  signal?.throwIfAborted()
   await buildGraphPrecompute()
+  signal?.throwIfAborted()
   await buildStructureParser()
+  signal?.throwIfAborted()
   const { version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('程序版本须为 x.y.z')
   output = resolve(output ?? join(root, 'artifacts/go', target, target.startsWith('win32-') ? 'logic-margin.exe' : 'logic-margin'))
   await mkdir(dirname(output), { recursive: true })
   const [GOOS, GOARCH] = targets[target]
   await run('go', ['build', '-trimpath', '-ldflags', `-s -w -X main.version=${version}`, '-o', output, './cmd/logic-margin'],
-    { cwd: root, env: { ...process.env, CGO_ENABLED: '0', GOOS, GOARCH }, maxBuffer: 8 * 1024 * 1024 })
+    { cwd: root, signal, env: { ...process.env, CGO_ENABLED: '0', GOOS, GOARCH }, maxBuffer: 8 * 1024 * 1024 })
   return output
 }
 

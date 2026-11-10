@@ -1,6 +1,6 @@
 # LogicMargin 0.9.9 原生插件
 
-0.9.9 默认使用一个 Go 可执行文件，包含 HTTP MCP、评审 API、会话管理、CLI 和现有 React 网页。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 仅用于源码开发与构建。旧 Node 后端仅保留为开发兼容对照。
+0.9.9 默认使用一个 Go 可执行文件，包含 HTTP MCP、评审 API、会话管理、CLI 和现有 React 网页。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 仅用于源码开发与构建。源码开发、CLI 和后端/浏览器测试也统一使用 Go；旧 Node 后端与打包入口已删除。
 
 ## 选择并校验 ZIP
 
@@ -62,3 +62,5 @@ Git marketplace 安装与此 ZIP 入口不同：它使用 `scripts/logic-margin.
 代码对照只使用固定基线 B 与轮次 R 保存的源码片段，不补读当前工作区。统一/并排共用单一竖向滚动入口，可逐次展开上下文。文本差异默认可读；支持语法可切换结构重点，明确移动且修改的块可与原位置局部对照。不支持、无效语法、不确定边界或预算耗尽时保留文本回退。它不使用 SemanticDiff 引擎，也不证明通用语义等价。
 
 五目标交叉编译与各平台原生运行分别验收。历史迁移记录只有 macOS ARM64 实际运行，其他平台和真实手机网络仍需单独验证；不能凭生成 ZIP 声称已通过目标系统验收。详细历史结果见 [Go 迁移验收](https://github.com/SunneeYang/LogicMargin/blob/main/docs/go-backend-validation.md)、[结构 diff](https://github.com/SunneeYang/LogicMargin/blob/main/docs/structural-diff.md) 与 [完整安装说明](https://github.com/SunneeYang/LogicMargin/blob/main/docs/agent-plugin.md)。
+
+源码开发及验证命令见 [当前开发入口](agent-plugin.md#开发与验证)：`npm run dev` 保留 Vite HMR 并代理真实 Go；`npm run review -- ...` 构建当前源码 CLI；`npm test` 与默认 `npm run test:e2e` 均覆盖 Go。开发数据仍默认工程 `.logic-margin/sessions`，测试使用私有临时目录。

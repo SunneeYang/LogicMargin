@@ -12,7 +12,6 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { performanceReview, performanceSession, performanceSessionId } from '../tests/fixtures/performance-review.ts'
 import { parseReview } from '../src/model.ts'
-import { validateEvidenceCode } from '../server/publication.ts'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -29,8 +28,6 @@ function distribution(values) {
 
 function validateFixture() {
   const review = parseReview(performanceReview())
-  validateEvidenceCode(review)
-  validateEvidenceCode(review.baseline)
   assert.equal(review.scenes.length, 2)
   for (const document of [review, review.baseline]) {
     assert.equal(document.snapshot.fingerprint, hash(JSON.stringify(document.snapshot.files)))
@@ -54,7 +51,7 @@ function validateFixture() {
   return review
 }
 
-// Same nearest-rank quantiles as perf-server.ts (with explicit even-size behavior).
+// Nearest-rank quantiles, with an explicit even-size median.
 if (process.argv[2] === '--self-test') {
   assert.deepEqual(distribution([5, 1, 4, 2, 3]), { n: 5, median: 3, p95: 5, min: 1, max: 5, raw: [5, 1, 4, 2, 3] })
   assert.equal(distribution([4, 1, 3, 2]).median, 2)

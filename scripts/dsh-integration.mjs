@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { access, cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -156,6 +156,15 @@ try {
     report.peerVersions = peers
     return context
   }
+  const installedBinary = join(process.platform === 'win32' ? process.env.LOCALAPPDATA : process.env.XDG_CACHE_HOME, `logic-margin/native/${version}`,
+    process.platform === 'win32' ? 'win32-x64' : `${process.platform}-${process.arch === 'x64' ? 'x64' : 'arm64'}`,
+    process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin')
+  if (inherited.LOGIC_MARGIN_GO_BINARY) {
+    assert.ok(isAbsolute(inherited.LOGIC_MARGIN_GO_BINARY), 'Source-built Go override must be absolute')
+    await mkdir(dirname(installedBinary), { recursive: true })
+    await cp(inherited.LOGIC_MARGIN_GO_BINARY, installedBinary)
+    report.sourceNativeSHA256 = hash(await readFile(inherited.LOGIC_MARGIN_GO_BINARY))
+  }
   console.log('[dsh] activating actual package; fixed-version native release may download into isolated cache')
   ctx = await mount()
   assert.equal(ctx.webServer.host, '127.0.0.1')
@@ -163,11 +172,9 @@ try {
   const running = await registry()
   assert.equal(running.version, version)
   const initialPid = running.pid
-  const installedBinary = join(process.platform === 'win32' ? process.env.LOCALAPPDATA : process.env.XDG_CACHE_HOME, `logic-margin/native/${version}`,
-    process.platform === 'win32' ? 'win32-x64' : `${process.platform}-${process.arch === 'x64' ? 'x64' : 'arm64'}`,
-    process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin')
   report.nativeVersion = running.version
   report.nativeBinarySHA256 = hash(await readFile(installedBinary))
+  if (report.sourceNativeSHA256) assert.equal(report.nativeBinarySHA256, report.sourceNativeSHA256)
   mark('realLoaderNativeActivation')
   const catalog = await ctx.skills.list()
   assert.ok(catalog.some(value => value.name === 'logic-margin'))
