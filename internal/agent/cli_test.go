@@ -78,8 +78,9 @@ func clearURLEnv(t *testing.T) {
 
 func TestWaitDeliveryAndExplicitAcknowledgement(t *testing.T) {
 	clearURLEnv(t)
-	for _, consume := range []bool{true, false} {
-		t.Run(map[bool]string{true: "CLI", false: "MCP"}[consume], func(t *testing.T) {
+	for _, mode := range []string{"CLI", "MCP", "CLI-no-consume"} {
+		t.Run(mode, func(t *testing.T) {
+			consume := mode == "CLI"
 			current := fixtureSession(t)
 			submitted := record(t, "feedback-1", "logic-margin-feedback", obj(current["review"]))
 			reads, acks := 0, 0
@@ -108,7 +109,11 @@ func TestWaitDeliveryAndExplicitAcknowledgement(t *testing.T) {
 				respond(w, current)
 			}))
 			defer server.Close()
-			result, _, _, err := runTest(t, context.Background(), []string{"wait", "session-1"}, Options{URL: server.URL, ConsumeSubmission: consume})
+			args := []string{"wait", "session-1"}
+			if mode == "CLI-no-consume" {
+				args = append(args, "--no-consume")
+			}
+			result, _, _, err := runTest(t, context.Background(), args, Options{URL: server.URL, ConsumeSubmission: mode != "MCP"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -172,6 +177,11 @@ func TestWaitCursorRoundBoundaryTimeoutAndEarlierFeedback(t *testing.T) {
 	if out != "" || posts != 0 {
 		t.Fatal(out, posts)
 	}
+	_, out, _, err = runTest(t, context.Background(), []string{"resume", "session-1", "--wait", "--no-consume", "--timeout", "0.04"}, Options{URL: server.URL, ConsumeSubmission: true})
+	requireError(t, err, "等待审查超时")
+	if out != "" || posts != 0 {
+		t.Fatal("CLI fallback consumed on timeout", out, posts)
+	}
 	current["history"] = append(arr(current["history"]), record(t, "third", "logic-margin-feedback", obj(current["review"])))
 	result, _, _, err = runTest(t, context.Background(), []string{"wait", "session-1"}, opts)
 	if err != nil || result["round"] != float64(2) || obj(result["submission"])["id"] != "third" || result["earlierSubmissions"] != nil {
@@ -180,7 +190,7 @@ func TestWaitCursorRoundBoundaryTimeoutAndEarlierFeedback(t *testing.T) {
 }
 func TestApprovalOutputBeforeCleanupAndMCPCleanupPending(t *testing.T) {
 	clearURLEnv(t)
-	for _, mode := range []string{"success", "conflict", "MCP", "historical"} {
+	for _, mode := range []string{"success", "conflict", "MCP", "CLI-no-consume", "historical"} {
 		t.Run(mode, func(t *testing.T) {
 			current := fixtureSession(t)
 			feedback := record(t, "feedback", "logic-margin-feedback", obj(current["review"]))
@@ -221,7 +231,11 @@ func TestApprovalOutputBeforeCleanupAndMCPCleanupPending(t *testing.T) {
 				respond(w, current)
 			}))
 			defer server.Close()
-			err := Run(context.Background(), []string{"wait", "session-1", "--after", "feedback"}, &out, &errOut, Options{URL: server.URL, ConsumeSubmission: mode != "MCP"})
+			args := []string{"wait", "session-1", "--after", "feedback"}
+			if mode == "CLI-no-consume" {
+				args = append(args, "--no-consume")
+			}
+			err := Run(context.Background(), args, &out, &errOut, Options{URL: server.URL, ConsumeSubmission: mode != "MCP"})
 			if mode == "conflict" {
 				requireError(t, err, "已输出通过结果，但自动归档失败")
 			} else if err != nil {
@@ -235,7 +249,7 @@ func TestApprovalOutputBeforeCleanupAndMCPCleanupPending(t *testing.T) {
 			if result["approved"] != true || summary["resolvedCommentCount"] != float64(0) || summary["comments"] != nil || obj(summary["snapshot"])["files"] != nil {
 				t.Fatal(result)
 			}
-			if mode == "MCP" {
+			if mode == "MCP" || mode == "CLI-no-consume" {
 				if cleanups != 0 || result["cleanupPending"] != true {
 					t.Fatal(cleanups, result)
 				}
@@ -258,6 +272,7 @@ func TestAllHTTPPathsCarryCancellation(t *testing.T) {
 	}{
 		{"initial", []string{"get", "session-1"}, "initial"},
 		{"poll", []string{"wait", "session-1"}, "poll"},
+		{"no-consume-poll", []string{"wait", "session-1", "--no-consume"}, "poll"},
 		{"ack", []string{"ack", "session-1", "feedback"}, "/ack"},
 		{"automatic-ack", []string{"wait", "session-1"}, "/ack"},
 		{"archive", []string{"get", "session-1"}, "/archive"},
@@ -321,6 +336,31 @@ func TestAllHTTPPathsCarryCancellation(t *testing.T) {
 	}
 }
 
+func TestNoConsumeRequiresWaiting(t *testing.T) {
+	clearURLEnv(t)
+	for _, args := range [][]string{
+		{"wait", "id", "--no-consume"},
+		{"start", "review.json", "--wait", "--no-consume"},
+		{"resume", "id", "--wait", "--no-consume"},
+		{"revise", "id", "review.json", "--base-round", "1", "--summary", "changed", "--wait", "--no-consume"},
+	} {
+		p, o, _, err := parseArgs(args, Options{})
+		if err != nil {
+			t.Fatal(args, err)
+		}
+		if err := validateArgs(p, o); err != nil {
+			t.Fatal(args, err)
+		}
+	}
+	for _, args := range [][]string{{"get", "id", "--no-consume"}, {"list", "--no-consume"}, {"start", "review.json", "--no-consume"}, {"resume", "id", "--no-consume"}, {"revise", "id", "review.json", "--base-round", "1", "--summary", "changed", "--no-consume"}} {
+		err := Run(t.Context(), args, io.Discard, io.Discard, Options{ResolveURL: func(context.Context) (string, error) {
+			t.Error("invalid no-consume invoked daemon", args)
+			return "", errors.New("bad")
+		}})
+		requireError(t, err, "--no-consume")
+	}
+}
+
 func TestResolveURLPrecedenceAndValidationOrder(t *testing.T) {
 	clearURLEnv(t)
 	current := fixtureSession(t)
@@ -354,7 +394,7 @@ func TestHelpAndInvalidOptions(t *testing.T) {
 	clearURLEnv(t)
 	for _, args := range [][]string{nil, {"help"}, {"--help"}, {"start", "--help"}} {
 		var out bytes.Buffer
-		if err := Run(context.Background(), args, &out, io.Discard, Options{}); err != nil || !strings.Contains(out.String(), "baseline <sessionId>") || !strings.Contains(out.String(), "Replies never resolve") {
+		if err := Run(context.Background(), args, &out, io.Discard, Options{}); err != nil || !strings.Contains(out.String(), "baseline <sessionId>") || !strings.Contains(out.String(), "Replies never resolve") || !strings.Contains(out.String(), "--no-consume") {
 			t.Fatal(err, out.String())
 		}
 	}

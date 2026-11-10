@@ -7,27 +7,33 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 在当前开发工程工作。LogicMargin 的一个后台进程同时提供 HTTP MCP、评审 API 和网页；源码修改、测试和 Git 操作仍由原 Agent 在授权工作区完成。
 
-用户要求安装、检查或更新插件时，读取 [插件安装与更新](references/plugin-updates.md)，核对实际安装结果后报告。首次连接、工具缺失或连接故障时，读取 [连接、恢复与 CLI 兼容](references/mcp-workflow.md)。
+用户要求安装、检查或更新插件时，读取 [插件安装与更新](references/plugin-updates.md)，核对实际安装结果后报告。首次连接、工具缺失或连接故障时，读取 [连接、恢复与 CLI 回退](references/mcp-workflow.md)。
 
 ## 确定评审访问方式
 
 新建评审前，先结合已有对话识别 Agent 的执行主机与用户打开评审页的设备，检查当前电脑实际可用的网络连接和可达地址。根据这些事实提出适合用户访问设备的选项，用实际设备名或地址说明访问范围，不预设固定选项或特定网络服务。用户设备信息尚不明确且影响判断时再询问。
 
-访问范围尚未明确时，先询问用户并等待选择，再配置共享和创建评审。已有明确选择时核验并沿用；同一会话恢复或发布新版不重复询问。确认访问方式后，按对应监听地址和可达地址生成分享链接，核对的范围不足以证明跨设备可达时如实说明。
+访问范围尚未明确时，先询问用户并等待选择，再配置共享、创建和打开评审页面。已有明确选择时核验并沿用；同一会话恢复或发布新版不重复询问。确认访问方式后，按对应监听地址和可达地址生成分享链接，核对的范围不足以证明跨设备可达时如实说明。
 
 ## 建立连接
 
-将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器首次从官方 GitHub Release 下载与插件固定版本一致的本平台原生 ZIP，校验 SHA-256 后运行。0.9.6 默认运行 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`，带空格的路径同样适用。
+将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器校验并运行与插件固定版本匹配的 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`。
+
+首次连接或恢复先做独立于 MCP 的检查：
 
 ```sh
-"$LM_CLI" server start
+"$LM_CLI" server status
 ```
 
-核对返回的 `mcpUrl`，复用已运行的兼容后台。正常评审使用 `logic_margin` MCP 工具；首次尚未注册时执行 `server setup`，它只更新当前 Codex home 下的 LogicMargin MCP 地址和工具超时。返回 `reloadRequired: true` 后，在原宿主重载或重连 MCP，并核实工具已可用。仅启动后台或写入配置，不代表当前会话已加载工具；未加载时先报告连接状态，不以反复 CLI 等待冒充 MCP 等待。
+按 [连接与恢复](references/mcp-workflow.md) 核对服务身份、版本、原端口和数据目录；仅在确认可安全启动时执行 `server start`，复用已运行的兼容后台。再在当前宿主实际调用只读 `list_reviews`，优先传入已知 `context`，成功返回才确认当前 MCP 链路可用。工具名已列出、HTTP 健康或存在 `mcpUrl` 都不能代替这次调用。
 
-MCP 只接受本机连接。按已确认的网页访问范围设置 HTTP 监听和 `public_url`；共享链接与实际监听必须匹配，`public_url` 本身不会开放网络访问。需要调整监听、处理旧版本或连接失败时按连接参考执行。
+Codex 首次尚未注册时执行 `server setup`；它只更新当前 Codex home 的 LogicMargin 地址和工具超时。需要重载时用宿主提供的重连动作尝试一次，再做只读调用。握手或工具装载仍失败而后台健康兼容时，在原任务授权内自动使用 [CLI 回退](references/mcp-workflow.md#mcp-不可用时的-cli-回退) 继续同一评审，等待使用 `wait SESSION_ID --no-consume`，实际读完反馈后再领取。保留原 session 和已处理游标，说明当前使用的通道及宿主等待限制。
+
+MCP 始终限本机。网页按前节确认的访问范围配置监听和 `public_url`；链接与实际监听必须匹配，`public_url` 本身不会开放网络。启动器/发行附件错误、版本或身份冲突按连接参考诊断，写请求响应丢失时先核对已保存状态再决定是否重试。
 
 ## 发起审查
+
+下文 MCP 工具名描述正常通道。已进入 CLI 回退时，按连接参考用等价 CLI 贯穿核验、读取、等待、领取、发布和清理；MCP 恢复后先核对原 session 与已处理游标，再切回工具通道。
 
 用户给出 session ID 或带 `?session=...` 的链接并要求继续时，转到“恢复会话”。每个独立目的分别调用 `start_review`，取得独立 session ID；同一目的的多轮修改沿原 session 发布新版。`context` 填已知的实际 thread/workflow 标识，没有时省略；相同 context 或评审文件 ID 不代表复用会话。
 
