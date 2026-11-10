@@ -189,7 +189,11 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 			return nil, fmt.Errorf("确认服务锁：%w", err)
 		}
 		current, err := directory.Stat(".")
-		if err != nil || !os.SameFile(identity, current) {
+		if err != nil {
+			_ = directory.Close()
+			return nil, fmt.Errorf("确认服务锁身份：%w", err)
+		}
+		if !os.SameFile(identity, current) {
 			_ = directory.Close()
 			return nil, fmt.Errorf("服务锁目录已变化：%s", path)
 		}
