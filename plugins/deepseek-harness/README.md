@@ -9,12 +9,12 @@ The distributable is generated from the repository with `npm run package:dsh`. I
 For the profile you actually use:
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.13.tgz
+dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.14.tgz
 ```
 
 Reload the plugin/profile, verify the `logic-margin` skill, and verify `mcp__logic_margin__start_review` and `mcp__logic_margin__wait_review`. Use the skill in the original workspace. Installation alone is not proof that tools are loaded.
 
-The first activation downloads the matching official LogicMargin 0.9.13 release and verifies SHA-256. macOS/Linux need `curl`, `unzip`, and `shasum` or `sha256sum`; Windows uses PowerShell. Git and compilers are not required. Native availability matches the five LogicMargin targets: macOS ARM64/x64, Linux ARM64/x64, Windows x64.
+The first activation downloads the matching official LogicMargin 0.9.14 release and verifies SHA-256. macOS/Linux need `curl`, `unzip`, and `shasum` or `sha256sum`; Windows uses PowerShell. Git and compilers are not required. Native availability matches the five LogicMargin targets: macOS ARM64/x64, Linux ARM64/x64, Windows x64.
 
 The default reuses the same user's compatible local LogicMargin service. Optional plugin config fields are `home` (an absolute path) and `port` (0–65535). A separate home isolates the daemon registry; its data defaults to `<home>/sessions`, unless the host explicitly supplies `LOGIC_MARGIN_DATA_DIR`. Existing daemons retain their registered data directory. A conflicting or incompatible daemon fails explicitly; this plugin does not stop or replace it.
 

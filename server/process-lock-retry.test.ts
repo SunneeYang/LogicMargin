@@ -28,10 +28,15 @@ test('lock creation handles Windows delete-pending EPERM within its existing dea
       const realMkdir = fs.mkdir
       const failure = Object.assign(new Error('injected mkdir error'), { code: scenario.code, syscall: 'mkdir', path })
       let attempts = 0
+      let now = 1000
       try {
         Object.defineProperty(process, 'platform', { value: scenario.platform })
+        t.mock.method(Date, 'now', () => now)
         t.mock.method(fs, 'mkdir', async (...args: Parameters<typeof realMkdir>) => {
-          if (args[0] === path && (++attempts === 1 || !scenario.transient)) throw failure
+          if (args[0] === path && (++attempts === 1 || !scenario.transient)) {
+            if (attempts > 1) now += scenario.wait
+            throw failure
+          }
           return realMkdir(...args)
         })
         syncBuiltinESMExports()
