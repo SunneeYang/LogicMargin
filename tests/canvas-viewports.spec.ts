@@ -1,3 +1,4 @@
+import { sourceExampleURL } from './ui.ts'
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { sampleReview } from '../src/sample.ts'
@@ -148,6 +149,8 @@ test('first visit to a wide scene fits both sides of its graph', async ({ page }
   for (const node of branches) await expect(page.locator(`.react-flow__node[data-id="${node.id}"]`)).toBeInViewport({ ratio: 0.99 })
 })
 
+test.describe('development public example', () => {
+  test.use({ baseURL: sourceExampleURL })
 test('fictional review scenes restore their own positions while first visits show the start', async ({ page }) => {
   await page.goto('/?review=task-pipeline')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
@@ -160,6 +163,8 @@ test('fictional review scenes restore their own positions while first visits sho
   await expect.poll(async () => (await viewport(page)).zoom).toBeCloseTo(enter.zoom, 3)
   await expect.poll(async () => (await viewport(page)).x).toBeCloseTo(enter.x, 0)
   await expect.poll(async () => (await viewport(page)).y).toBeCloseTo(enter.y, 0)
+})
+
 })
 
 test('a new standalone revision starts with its own view instead of an old revision camera', async ({ page }) => {

@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -385,5 +387,74 @@ func TestJSNumberOptions(t *testing.T) {
 	_, o, _, err := parseArgs([]string{"wait", "id", "--timeout", "0x10000000000000000"}, Options{})
 	if err != nil || o.timeout <= 0 {
 		t.Fatal(o, err)
+	}
+}
+
+func TestCombinedBaselineSizeRejectedBeforeNetworkOrDaemon(t *testing.T) {
+	clearURLEnv(t)
+	root, current := sourceFixture(t, map[string][]byte{"logic.go": []byte("check()\n")})
+	addEvidence(current, "logic.go", "check()", 1)
+	baseline := cloneObject(t, current)
+	for _, doc := range []object{current, baseline} {
+		nodes := arr(doc["nodes"])
+		for i := 0; i < 540; i++ {
+			node := cloneObject(t, obj(nodes[0]))
+			node["id"] = fmt.Sprintf("padding-%d", i)
+			node["evidence"] = []any{}
+			node["detail"] = strings.Repeat("x", 10000)
+			nodes = append(nodes, node)
+		}
+		doc["nodes"] = nodes
+		raw, _ := json.Marshal(doc)
+		if len(raw) >= maxFileBytes {
+			t.Fatal("individual fixture exceeds review limit")
+		}
+	}
+	currentPath := jsonFile(t, filepath.Join(root, "current.json"), current)
+	baselinePath := jsonFile(t, filepath.Join(root, "baseline.json"), baseline)
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(500) }))
+	defer server.Close()
+	opts := Options{ResolveURL: func(context.Context) (string, error) { calls++; return server.URL, nil }}
+	err := Run(t.Context(), []string{"start", currentPath, "--source-root", root, "--baseline-file", baselinePath, "--baseline-source-root", root}, io.Discard, io.Discard, opts)
+	requireError(t, err, "合计超过10MB")
+	if calls != 0 {
+		t.Fatal("size validation caused network/daemon side effects", calls)
+	}
+}
+
+func TestRevisionRound51And2001RepliesReachHTTPPayload(t *testing.T) {
+	clearURLEnv(t)
+	root, next := sourceFixture(t, map[string][]byte{"logic.go": []byte("check()\n")})
+	addEvidence(next, "logic.go", "check()", 1)
+	current := fixtureSession(t)
+	current["round"] = float64(51)
+	obj(arr(current["snapshots"])[0])["round"] = float64(51)
+	file := jsonFile(t, filepath.Join(root, "next.json"), next)
+	replies := make([]any, 2001)
+	for i := range replies {
+		replies[i] = object{"commentId": fmt.Sprintf("comment-%d", i), "body": "已核对"}
+	}
+	repliesPath := jsonFile(t, filepath.Join(root, "replies.json"), replies)
+	posts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			posts++
+			if !strings.HasSuffix(r.URL.Path, "/revise") {
+				t.Error(r.URL.Path)
+			}
+			payload := requestBody(t, r)
+			if obj(payload["publication"])["baseRound"] != float64(51) || len(arr(payload["replies"])) != 2001 {
+				t.Error("publication payload lost round or replies")
+			}
+			current["round"] = float64(52)
+			current["review"] = payload["review"]
+		}
+		respond(w, current)
+	}))
+	defer server.Close()
+	result, _, _, err := runTest(t, t.Context(), []string{"revise", "session-1", file, "--source-root", root, "--base-round", "51", "--summary", "继续复核", "--replies-file", repliesPath}, Options{URL: server.URL})
+	if err != nil || result["round"] != float64(52) || posts != 1 {
+		t.Fatal(result, err, posts)
 	}
 }

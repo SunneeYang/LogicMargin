@@ -2,9 +2,9 @@ import { chromium } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir, cpus, totalmem } from 'node:os'
-import { join, resolve } from 'node:path'
-import { createReviewServer } from '../server/runtime.ts'
-import { loadUiAssets } from '../server/ui-assets.ts'
+import { join } from 'node:path'
+import assert from 'node:assert/strict'
+import { startGo } from './go-process.mjs'
 import { parseReview } from '../src/model.ts'
 
 const samples = Number(process.env.PERF_SAMPLES ?? 5)
@@ -37,11 +37,20 @@ try {
     const session = { schemaVersion: 1, id, version: rounds, round: rounds, phase: 'awaiting-review', createdAt: '2026-11-03T00:00:00Z', updatedAt: '2026-11-03T01:00:00Z', review, history,
       snapshots: Array.from({ length: rounds }, (_, index) => ({ round: index + 1, openedAt: '2026-11-03T00:00:00Z', review, ...(index ? { afterSubmission: `submission-${index - 1}` } : {}) })) }
     const raw = JSON.stringify(session)
-    if (Buffer.byteLength(raw) > 32 * 1024 * 1024) throw new Error(`${name} exceeds the session limit`)
+    if (Buffer.byteLength(raw) > 32 * 1024 * 1024) throw new Error(`${name} exceeds this benchmark input budget`)
     await writeFile(join(temporary, `${id}.json`), raw)
     fixtures.push({ name, id, nodeCount, commentCount, rounds, payloadBytes: Buffer.byteLength(raw), initiallyVisibleNodes: review.nodes.filter(node => node.sceneId === review.scenes[0].id).length })
   }
-  server = await createReviewServer({ assets: await loadUiAssets(resolve('dist')), dataDir: temporary, instanceId: randomUUID(), shutdownToken: randomUUID(), version: 'perf-only', host: '127.0.0.1', port: 0 })
+  server = await startGo({ dataDir: temporary })
+  for (const fixture of fixtures) {
+    const response = await fetch(`${server.url}/api/review-sessions/${fixture.id}`)
+    assert.equal(response.status, 200, await response.text())
+  }
+  await server.stop()
+  server = await startGo({ dataDir: temporary })
+  if (process.argv.includes('--self-test')) {
+    console.log(`Go validated ${fixtures.length} browser performance sessions`)
+  } else {
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL ?? 'chrome', headless: true })
   const results = []
   for (const fixture of fixtures) {
@@ -135,8 +144,9 @@ try {
   }
   await mkdir('artifacts/performance', { recursive: true })
   await writeFile('artifacts/performance/browser.json', JSON.stringify({ capturedAt: new Date().toISOString(), node: process.version, cpu: cpus()[0].model, logicalCpus: cpus().length, memoryBytes: totalmem(), browser: await browser.version(), viewport: '1440x900', note: 'Production UI, localhost, desktop CPU, no network/CPU throttling; non-real cases are synthetic; two-paint interaction timers include up to two frame waits. First load of each fresh context is cold HTTP cache; warm is reload.', results }, null, 2))
+  }
 } finally {
   await browser?.close()
-  await server?.close()
+  await server?.stop()
   await rm(temporary, { recursive: true, force: true })
 }

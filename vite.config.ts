@@ -1,23 +1,25 @@
 import { defineConfig } from 'vite'
-import { createSessionApi } from './server/api.ts'
-import metadata from './package.json' with { type: 'json' }
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { isIP } from 'node:net'
 
-const health = (request: { url?: string }, response: import('node:http').ServerResponse, next: () => void) => {
-  if (request.url?.split('?')[0] !== '/api/health') { next(); return }
-  response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-  response.end(JSON.stringify({ service: 'logic-margin', apiVersion: 1, version: metadata.version, instanceId: 'development', pid: process.pid, managed: false }))
+const localMcp = (request: IncomingMessage, response: ServerResponse, next: () => void) => {
+  if (!request.url?.startsWith('/mcp')) { next(); return }
+  const remote = request.socket.remoteAddress ?? ''
+  const address = remote.replace(/^::ffff:/, '')
+  if (remote === '::1' || isIP(address) === 4 && address.startsWith('127.')) { next(); return }
+  // The Go backend sees the proxy's socket, so enforce the original peer here.
+  response.writeHead(403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+  response.end(JSON.stringify({ error: 'MCP 仅允许本机连接' }))
 }
 
+// Keep Host and Origin paired; Go enforces the same-origin boundary.
+const target = process.env.LOGIC_MARGIN_GO_TARGET
+const proxy = target ? { '/api': { target, changeOrigin: false }, '/mcp': { target, changeOrigin: false } } : undefined
 export default defineConfig({
   plugins: [{
-    name: 'logic-margin-review-sessions',
-    configureServer(server) {
-      server.middlewares.use(health)
-      server.middlewares.use(createSessionApi({ dataDir: process.env.LOGIC_MARGIN_DATA_DIR }))
-    },
-    configurePreviewServer(server) {
-      server.middlewares.use(health)
-      server.middlewares.use(createSessionApi({ dataDir: process.env.LOGIC_MARGIN_DATA_DIR }))
-    },
+    name: 'logic-margin-local-mcp',
+    configureServer(server) { server.middlewares.use(localMcp) },
+    configurePreviewServer(server) { server.middlewares.use(localMcp) },
   }],
+  server: { proxy }, preview: { proxy },
 })

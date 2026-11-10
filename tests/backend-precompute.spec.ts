@@ -8,7 +8,6 @@ import { contextReview } from './fixtures/context-review.ts'
 import { openMenu } from './ui.ts'
 
 // Run with the Go E2E runner, against its disposable session store and packaged UI.
-test.skip(process.env.LOGIC_MARGIN_E2E_GO !== '1', 'Requires the Go precompute API and packaged frontend')
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 const cacheStatuses = ['miss', 'memory', 'disk', 'shared']

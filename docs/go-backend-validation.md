@@ -65,7 +65,7 @@ Go 程序包含 HTTP API、官方 Go MCP SDK、评审命令、源码核验、后
 
 当前测量的明显收益在启动；热读取耗时接近。未清理系统文件缓存，启动只有每侧 5 个样本；没有测量 CPU/RSS、写入/发布、并发吞吐、diff 预计算、浏览器渲染、手机或其他系统，不据此推断整体负载表现。
 
-可复跑 `node scripts/benchmark-go.mjs`。本机原始样本位于 `.scratch/go-migration-benchmark.json`；构建信息在 `.scratch/go-cross-results.json`，测试日志在 `.scratch/go-*.log`。这些为本地忽略文件，不随 Git 提交。
+`13e5150` 保留了 `node scripts/benchmark-go.mjs` 的删除前脚本（当前已移除该迁移对照器）。该快照不等于原始测量基线，在那里运行会产生当时输入和实现的新样本，不能直接复现上述原值。本机原始样本位于 `.scratch/go-migration-benchmark.json`；构建信息在 `.scratch/go-cross-results.json`，测试日志在 `.scratch/go-*.log`。这些为本地忽略文件，不随 Git 提交。
 
 ## 第二阶段：后端预计算验收
 
@@ -113,3 +113,5 @@ Go 原生行级 Myers＋字符细分输出 UTF-16 范围，并排、短统一和
 ## 第三阶段：独立结构重点
 
 2026-11-09 进一步接入 Go/Lezer 解析、结构重点与移动局部对照。它与普通 diff 独立计算、独立缓存，默认文本首开不等待结构结果。74 项 Chrome、Go race/vet、Node/Go 兼容及无 Node 发行闭环通过；TS 大输入的冷计算与预算回退仍有明确限制。最新具体输入、二进制摘要、14 个浏览器样本及 6 组 API 数据见 [结构 diff 联合验收](structural-diff.md)。本页较早的程序与 ZIP 继续作为历史基线保留。
+
+旧 Node 专属 `perf-server.ts`、`perf-cli.ts` 与迁移时 `benchmark-go.mjs` 已移除；如需复现历史结果，请使用 [13e5150 历史脚本](https://github.com/SunneeYang/LogicMargin/tree/13e5150631dcfcedec9182b1de221815a8257d71/scripts)。当前 Go 脚本为 `precompute-benchmark.mjs`、`structure-diff-benchmark.mjs` 和浏览器 benchmark；历史数据未改写为 Go 结果。

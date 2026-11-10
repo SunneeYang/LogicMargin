@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { cpus, loadavg, platform, release, tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { createInterface } from 'node:readline'
+import { startGo, seedGoSessions } from './go-process.mjs'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -152,7 +151,7 @@ async function main(output) {
     machine: { cpu: cpus()[0]?.model, logicalCPUs: cpus().length, os: platform(), release: release(), arch: process.arch, driverNode: process.version, loadavg: loadavg() },
     harness: { scriptSHA256: hash(await readFile(fileURLToPath(import.meta.url))), fixtureSourceSHA256: hash(await readFile(join(root, 'tests/fixtures/structural-review.ts'))) },
     scope: { httpWallMs: 'Sequential localhost HTTP through the complete identity-encoded body, excluding request JSON encoding and response JSON parsing; includes saved-source resolution, cache IO, scheduling, parser/compute and serialization.',
-      cold: 'Fresh process/private data+derived cache per binary; sessions seeded without HTTP create/get/prewarm. First POST for each operation must be miss. OS filesystem caches are not flushed.',
+      cold: 'Fresh process/private data+derived cache per binary; authoritative JSON copied from a separate stopped Go seeder, without measured HTTP create/get/prewarm. First POST for each operation must be miss. OS filesystem caches are not flushed.',
       memory: 'Ten sequential hits, each asserted memory, raw samples retained; nearest-rank p90/p95 with n=10 are descriptive, not confidence bounds. Cold, memory and disk samples are never pooled.',
       disk: 'First POST after one restart per binary, each asserted disk; OS caches remain warm.',
       runtimeIsolation: 'Absolute Go executable with PATH pointing at an empty private directory; only the development driver/seeder uses Node. No build is performed.',
@@ -167,40 +166,11 @@ async function main(output) {
   const controller = new AbortController()
   const abort = () => { controller.abort(new Error('Benchmark interrupted')); active?.child.kill('SIGTERM') }
   process.once('SIGINT', abort); process.once('SIGTERM', abort)
-  const within = async (promise, ms, label) => {
-    let timer
-    try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(label)), ms) })]) }
-    finally { clearTimeout(timer) }
-  }
-  async function stop() {
-    if (!active) return
-    const service = active
-    if (service.child.exitCode === null && service.child.signalCode === null) {
-      if (service.url) await fetch(`${service.url}/api/shutdown`, { method: 'POST', headers: { 'x-logic-margin-token': service.token }, signal: AbortSignal.timeout(2000) }).catch(() => {})
-      try { await within(service.exited, 5000, 'shutdown timeout') }
-      catch { service.child.kill('SIGTERM'); try { await within(service.exited, 2000, 'termination timeout') } catch { service.child.kill('SIGKILL'); await service.exited } }
-    } else await service.exited
-    service.lines.close(); active = undefined
-  }
+  async function stop() { await active?.stop(); active = undefined }
   async function start(variant, directory, data) {
     controller.signal.throwIfAborted()
-    const home = join(directory, 'home'), token = randomUUID(), instanceId = randomUUID()
-    const child = spawn(variant.path, ['_serve', '--home', home, '--data-dir', data, '--host', '127.0.0.1', '--port', '0', '--instance-id', instanceId, '--shutdown-token', token],
-      { cwd: directory, env: { ...process.env, PATH: join(temporary, 'no-js-runtimes'), LOGIC_MARGIN_HOME: home, LOGIC_MARGIN_DATA_DIR: data }, stdio: ['ignore', 'pipe', 'pipe'] })
-    let stderr = ''
-    child.stderr.setEncoding('utf8').on('data', chunk => { stderr = (stderr + chunk).slice(-16000) })
-    const exited = new Promise(resolve => child.once('close', (code, signal) => resolve({ code, signal })))
-    const lines = createInterface({ input: child.stdout })
-    active = { child, exited, lines, token }
-    const ready = await within(new Promise((resolve, reject) => {
-      child.once('error', reject)
-      lines.once('line', line => { try { resolve(JSON.parse(line)) } catch (error) { reject(error) } })
-      exited.then(() => reject(new Error(stderr || 'Go exited before readiness')))
-    }), 15000, 'Go startup timeout')
-    assert.equal(ready.pid, child.pid); assert.equal(ready.instanceId, instanceId)
-    assert.equal(new URL(ready.url).hostname, '127.0.0.1')
-    active.url = ready.url
-    return ready.url
+    active = await startGo({ binary: variant.path, dataDir: data, cwd: directory, env: { ...process.env, PATH: join(temporary, 'no-js-runtimes') } })
+    return active.url
   }
   async function json(base, path, body, measured = false) {
     controller.signal.throwIfAborted()
@@ -218,16 +188,16 @@ async function main(output) {
     for (const variant of variants) { assert.ok(isAbsolute(variant.path), 'Go binary paths must be absolute'); await access(variant.path); variant.sha256 = hash(await readFile(variant.path)) }
     temporary = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-structure-benchmark-'))
     await mkdir(join(temporary, 'no-js-runtimes'))
-    const { SessionStore } = await import('../server/session-store.ts')
     const { structuralReview, structuralInput, validateStructuralFixture } = await import('../tests/fixtures/structural-review.ts')
     for (const variant of variants) {
-      const directory = join(temporary, variant.name), data = join(directory, 'sessions'), store = new SessionStore(data)
+      const directory = join(temporary, variant.name), data = join(directory, 'sessions')
       const entry = { name: variant.name, binary: variant, cases: [] }
       report.variants.push(entry)
       await mkdir(directory, { recursive: true })
       const fixtures = []
       for (const language of ['go', 'ts']) for (const [name, target] of [['short', 0], ['multi-function', 12000], ['near-100k', 95000]]) {
-        const sample = fixture(name, language, target), state = await store.create(validateStructuralFixture(structuralReview(sample)))
+        const sample = fixture(name, language, target)
+        const [state] = await seedGoSessions([validateStructuralFixture(structuralReview(sample))], data)
         const bytes = await readFile(join(data, `${state.id}.json`))
         fixtures.push({ state, input: structuralInput(state.review), sample, savedSHA256: hash(bytes) })
         entry.cases.push({ name, language, input: { before: { utf16: sample.before.length, utf8Bytes: Buffer.byteLength(sample.before), sha256: hash(sample.before) },

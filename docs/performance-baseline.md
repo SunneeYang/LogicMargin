@@ -40,7 +40,7 @@
 
 大评审写入时，同一服务内另一个独立小评审的 GET 中位数从正常约 0.8 ms 上升到 132 ms；放到另一服务进程的对照为 1.22 ms。另用 25 ms 的人工空闲队列屏障，将无关读取从 1.13 ms 推到 28.20 ms，确认全局 serial 队列会阻塞其他会话。实际 HTTP 延迟同时受共享事件循环的同步 CPU 影响，不能全部归因于队列。
 
-额外 CPU 采样中，主要时间落在全量 JSON 解析、`serializeReview` 的格式化序列化／UTF-8 大小检查、`structuredClone`、全量 equality 序列化及 GC，而非只有文件写入。对应实现见 [SessionStore](../server/session-store.ts)、[模型校验](../src/model.ts)、[API 响应](../server/api.ts)。
+额外 CPU 采样中，主要时间落在全量 JSON 解析、`serializeReview` 的格式化序列化／UTF-8 大小检查、`structuredClone`、全量 equality 序列化及 GC，而非只有文件写入。对应实现见 [SessionStore](https://github.com/SunneeYang/LogicMargin/blob/13e5150631dcfcedec9182b1de221815a8257d71/server/session-store.ts)、[模型校验](../src/model.ts)、[API 响应](https://github.com/SunneeYang/LogicMargin/blob/13e5150631dcfcedec9182b1de221815a8257d71/server/api.ts)。
 
 小样本服务端采样 RSS 约 61–64 MiB；R30 连续压力轨迹中的采样 RSS 峰值最高约 1.12 GiB。这不是单次请求新增内存、稳态占用或泄漏证明。真实已安装服务在测量末尾的单次空闲观察约 48 MiB、CPU 0%，同样不代表长期平均值。
 
@@ -105,7 +105,7 @@
 
 ## 复现与原始数据
 
-先在工程中执行 `npm run build`，CLI 基准还需要 `npm run package:agent` 生成 0.3.0 分发包；随后依次运行，避免 CPU 互相竞争：
+以下是历史 Node 工具的调用形式。`13e5150` 仅用于留存删除前的脚本，不是原始 0.3.0 测量基线；在该快照运行得到的是新样本，不能据此复现原值。若检查该快照的旧 CLI 工具，先执行 `npm run build` 和 `node scripts/package-agent.mjs` 生成该版本的 Node 通用包；`npm run package:agent` 在该快照已经指向 Go 平台包。随后依次运行，避免 CPU 互相竞争：
 
 ```sh
 node scripts/perf-server.ts
@@ -116,3 +116,7 @@ env PLAYWRIGHT_CHANNEL=chrome node scripts/perf-browser.mjs
 原始结果：[服务端](../artifacts/performance/baseline-0.3.0/server.json)、[CLI](../artifacts/performance/baseline-0.3.0/cli.json)、[浏览器](../artifacts/performance/baseline-0.3.0/browser.json)、[实际响应大小](../artifacts/performance/baseline-0.3.0/live-payload.json)。这些结果文件被 Git 忽略，不包含真实会话正文或来源文件内容。
 
 0.4.0 的实施和复测结果见 [性能优化](performance-optimization.md)。
+
+旧 Node 源码链接固定到删除前的 `13e5150` 历史快照；当前运行时见 `internal/review`、`internal/agent`、`internal/service`。历史结论和数字不代表新的 Go 测量。
+
+旧 Node 专属 `perf-server.ts`、`perf-cli.ts` 与迁移时 `benchmark-go.mjs` 已移除；如需复现历史结果，请使用 [13e5150 历史脚本](https://github.com/SunneeYang/LogicMargin/tree/13e5150631dcfcedec9182b1de221815a8257d71/scripts)。当前 Go 脚本为 `precompute-benchmark.mjs`、`structure-diff-benchmark.mjs` 和浏览器 benchmark；历史数据未改写为 Go 结果。

@@ -1,9 +1,28 @@
-import { spawn } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { hostTarget, root } from './build-go.mjs'
+import { buildGo, root } from './build-go.mjs'
+import { createServer } from 'vite'
+import { startGo } from './go-process.mjs'
 
-const executable = join(root, 'artifacts/go', hostTarget, process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin')
-const child = spawn(executable, ['_serve', '--home', `${process.env.LOGIC_MARGIN_DATA_DIR}-home`, '--port', '4173', '--host', '127.0.0.1', '--instance-id', 'go-e2e', '--shutdown-token', 'go-e2e'], { stdio: 'inherit' })
-for (const name of ['SIGINT', 'SIGTERM']) process.once(name, () => child.kill(name))
-child.on('error', error => { console.error(error.message); process.exitCode = 1 })
-child.on('exit', code => { process.exitCode = code ?? 0 })
+const temporary = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-e2e-'))
+const controller = new AbortController()
+let service, vite
+const stop = async () => { controller.abort(); await vite?.close(); await service?.stop() }
+for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, stop)
+try {
+  const binary = await buildGo(undefined, undefined, { signal: controller.signal })
+  service = await startGo({ binary, dataDir: join(temporary, 'sessions'), port: 4173, signal: controller.signal })
+  controller.signal.throwIfAborted()
+  // Source-only example tests retain Vite's public assets; API/MCP still use this Go process.
+  process.env.LOGIC_MARGIN_GO_TARGET = service.url
+  vite = await createServer({ root, server: { host: '127.0.0.1', port: 4174, strictPort: true } })
+  controller.signal.throwIfAborted()
+  await vite.listen()
+  const result = await service.exited
+  process.exitCode = result.code ?? (result.signal ? 1 : 0)
+} catch (error) { if (!controller.signal.aborted) throw error }
+finally {
+  await stop(); await rm(temporary, { recursive: true, force: true })
+  for (const signal of ['SIGINT', 'SIGTERM']) process.removeListener(signal, stop)
+}

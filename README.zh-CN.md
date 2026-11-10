@@ -225,21 +225,24 @@ MCP `wait_review` 不领取、不归档；Agent 实际读取意见后用 `acknow
 
 ```sh
 npm ci
-npm run dev         # 网页开发及旧 Node API
-npm test            # 前端/模型测试与旧 Node 兼容对照
+npm run review -- --help # 构建并运行当前源码 Go CLI
+npm run dev         # Vite HMR + 源码构建的 Go API/MCP
+npm test            # Go 后端 + 前端/模型测试
 npm run build       # TypeScript 检查与前端构建
 npm run build:go    # 内嵌网页的 Go 原生服务
 npm run test:go     # Go 运行时测试
 npm run test:go:agent  # 原生分发包集成测试
-npm run test:go:compat # Node/Go 兼容对照
+npm run test:go:compat # 固定旧数据兼容及原生进程恢复
 
 npx playwright install chromium
-npm run test:go:e2e # Go 服务上的桌面/手机视口与主题交互
+npm run test:go:e2e # 默认 Go 服务上的完整浏览器测试
 ```
 
 已有 Chrome 时也可运行 `PLAYWRIGHT_CHANNEL=chrome npm run test:go:e2e`。
 
-技术栈：React 19、TypeScript、React Flow、Vite，以及 Go 本地 HTTP 服务。旧 Node 后端仅保留为开发兼容对照；原生构建见 [插件文档](docs/agent-plugin.md#开发与验证)，历史验证范围见 [迁移验收](docs/go-backend-validation.md)。五目标交叉编译与目标平台实际运行分别验收，迁移记录中仅 macOS ARM64 实际执行。
+开发 driver 用临时私有登记目录启动前台 Go，再由 Vite 同源代理 `/api` 与 `/mcp`，保留 Host/Origin 校验。开发评审继续保存于工程 `.logic-margin/sessions`，可用 `LOGIC_MARGIN_DATA_DIR` 覆盖；测试显式使用私有临时目录。停止 driver 会回收两个进程；Go 改动后重启 driver。`npm run preview` 以前端构建产物搭配相同代理；`npm run review -- ...` 先构建当前源码 Go 程序再转发参数。连接开发服务时传 `--url http://127.0.0.1:5173`；未传时 CLI 沿用正常受管服务目录。
+
+技术栈：React 19、TypeScript、React Flow、Vite，以及 Go 本地 HTTP 服务。开发、CLI、后端测试和浏览器测试均使用 Go；固定历史 fixture 保留兼容断言。原生构建见 [插件文档](docs/agent-plugin.md#开发与验证)，历史验证范围见 [迁移验收](docs/go-backend-validation.md)。五目标交叉编译与目标平台实际运行分别验收，迁移记录中仅 macOS ARM64 实际执行。
 
 </details>
 

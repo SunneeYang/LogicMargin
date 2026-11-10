@@ -22,7 +22,7 @@ LogicMargin 现已实现对应闭环：
 - 按增量操作同步，重复追加幂等；状态与整轮提交校验版本，避免确认未看过的更新。待同步操作独立保存；旧源冲突保留操作供备份，不猜测重挂目标。
 - 原有独立文件模式继续可用。浏览器草稿仍是本机数据，会话不执行任意 shell，也不负责自动从源码提炼图。
 
-使用方式与边界见 [代理评审流程](agent-workflow.md)，实现见 [会话存储](../server/session-store.ts)、[前端桥接](../src/useReviewSession.ts)、[代理 CLI](../bin/logic-margin.ts)。这是机制借鉴，自行实现，未复制 Crit 源码。
+使用方式与边界见 [代理评审流程](agent-workflow.md)，实现见 [会话存储](https://github.com/SunneeYang/LogicMargin/blob/13e5150631dcfcedec9182b1de221815a8257d71/server/session-store.ts)、[前端桥接](../src/useReviewSession.ts)、[代理 CLI](https://github.com/SunneeYang/LogicMargin/blob/13e5150631dcfcedec9182b1de221815a8257d71/bin/logic-margin.ts)。这是机制借鉴，自行实现，未复制 Crit 源码。
 
 ## 已核实的 Crit 机制
 
@@ -105,3 +105,5 @@ LogicMargin 现已实现对应闭环：
 - 未核实独立不可变 submission 实体、所有模式的快照时点、每条评论与唯一 commit 的对应性；这些不能由 review_round 推出。
 - 未完整追踪服务端 Finish Review、清理和持久化事务；本文对完成动作的结论限于已读 UI 和官方接口文档。
 - 本轮未运行 Crit 或 LogicMargin 的集成测试；本文是有边界的参考核对，不是产品行为验收。
+
+旧 Node 源码链接固定到删除前的 `13e5150` 历史快照；当前运行时见 `internal/review`、`internal/agent`、`internal/service`。历史结论和数字不代表新的 Go 测量。

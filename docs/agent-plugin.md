@@ -89,7 +89,7 @@ http://review-host.example:5173/?session=<sessionId>
 4. 用新版入口 `server start` 启动，再检查 `server status` 的版本、健康和 MCP 地址。需要首次注册或修复配置时用 `server setup`；原宿主按返回结果重载/重连 MCP，核实工具实际可用。
 5. 通过 `get_review` 读取原 session ID，核对目的、轮次与未完成反馈后继续。待处理的等待调用可能因停服结束；更新、重启或连接恢复都不代表评审通过。
 
-保持原浏览器访问地址也能保留该地址下的草稿和待同步操作；浏览器数据不会随插件搬迁。备份与恢复针对实际会话目录，不删除 `sessions` 来完成升级。旧 Node 入口仅为开发兼容对照，不再用于正常安装。
+保持原浏览器访问地址也能保留该地址下的草稿和待同步操作；浏览器数据不会随插件搬迁。备份与恢复针对实际会话目录，不删除 `sessions` 来完成升级。旧 Node 源码入口已移除，兼容性由固定历史 fixture 验证。
 
 ## 单进程后台与 MCP 连接
 
@@ -165,7 +165,11 @@ npm run test:go:agent
 npm run test:go:compat
 ```
 
-`build:go` 构建当前平台程序并内嵌前端。`npm test` 与旧 Node 后端作为开发兼容对照保留；旧 Node 通用包和 Bun 编译包不再是正常安装路径。前端开发可继续用 `npm run dev`，正式 Go 路径的浏览器验收用 `npm run test:go:e2e`。
+`build:go` 构建当前平台程序并内嵌前端。`npm test` 运行 Go 后端和前端测试，`npm run test:e2e` 默认构建并运行真实 Go 包含网页的服务（`test:go:e2e` 是同一路径别名）。开发专用的 public 样例测试在同次运行的 Vite 前端完成，其 API/MCP 同样代理到该真实 Go 进程；正式包仍不携带这些 public 样例。旧 Node 后端、CLI 和 Node/Bun 打包器已删除；官方 TS MCP SDK 仅作测试客户端，Goja 解析/布局及 V8 算法 oracle 保留。
+
+`npm run dev` 启动源码 Go 前台进程和 Vite HMR，`/api`、`/mcp` 同源代理到真实 Go，Host/Origin 保持配对。后台登记目录是临时私有目录；开发数据仍为工程 `.logic-margin/sessions`，可用 `LOGIC_MARGIN_DATA_DIR` 覆盖。停止 driver 会回收子进程，Go 修改后重新启动。`npm run preview` 使用相同 Go 代理服务前端构建产物。
+
+`npm run review -- --help`、`npm run review -- --version` 每次构建并调用当前源码 Go CLI。对开发服务操作时指定 `--url http://127.0.0.1:5173`；无显式 URL 时沿用原生受管服务逻辑。测试必须显式指定私有 home/data，真实 Codex 宿主验收用 `LOGIC_MARGIN_TEST_CODEX_MCP=1 npm run test:codex`；它只使用隔离 CODEX_HOME，不发送模型请求。
 
 按目标生成原生 ZIP 与 `.zip.sha256`：
 

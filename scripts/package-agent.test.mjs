@@ -3,21 +3,19 @@ import { spawn, execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { EventEmitter, once } from 'node:events'
 import { cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
-import { createServer } from 'node:http'
+import { createServer, request as proxyRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { after, before, test } from 'node:test'
-import { createSessionApi } from '../server/api.ts'
+import { startGo, within } from './go-process.mjs'
 import { addComment } from '../src/model.ts'
 import { sampleReview } from '../src/sample.ts'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 const execute = promisify(execFile)
-const goBackend = process.env.LOGIC_MARGIN_TEST_GO === '1'
-const { packageAgent } = await import(goBackend ? './package-go-agent.mjs' : './package-agent.mjs')
-const native = goBackend || process.env.LOGIC_MARGIN_TEST_NATIVE === '1'
+import { packageAgent } from './package-go-agent.mjs'
 let packageDirectory, packagedRoot, packagedCli, packagedCommand
 const plugin = new URL('../plugins/logic-margin/', import.meta.url)
 const version = JSON.parse(await readFile(new URL('plugin.json', plugin), 'utf8')).version
@@ -40,7 +38,7 @@ async function sourceReview(cwd, content = sourceText, previous = sampleReview) 
 before(async () => {
   packageDirectory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-native-package-'))
   const directory = packageDirectory
-  const target = native ? `${process.platform}-${process.arch}` : undefined
+  const target = `${process.platform}-${process.arch}`
   const archive = await packageAgent(directory, target)
   const unpacked = join(directory, 'unpacked')
   await mkdir(unpacked)
@@ -48,12 +46,12 @@ before(async () => {
   packagedRoot = join(unpacked, `logic-margin-agent-${version}${target ? `-${target}` : ''}`)
   assert.deepEqual(await readFile(join(packagedRoot, 'LICENSE')), await readFile(new URL('../LICENSE', import.meta.url)), 'Every distribution must carry the project license')
   assert.deepEqual(await readFile(join(packagedRoot, 'plugins/logic-margin/LICENSE')), await readFile(new URL('../LICENSE', import.meta.url)), 'The independently installed plugin must carry the project license')
-  const executable = native ? process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin' : 'logic-margin.mjs'
+  const executable = process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin'
   packagedCli = join(packagedRoot, 'plugins/logic-margin/skills/logic-margin/scripts', executable)
-  packagedCommand = native ? [packagedCli] : [process.execPath, packagedCli]
-  const entries = goBackend ? [executable, 'logic-margin.ps1', 'logic-margin.sh'] : [executable]
+  packagedCommand = [packagedCli]
+  const entries = [executable, 'logic-margin.ps1', 'logic-margin.sh']
   assert.deepEqual((await readdir(join(packagedRoot, 'plugins/logic-margin/skills/logic-margin/scripts'))).sort(), entries.sort(), 'Distribution must contain only its selected runtime and native launchers, excluding stale entries, public assets and real review data')
-  if (goBackend) {
+  {
     assert.equal(await readFile(`${archive}.sha256`, 'utf8'), `${sha256(await readFile(archive))}  ${archive.split(/[\\/]/).at(-1)}\n`)
     const runtimeVersion = await execute(packagedCli, ['--version'])
     assert.equal(runtimeVersion.stdout.trim(), version, 'Native runner must match the plugin version used for downloads and cache keys')
@@ -71,7 +69,7 @@ before(async () => {
 
 after(async () => { if (packageDirectory) await rm(packageDirectory, { recursive: true, force: true }) })
 
-test('native launchers use the sibling or versioned cache and reject a mismatched runner', { skip: !goBackend }, async t => {
+test('native launchers use the sibling or versioned cache and reject a mismatched runner', async t => {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-launcher-package-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const pluginRoot = join(directory, 'marketplace plugin with spaces')
@@ -105,29 +103,48 @@ test('native launchers use the sibling or versioned cache and reject a mismatche
 
 async function setup(t) {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-agent-test-'))
-  t.after(() => rm(directory, { recursive: true, force: true }))
+  let service, server
+  const runs = []
+  t.after(async () => {
+    try {
+      const stopped = await Promise.allSettled(runs.map(async ({ child, result }) => {
+        if (child.exitCode !== null || child.signalCode !== null) return
+        child.kill()
+        try { await within(result, 3000, 'CLI shutdown timed out') }
+        catch { child.kill('SIGKILL'); await within(result, 2000, 'CLI did not exit') }
+      }))
+      for (const result of stopped) if (result.status === 'rejected') throw result.reason
+    } finally {
+      try {
+        server?.closeAllConnections()
+        if (server?.listening) await new Promise(resolve => server.close(resolve))
+      } finally { try { await service?.stop() } finally { await rm(directory, { recursive: true, force: true }) } }
+    }
+  })
   const root = packagedRoot, cli = packagedCli
   const cwd = join(directory, 'another project with spaces')
   await mkdir(cwd)
   const seenPolls = new Set()
   const events = new EventEmitter()
-  const api = createSessionApi({ dataDir: join(directory, 'sessions') })
-  const server = createServer((request, response) => {
+  service = await startGo({ binary: packagedCli, dataDir: join(directory, 'sessions') })
+  server = createServer((request, response) => {
     const query = new URL(request.url, 'http://localhost').searchParams
     if (query.has('afterVersion')) {
       seenPolls.add(Number(query.get('afterVersion')))
       events.emit('poll')
     }
-    api(request, response, () => { response.writeHead(404); response.end() })
+    const upstream = proxyRequest(new URL(request.url, service.url), { method: request.method, headers: request.headers }, result => {
+      response.writeHead(result.statusCode, result.headers); result.pipe(response)
+    })
+    upstream.on('error', error => response.destroy(error))
+    request.on('close', () => { if (!request.complete) upstream.destroy() })
+    response.on('close', () => upstream.destroy())
+    request.pipe(upstream)
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   assert.ok(address && typeof address !== 'string')
   const base = `http://127.0.0.1:${address.port}`
-  t.after(async () => {
-    server.closeAllConnections()
-    await new Promise(resolve => server.close(resolve))
-  })
   const call = async (path, body) => {
     const response = await fetch(`${base}/api/review-sessions${path}`, body === undefined ? undefined : {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -139,7 +156,7 @@ async function setup(t) {
   const run = (args, env = {}) => {
     const child = spawn(packagedCommand[0], [...packagedCommand.slice(1), ...args], {
       cwd,
-      env: { ...process.env, PATH: join(directory, 'no-runtimes-on-path'), LOGIC_MARGIN_URL: base, LOGIC_MARGIN_PUBLIC_URL: 'http://100.64.0.9:5173', ...env },
+      env: { ...process.env, PATH: join(directory, 'no-runtimes-on-path'), LOGIC_MARGIN_HOME: join(directory, 'cli-home'), LOGIC_MARGIN_DATA_DIR: join(directory, 'cli-sessions'), LOGIC_MARGIN_URL: base, LOGIC_MARGIN_PUBLIC_URL: 'http://100.64.0.9:5173', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stdout = '', stderr = ''
@@ -149,7 +166,7 @@ async function setup(t) {
       child.on('error', reject)
       child.on('close', code => resolve({ code, stdout, stderr }))
     })
-    t.after(() => { if (child.exitCode === null) child.kill() })
+    runs.push({ child, result })
     return { child, result, get stdout() { return stdout } }
   }
   const poll = async version => {
@@ -261,10 +278,9 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-native-cold-start-'))
   const cwd = join(directory, 'source project with spaces')
   await mkdir(cwd)
-  const env = { ...process.env, PATH: join(directory, 'no-runtimes-on-path'), LOGIC_MARGIN_HOME: join(directory, 'service-home') }
+  const env = { ...process.env, PATH: join(directory, 'no-runtimes-on-path'), LOGIC_MARGIN_HOME: join(directory, 'service-home'), LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions') }
   delete env.LOGIC_MARGIN_URL
   delete env.LOGIC_MARGIN_PUBLIC_URL
-  delete env.LOGIC_MARGIN_DATA_DIR
   const run = async args => {
     try { return { code: 0, ...(await execute(packagedCommand[0], [...packagedCommand.slice(1), ...args], { cwd, env })) } }
     catch (error) { return { code: error.code, stdout: error.stdout, stderr: error.stderr } }
@@ -286,7 +302,7 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
   const health = await (await fetch(`${status.url}/api/health`)).json()
   assert.equal(health.service, 'logic-margin')
   assert.equal(health.managed, true)
-  if (goBackend) assert.equal(health.version, version)
+  assert.equal(health.version, version)
   const page = await fetch(`${status.url}/`)
   assert.equal(page.status, 200)
   const html = await page.text()
@@ -367,7 +383,7 @@ test('one packaged daemon serves UI, API and multiple MCP clients and restores a
   const cwd = join(directory, 'review project')
   await mkdir(cwd)
   const clients = []
-  const env = { ...process.env, LOGIC_MARGIN_HOME: home }
+  const env = { ...process.env, LOGIC_MARGIN_HOME: home, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions') }
   delete env.LOGIC_MARGIN_URL
   delete env.LOGIC_MARGIN_PUBLIC_URL
   const run = args => execute(packagedCommand[0], [...packagedCommand.slice(1), ...args], {
