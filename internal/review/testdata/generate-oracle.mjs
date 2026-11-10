@@ -1,6 +1,7 @@
 // Development only: regenerate fixed vectors with Node >=22.18; Go never invokes Node.
 import { writeFile, mkdtemp, rm, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import { parseReview, parseReviewBaseline, parseSourceFiles, rebaseReview } from '../../../src/model.ts'
@@ -14,7 +15,7 @@ const clone = value => structuredClone(value)
 const sha = value => createHash('sha256').update(value).digest('hex')
 const review = {
  schemaVersion: 1, id:'review',title:'升级 &<> 😀',description:'源自代码\u2028line\u2029',revision:'v1',
- snapshot:{repository:'/vast',commit:'abc',fingerprint:'hash1',capturedAt:'2026-11-02T00:00:00Z',dirty:true},
+ snapshot:{repository:'/example-project',commit:'abc',fingerprint:'hash1',capturedAt:'2026-11-02T00:00:00Z',dirty:true},
  coverage:{included:['升级'],excluded:['重置'],note:'范围说明'},
  scenes:[{id:'level',title:'升级',description:''}],
  nodes:[{id:'check',sceneId:'level',title:'检查条件',kind:'action',summary:'',detail:'',input:'',output:'',position:{x:0,y:0},evidence:[{path:'skill.go',symbol:'LevelUp',startLine:1,endLine:10,digest:'abc'}]},
@@ -66,7 +67,7 @@ const sorted=clone(sourced);sorted.scenes.push({id:'😀',title:'a,b',descriptio
 const publication={baseRound:1,summary:'  调整条件  ',source:{algorithm:'sha256-path-content-v1',checkedAt:'2026-11-02T00:00:00Z',files:sourceFiles,fingerprint:sourced.snapshot.fingerprint}}
 for(const [name,p] of [['valid',publication],['null',null],['bad round',{...publication,baseRound:0}],['bad source',{...publication,source:{...publication.source,fingerprint:'0'.repeat(64)}}],['reason',{...publication,unchangedReason:'  unchanged  '}],['blank reason',{...publication,unchangedReason:''}]])vector('publication '+name,'publication',p,v=>validatePublication(v,sourced),{review:sourced})
 for(const [name,change] of [['unchanged',r=>r],['layout',r=>{r.nodes[0].position.x++}],['logic',r=>{r.nodes[0].output='changed'}],['metadata',r=>{r.title='new'}],['removed',r=>{r.nodes.shift();r.edges=[]}],['revision',r=>{r.revision='v2'}],['evidence',r=>{r.nodes[0].evidence[0].digest='changed'}],['agent reply',r=>{r.comments[0].replies=[reply('agent','agent')]}],['reply conflict',r=>{r.comments[0].replies=[{...reply(),body:'changed'}]}],['opinion conflict',r=>{r.comments[0].body='forged'}]]){const before={...clone(review),comments:[{...comment(),status:'resolved',reviewedRevision:'v1',replies:[reply()]},comment('scene',{kind:'scene',id:'level'}),comment('review',{kind:'review',id:'review'})]};const after=clone(before);change(after);vector('rebase '+name,'rebase',after,r=>rebaseReview(before,r),{before})}
-const tmp=await mkdtemp(join(process.env.CODEX_AGENT_TMP,'oracle-'))
+const tmp=await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(),'oracle-'))
 const store=new SessionStore(tmp);let state;const steps=[]
 function normalized(value){const v=clone(value);const session=(s)=>{s.id='<session>';s.createdAt='<created>';s.updatedAt='<updated>';for(const r of s.history??[])r.createdAt='<record>';for(const sn of s.snapshots??[])sn.openedAt='<opened>'};if(v&&v.schemaVersion===1&&v.phase)session(v);if(v?.openedAt&&v.review)v.openedAt='<opened>';if(v?.kind?.startsWith('logic-margin-'))v.createdAt='<record>';if(v?.archivedAt)v.archivedAt='<archive>';return v}
 async function step(op,input={},view=''){let output,error,status;try{if(op==='create')output=await store.create(input.review,view||undefined,input.options);else if(op==='get')output=await store.get(state.id,view||undefined);else if(op==='getBaseline')output=await store.getBaseline(state.id);else if(op==='getRecord')output=await store.getRecord(state.id,input.record);else if(op==='getSnapshot')output=await store.getSnapshot(state.id,input.round);else if(op==='getArchive')output=await store.getArchive(state.id);else output=await store[op](state.id,input,view||undefined);if(output?.phase&&view!=='current')state=output;output=normalized(output);if(output?.id===state?.id)output.id='<session>'}catch(e){error=e.message;status=e.status??400}steps.push({op,input,view,...error?{error,status}:{output}})}

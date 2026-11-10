@@ -114,19 +114,19 @@ html, body { margin: 0; background: transparent; font-family: var(--ux-font); co
 <body>
 <div id="ux-review">
   <nav class="examples" aria-label="体验交互任务"><span>体验：</span><button class="demo-tab cursor-interaction" type="button" data-task="write" aria-pressed="true">写意见</button><button class="demo-tab cursor-interaction" type="button" data-task="read" aria-pressed="false">读长讨论</button><button class="demo-tab cursor-interaction" type="button" data-task="review" aria-pressed="false">复核变化</button></nav>
-  <header class="app-head"><div class="brand"><strong>LogicMargin · 解锁新技能</strong><small id="ux-version">逻辑 v1 · 交互提案 · 示例数据</small></div><div class="head-actions"><span class="save-state" id="ux-save-state">草稿保留中</span><button class="control primary cursor-interaction" id="ux-submit" type="button">提交本轮（1）</button></div></header>
+  <header class="app-head"><div class="brand"><strong>LogicMargin · 启用演示集成</strong><small id="ux-version">逻辑 v1 · 交互提案 · 示例数据</small></div><div class="head-actions"><span class="save-state" id="ux-save-state">草稿保留中</span><button class="control primary cursor-interaction" id="ux-submit" type="button">提交本轮（1）</button></div></header>
   <section class="notice" id="ux-submit-notice" hidden aria-live="polite"></section>
   <div class="workspace" id="ux-workspace">
     <main class="canvas">
-      <div class="graph-head"><div><h2>解锁只增加资格</h2><p>点击步骤查看，圈选后直接写意见</p></div><div class="tools"><button class="control cursor-interaction" id="ux-box" type="button" aria-pressed="false">框选</button><button class="control ghost cursor-interaction" id="ux-all" type="button">选择这 3 步</button><button class="control ghost cursor-interaction" id="ux-scene" type="button">场景意见</button></div></div>
+      <div class="graph-head"><div><h2>集成只增加一项设置</h2><p>点击步骤查看，圈选后直接写意见</p></div><div class="tools"><button class="control cursor-interaction" id="ux-box" type="button" aria-pressed="false">框选</button><button class="control ghost cursor-interaction" id="ux-all" type="button">选择这 3 步</button><button class="control ghost cursor-interaction" id="ux-scene" type="button">场景意见</button></div></div>
       <div class="selected-tools"><span id="ux-selection-label">已选 3 个步骤</span><button class="control cursor-interaction" id="ux-annotate" type="button">批注所选</button><button class="control ghost cursor-interaction" id="ux-clear" type="button">清除选择</button></div>
       <div class="canvas-space" id="ux-canvas">
         <div class="graph-stack" id="ux-stack">
-          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="check" aria-pressed="true"><small>判断</small><strong>检查解锁条件与资源</strong><span class="node-detail">不足 → 拒绝；充足 → 继续</span></button></div>
+          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="check" aria-pressed="true"><small>判断</small><strong>检查套餐条件与额度</strong><span class="node-detail">不足 → 拒绝；充足 → 继续</span></button></div>
           <button class="edge cursor-interaction" type="button" data-edge="check-pay" aria-pressed="false" aria-label="选择连线：条件与资源满足">条件与资源满足 ↓</button>
-          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="pay" aria-pressed="true"><small>操作</small><strong>扣除本次解锁费用</strong></button></div>
+          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="pay" aria-pressed="true"><small>操作</small><strong>扣除本次演示点数</strong></button></div>
           <button class="edge cursor-interaction" type="button" data-edge="pay-grant" aria-pressed="false" aria-label="选择连线：扣费完成">扣费完成 ↓</button>
-          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="grant" aria-pressed="true"><small>状态变化</small><strong>增加解锁资格</strong><span class="node-detail">解锁集合新增一个技能</span><span class="change" id="ux-changed" hidden>本次已补全等级、上阵保持说明</span></button><button type="button" class="pin cursor-interaction" id="ux-pin" aria-label="打开批注 C1">C1</button></div>
+          <div class="node"><button class="node-hit cursor-interaction" type="button" data-node="grant" aria-pressed="true"><small>状态变化</small><strong>启用演示集成</strong><span class="node-detail">集成集合新增一项</span><span class="change" id="ux-changed" hidden>本次已补全套餐、通知保持说明</span></button><button type="button" class="pin cursor-interaction" id="ux-pin" aria-label="打开批注 C1">C1</button></div>
           <div class="saved-pins" id="ux-saved-pins" aria-label="已保存批注"></div>
         </div>
         <div id="ux-inline-slot" class="inline-slot"></div>
@@ -150,8 +150,8 @@ html, body { margin: 0; background: transparent; font-family: var(--ux-font); co
 (() => {
   const root = document.getElementById('ux-review');
   const el = id => document.getElementById('ux-' + id);
-  const titles = { check: '检查解锁条件与资源', pay: '扣除解锁费用', grant: '增加解锁资格', 'edge:check-pay': '条件与资源满足', 'edge:pay-grant': '扣费完成', 'scene:unlock': '整个解锁场景' };
-  const example = '这里只增加解锁资格，请保持系统总等级和原上阵选择。';
+  const titles = { check: '检查套餐条件与额度', pay: '扣除演示点数', grant: '启用演示集成', 'edge:check-pay': '条件与资源满足', 'edge:pay-grant': '扣费完成', 'scene:unlock': '整个集成场景' };
+  const example = '这里只启用演示集成，请保持套餐和通知渠道。';
   const drafts = new Map([['check|grant|pay', example]]);
   const records = [{ id: 'C1', targets: ['grant'], body: example }];
   let selection = ['check', 'pay', 'grant'], anchor = [...selection], location = 'inline', sideMode = null, task = 'write', boxMode = false, submitted = false, resolved = false, opener = el('annotate'), replyTo = null;
@@ -205,9 +205,9 @@ html, body { margin: 0; background: transparent; font-family: var(--ux-font); co
     stash(); location = null; sideMode = review ? 'review' : 'thread';
     el('side-title').textContent = review ? '复核 ' + record.id + ' · 1 / 1' : record.id + ' · 完整讨论';
     el('side-content').innerHTML = '<article class="thread"><p class="author">你 · 原意见 · 逻辑 v1</p><p class="text">' + escape(record.body) + '</p></article>' +
-      (record.id === 'C1' ? '<article class="thread"><p class="author">代理 · 示例回应</p><p>已核对并补全两项保持规则：系统总等级不变，上阵选择不变。原有解锁资格保留，只增加本次技能。</p><p>校验失败在扣费前返回；本次验证依据可按需展开。</p></article>' : '') +
+      (record.id === 'C1' ? '<article class="thread"><p class="author">代理 · 示例回应</p><p>已核对并补全两项保持规则：套餐不变，通知渠道不变。原有集成保留，只启用所选集成。</p><p>校验失败在扣费前返回；本次验证依据可按需展开。</p></article>' : '') +
       (record.replies || []).map(body => '<article class="thread"><p class="author">你 · 后续补充</p><p class="text">' + escape(body) + '</p></article>').join('') +
-      (review ? '<div class="diff"><div><small>原说明</small>增加解锁资格，其他状态尚未展开</div><div><small>新版补全</small>总等级保持 · 上阵保持 · 解锁集合新增</div></div>' : '<p class="hint">长讨论在侧栏阅读，图上仍保留 C1 与对应步骤。</p>') +
+      (review ? '<div class="diff"><div><small>原说明</small>启用演示集成，其他状态尚未展开</div><div><small>新版补全</small>套餐保持 · 通知渠道保持 · 集成集合新增</div></div>' : '<p class="hint">长讨论在侧栏阅读，图上仍保留 C1 与对应步骤。</p>') +
       '<div class="thread-action"><button class="control cursor-interaction" type="button" id="ux-reply">补充意见</button>' + (review ? '<button class="control primary cursor-interaction" type="button" id="ux-resolve">确认解决</button>' : '') + '</div><p class="hint" id="ux-thread-state">' + (resolved ? '此意见已解决，本轮仍待确认。' : review ? '代理已回应，等待人工复核。' : '回复保留在原意见下。') + '</p>';
     el('reply').addEventListener('click', () => { openEditor(record.targets, el('pin'), record); location = 'side'; paint(); });
     if (review) {

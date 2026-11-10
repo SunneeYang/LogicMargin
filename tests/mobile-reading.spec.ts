@@ -141,7 +141,7 @@ for (const device of [
       await page.locator('.canvas[data-viewport-ready="true"]').waitFor({ state: 'visible' })
       await readingMetrics(page, info, 'before-touch-comment')
 
-      const emptyBadge = page.getByRole('button', { name: '讨论：发起总等级升级', exact: true })
+      const emptyBadge = page.getByRole('button', { name: '讨论：发起套餐升级', exact: true })
       await emptyBadge.tap()
       await page.locator('[data-composer]').getByRole('button', { name: '添加新批注', exact: true }).tap()
       const editor = page.getByRole('dialog', { name: '节点讨论', exact: true })
@@ -161,7 +161,7 @@ for (const device of [
       await expect(editor.getByLabel('问题与预期行为')).toHaveCount(0)
       await editor.getByRole('button', { name: '关闭讨论', exact: true }).tap()
 
-      const savedBadge = page.getByRole('button', { name: '讨论：发起总等级升级（1 条）', exact: true })
+      const savedBadge = page.getByRole('button', { name: '讨论：发起套餐升级（1 条）', exact: true })
       await savedBadge.tap()
       const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })
       await expect(discussion).toBeInViewport({ ratio: 1 })
@@ -286,7 +286,7 @@ test.describe('mobile reading actions', () => {
     await expect(canvas).toHaveAttribute('data-viewport-ready', 'true')
     if (await tools.evaluate(element => element.closest('details')?.open)) await tools.tap()
     await expect(page.locator('.react-flow__node[data-id="upgrade-start"]')).toContainText('第二轮：失败时保持资源不变。')
-    await page.getByRole('button', { name: '讨论：发起总等级升级（1 条）', exact: true }).tap()
+    await page.getByRole('button', { name: '讨论：发起套餐升级（1 条）', exact: true }).tap()
     const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })
     await expect(discussion).toBeInViewport({ ratio: 1 })
     await expect(discussion).toContainText('第一轮：核对失败时的资源状态。')

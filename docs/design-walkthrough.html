@@ -86,21 +86,21 @@ html, body { margin: 0; background: transparent; color: var(--lm-ink); font-fami
     <button type="button" class="stage cursor-interaction" data-stage="3"><span>4</span> 代理回应</button>
     <button type="button" class="stage cursor-interaction" data-stage="4"><span>5</span> 复核结果</button>
   </nav>
-  <header class="product-header"><strong>LogicMargin · 通灵技能评审</strong><span class="design-label">拟议方案 · 操作演示</span></header>
+  <header class="product-header"><strong>LogicMargin · 虚构订阅工作区评审</strong><span class="design-label">拟议方案 · 操作演示</span></header>
   <div class="review-meta" aria-live="polite"><span id="lm-version"></span><b id="lm-round"></b><span id="lm-comment-status"></span></div>
   <div class="layout">
-    <aside class="scenes" aria-label="场景目录示意"><div class="scene-title">场景</div><div class="scene">升级总等级</div><div class="scene chosen">解锁新技能</div><div class="scene">上阵与卸下</div></aside>
+    <aside class="scenes" aria-label="场景目录示意"><div class="scene-title">场景</div><div class="scene">升级订阅套餐</div><div class="scene chosen">启用演示集成</div><div class="scene">选择通知渠道</div></aside>
     <main class="graph">
-      <div class="graph-heading"><h2>解锁新技能</h2><small id="lm-graph-mode">现状逻辑</small></div>
-      <div class="node"><span class="kind">前置校验</span><strong>功能开放，职业符合，尚未解锁</strong><small>不满足条件 → 拒绝操作</small></div>
+      <div class="graph-heading"><h2>启用演示集成</h2><small id="lm-graph-mode">现状逻辑</small></div>
+      <div class="node"><span class="kind">前置校验</span><strong>服务可用，套餐支持，尚未启用</strong><small>不满足条件 → 拒绝操作</small></div>
       <div class="arrow" aria-hidden="true">↓</div>
       <div class="selected-group" id="lm-selected">
         <div class="selection-note" id="lm-selection-note" hidden>已圈选 3 个步骤 · 1 条意见</div>
-        <div class="node"><span class="kind">判断</span><strong>检查解锁资源</strong><small>不足 → 返回失败，保留养成状态</small></div>
+        <div class="node"><span class="kind">判断</span><strong>检查启用额度</strong><small>不足 → 返回失败，保留工作区设置</small></div>
         <div class="arrow" aria-hidden="true">↓</div>
-        <div class="node"><span class="kind">操作</span><strong>扣除本次解锁费用</strong></div>
+        <div class="node"><span class="kind">操作</span><strong>扣除演示点数</strong></div>
         <div class="arrow" aria-hidden="true">↓</div>
-        <div class="node"><span class="kind">状态变化</span><strong>增加新技能的解锁资格</strong><small id="lm-node-output">查看总等级、解锁集合与上阵选择</small><div class="delta" id="lm-delta" hidden>已补全：等级保持，上阵选择保持</div></div>
+        <div class="node"><span class="kind">状态变化</span><strong>启用所选演示集成</strong><small id="lm-node-output">查看套餐、集成集合与通知渠道</small><div class="delta" id="lm-delta" hidden>已补全：套餐保持，通知渠道保持</div></div>
       </div>
       <div class="result"><strong>结果：</strong><span id="lm-result">查看步骤细节，核对规则与失败出口。</span></div>
       <details><summary>源码依据与未展示范围</summary><p>正式界面可展开源码位置、验证依据及未展示分支。本演示使用示意版本，不连接仓库。</p></details>
@@ -117,7 +117,7 @@ html, body { margin: 0; background: transparent; color: var(--lm-ink); font-fami
 (() => {
   const root = document.getElementById('lm-design');
   const byId = id => document.getElementById('lm-' + id);
-  const example = '解锁只增加资格，不能降低总等级，也不能自动上阵。';
+  const example = '启用集成只增加一项设置，不能改变套餐或通知渠道。';
   const fresh = () => ({ phase: 0, round: 1, draft: example, original: '', followup: '', submissions: [], resolved: false, accepted: false });
   let state = fresh();
   const escape = text => text.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -143,13 +143,13 @@ html, body { margin: 0; background: transparent; color: var(--lm-ink); font-fami
     byId('selection-note').hidden = p < 1;
     byId('selection-note').textContent = p === 1 ? '已圈选 3 个步骤' : '3 个步骤 · 1 条讨论';
     byId('delta').hidden = p < 4;
-    byId('node-output').textContent = p >= 4 ? '总等级保持 · 已解锁集合新增 · 上阵保持' : '查看总等级、解锁集合与上阵选择';
+    byId('node-output').textContent = p >= 4 ? '套餐保持 · 集成集合新增 · 通知渠道保持' : '查看套餐、集成集合与通知渠道';
     byId('graph-mode').textContent = p >= 4 ? '新版变化' : '现状逻辑';
     byId('result').textContent = p >= 4 ? '已展开三项状态的保持与变化，可据此复核。' : '查看步骤细节，核对规则与失败出口。';
     const content = byId('discussion');
     if (p === 0) {
       byId('panel-title').textContent = '先理解业务行为';
-      content.innerHTML = '<p>这里检查资源、扣费，再增加解锁资格。</p><p>点击步骤可以查看条件、数据变化和失败出口。</p><p>整段规则或遗漏流程，也可以在场景级留下意见。</p>';
+      content.innerHTML = '<p>这里检查演示额度、扣点，再启用集成。</p><p>点击步骤可以查看条件、数据变化和失败出口。</p><p>整段规则或遗漏流程，也可以在场景级留下意见。</p>';
     } else if (p === 1) {
       byId('panel-title').textContent = state.round > 1 ? '在原讨论下补充意见' : '为所选流程留下意见';
       content.innerHTML = (state.original ? '<div class="thread"><p class="who">原意见 · 保留</p><p>' + escape(state.original) + '</p></div>' : '') + '<label for="lm-draft">问题与预期行为</label><textarea id="lm-draft" rows="4"></textarea><p class="who">保存后仍由你决定何时提交本轮。</p>';
@@ -157,7 +157,7 @@ html, body { margin: 0; background: transparent; color: var(--lm-ink); font-fami
       byId('draft').addEventListener('input', event => { state.draft = event.target.value; byId('main').disabled = !state.draft.trim(); });
     } else {
       byId('panel-title').textContent = p === 2 ? '批注已保存 · 尚未提交' : p === 3 ? '本轮意见已固定' : '看回应，复核新逻辑';
-      content.innerHTML = '<div class="thread"><p class="who">你 · 原意见 · 逻辑 v1</p><p>' + escape(state.original) + '</p>' + (state.followup ? '<div class="reply"><p class="who">你 · 后续补充</p><p>' + escape(state.followup) + '</p></div>' : '') + (p >= 4 ? '<div class="reply"><p class="who">代理 · 示例回应</p><p>已核对并补全等级与上阵保持规则，依据随新版回传。请复核当前变化。</p></div>' : '') + '</div>';
+      content.innerHTML = '<div class="thread"><p class="who">你 · 原意见 · 逻辑 v1</p><p>' + escape(state.original) + '</p>' + (state.followup ? '<div class="reply"><p class="who">你 · 后续补充</p><p>' + escape(state.followup) + '</p></div>' : '') + (p >= 4 ? '<div class="reply"><p class="who">代理 · 示例回应</p><p>已核对并补全套餐与通知渠道保持规则，依据随新版回传。请复核当前变化。</p></div>' : '') + '</div>';
       if (p >= 3) content.innerHTML += '<div class="snapshot">本轮提交针对：逻辑 v' + state.round + '<br>原意见和目标上下文保持不变。</div>';
       if (p === 3) content.innerHTML += '<p>尚无代理接收回执。正式界面在收到回执后再显示“处理中”。</p>';
       if (p === 4) content.innerHTML += '<p>代理已回应。现在由你判断这条意见是否解决。</p>';

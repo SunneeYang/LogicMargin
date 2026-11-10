@@ -22,7 +22,7 @@ let packageDirectory, packagedRoot, packagedCli, packagedCommand
 const plugin = new URL('../plugins/logic-margin/', import.meta.url)
 const version = JSON.parse(await readFile(new URL('plugin.json', plugin), 'utf8')).version
 
-const sourceText = '总等级升级不要求先解锁或上阵技能。\n失败时保留原等级、资格与上阵状态。\n'
+const sourceText = '演示套餐升级保留原有集成与通知设置。\n失败时保留原套餐、集成与通知设置。\n'
 const sha256 = value => createHash('sha256').update(value).digest('hex')
 
 async function sourceReview(cwd, content = sourceText, previous = sampleReview) {
@@ -301,7 +301,7 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
   const codeAsset = await fetch(new URL(codeChunk, new URL(script, status.url)))
   assert.equal(codeAsset.status, 200, 'The standalone package must serve the code comparison chunk offline')
   assert.match(await codeAsset.text(), /cm-mergeView/)
-  assert.equal((await fetch(`${status.url}/reviews/spirit-sanctum.logic-margin.json`)).status, 404)
+  assert.equal((await fetch(`${status.url}/reviews/task-pipeline.logic-margin.json`)).status, 404)
   const comment = addComment(review, [{ kind: 'review', id: review.id }], '原生包重启后仍保留的意见。').comments.at(-1)
   const saved = await fetch(`${status.url}/api/review-sessions/${identity.sessionId}/mutations`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({

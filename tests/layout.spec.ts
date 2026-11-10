@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { commentScope, openInspector } from './ui.ts'
 
-const requirementTitle = '魔灵秘境 · 服务端逻辑评审'
+const requirementTitle = '虚构演示 · 任务流水线'
 
 async function viewport(page: Page) {
   return page.locator('.react-flow__viewport').evaluate(element => {
@@ -28,7 +28,7 @@ async function visibleCanvas(page: Page) {
 for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080]]) {
   test(`expanded navigation leaves a full-height canvas at ${width}×${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height })
-    await page.goto('/?review=spirit-sanctum')
+    await page.goto('/?review=task-pipeline')
     await expect(page.getByRole('heading', { name: requirementTitle, exact: true })).toBeVisible()
     await expect(page.locator('.sidebar')).toBeVisible()
     await expect(page.getByRole('button', { name: '收起场景导航', exact: true })).toBeVisible()
@@ -51,7 +51,7 @@ for (const [width, height] of [[1366, 768], [1440, 900], [1920, 1080]]) {
 
 test('collapsing navigation, opening details, and focus mode retain the zoom and reading position', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/?review=spirit-sanctum')
+  await page.goto('/?review=task-pipeline')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
   await expect(page.locator('.react-flow__node[data-id="enter-request"]')).toBeVisible()
   const initial = await viewport(page)
@@ -83,7 +83,7 @@ test('collapsing navigation, opening details, and focus mode retain the zoom and
 })
 
 test('Escape closes an active composer before leaving focus and keeps its anchored draft', async ({ page }) => {
-  await page.goto('/?review=spirit-sanctum')
+  await page.goto('/?review=task-pipeline')
   await expect(page.getByRole('heading', { name: requirementTitle, exact: true })).toBeVisible()
   await page.getByRole('button', { name: '专注画布', exact: true }).click()
   await page.locator('.react-flow__node[data-id="enter-request"]').click({ button: 'right' })
@@ -103,7 +103,7 @@ test('Escape closes an active composer before leaving focus and keeps its anchor
 for (const width of [320, 375, 414, 768]) {
   test(`small-screen scene navigation and bottom editor stay inside ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 812 })
-    await page.goto('/?review=spirit-sanctum')
+    await page.goto('/?review=task-pipeline')
     await expect(page.getByRole('heading', { name: requirementTitle, exact: true })).toBeVisible()
     const initial = await visibleCanvas(page)
     expect(initial.visibleHeight).toBeGreaterThanOrEqual(570)
@@ -111,8 +111,8 @@ for (const width of [320, 375, 414, 768]) {
     expect(initial.pageWidth).toBeLessThanOrEqual(width)
     await page.getByRole('button', { name: '展开场景导航', exact: true }).click()
     await expect(page.locator('.sidebar')).toBeVisible()
-    await page.locator('.sidebar .scene-button').filter({ hasText: '按最高层扫荡' }).click()
-    await expect(page.locator('.scene-title')).toHaveText('按最高层扫荡')
+    await page.locator('.sidebar .scene-button').filter({ hasText: '重试历史任务' }).click()
+    await expect(page.locator('.scene-title')).toHaveText('重试历史任务')
     await expect(page.locator('.sidebar')).not.toBeVisible()
     await commentScope(page, 'scene')
     const editor = page.getByRole('dialog', { name: '节点讨论', exact: true })

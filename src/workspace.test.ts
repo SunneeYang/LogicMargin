@@ -7,7 +7,7 @@ import type { ReviewDocument } from './types.ts'
 function fixture(): ReviewDocument {
   return {
     schemaVersion: 1, id: 'review', title: '升级流程', description: '源自代码', revision: 'v1',
-    snapshot: { repository: '/vast', commit: 'abc', fingerprint: 'hash1', capturedAt: '2026-11-02T00:00:00Z', dirty: true },
+    snapshot: { repository: '/example-project', commit: 'abc', fingerprint: 'hash1', capturedAt: '2026-11-02T00:00:00Z', dirty: true },
     coverage: { included: ['升级'], excluded: ['重置'], note: '范围说明' },
     scenes: [{ id: 'level', title: '升级', description: '' }],
     nodes: [{ id: 'check', sceneId: 'level', title: '检查条件', kind: 'action', summary: '', detail: '', input: '', output: '',

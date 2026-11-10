@@ -139,19 +139,19 @@ if (process.argv[2] === '--serve') {
   }
   const result: Record<string, unknown> = {
     capturedAt: now(), source: { gitHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), dirtyWorkingTree: true,
-      fixture: 'public/reviews/spirit-sanctum.logic-margin.json', version, runtime: `createReviewServer from working tree ${version}; no Vite; no real 5173 writes` },
+      fixture: 'public/reviews/task-pipeline.logic-margin.json', version, runtime: `createReviewServer from working tree ${version}; no Vite; no real 5173 writes` },
     host: { hostname: hostname(), platform: platform(), release: release(), arch: process.arch, cpu: cpus()[0].model, logicalCpus: cpus().length, ramBytes: totalmem(), node: process.version },
     method: { samplesPerOperation: samples, warmups, transport: '127.0.0.1 random port, HTTP/1.1 keep-alive, uncompressed response entity bytes (not wire bytes)',
       latency: 'Request dispatch to full response body received; excludes driver JSON parse except documented workflow. Server is separate child; CPU/RSS exclude driver.',
       reset: 'Legacy and get-current-cold: restore before each sample, cold object cache with warm OS cache. get-current/gzip and add-comment-current: restore/prime once then run continuously, no disk edits. Other current mutation workflows restore+prime per sample to keep exact round/version; preparation excluded from latency and CPU counters. Each phase records its preparation mode.',
-      sourceManifest: 'Synthetic per-path file hashes for performance only; original graph and evidence retained. Does not verify external Vast source semantics.',
+      sourceManifest: 'Synthetic per-path file hashes for performance only; original graph and evidence retained. Does not verify external business semantics.',
       cpu: 'Main phases sum per-sample server process.cpuUsage deltas, excluding fixture restoration and cache priming. No forced GC per sample. Concurrency resource totals still include preparation and untimed gaps.',
       rss: 'Server RSS sampled every 10ms plus end; can miss peaks during synchronous work. lifetimeMaxRss is process-wide high water, not phase-specific.',
       percentile: 'Nearest-rank median/p95 over warm samples; no TLS, Tailscale, network contention, browser rendering, or remote client bandwidth.' }, scenarios: [],
   }
   try {
     const server = await startServer(join(temporary, 'primary'))
-    const fixtureRaw = await readFile(join(root, 'public/reviews/spirit-sanctum.logic-margin.json'), 'utf8')
+    const fixtureRaw = await readFile(join(root, 'public/reviews/task-pipeline.logic-margin.json'), 'utf8')
     const fixture = parseReview(JSON.parse(fixtureRaw))
     result.fixture = { jsonBytes: Buffer.byteLength(fixtureRaw), compactBytes: Buffer.byteLength(JSON.stringify(fixture)), nodes: fixture.nodes.length, edges: fixture.edges.length, scenes: fixture.scenes.length }
     const paths = [...new Set(fixture.nodes.flatMap(node => node.evidence.map(evidence => evidence.path)))].sort()
@@ -173,7 +173,7 @@ if (process.argv[2] === '--serve') {
     }
     async function build(rounds: number, comments: number) {
       const review = structuredClone(fixture)
-      review.id = `perf-spirit-${rounds}-${comments}`; review.revision = 'perf-round-1'
+      review.id = `perf-pipeline-${rounds}-${comments}`; review.revision = 'perf-round-1'
       review.snapshot = { ...review.snapshot, files, fingerprint }; review.comments = []
       let state = (await server.http('', { review })).state()
       for (let round = 1; round <= rounds; round++) {

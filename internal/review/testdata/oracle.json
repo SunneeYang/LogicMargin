@@ -6,7 +6,7 @@
     "description": "源自代码 line ",
     "revision": "v1",
     "snapshot": {
-      "repository": "/vast",
+      "repository": "/example-project",
       "commit": "abc",
       "fingerprint": "hash1",
       "capturedAt": "2026-11-02T00:00:00Z",
@@ -114,7 +114,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -195,7 +195,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -280,7 +280,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -365,7 +365,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -478,7 +478,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -588,7 +588,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -698,7 +698,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -808,7 +808,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -918,7 +918,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1028,7 +1028,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1138,7 +1138,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1248,7 +1248,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1358,7 +1358,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1468,7 +1468,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1578,7 +1578,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1688,7 +1688,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1798,7 +1798,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -1908,7 +1908,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2018,7 +2018,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2128,7 +2128,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2238,7 +2238,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2348,7 +2348,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2458,7 +2458,7 @@
         "description": null,
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2568,7 +2568,7 @@
         "description": [],
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2678,7 +2678,7 @@
         "description": {},
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2788,7 +2788,7 @@
         "description": false,
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -2898,7 +2898,7 @@
         "description": 0,
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3008,7 +3008,7 @@
         "description": "",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3112,7 +3112,7 @@
         "description": "",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3220,7 +3220,7 @@
         "description": "源自代码 line ",
         "revision": null,
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3330,7 +3330,7 @@
         "description": "源自代码 line ",
         "revision": [],
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3440,7 +3440,7 @@
         "description": "源自代码 line ",
         "revision": {},
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3550,7 +3550,7 @@
         "description": "源自代码 line ",
         "revision": false,
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3660,7 +3660,7 @@
         "description": "源自代码 line ",
         "revision": 0,
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -3770,7 +3770,7 @@
         "description": "源自代码 line ",
         "revision": "",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5164,7 +5164,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": null,
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5274,7 +5274,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": [],
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5384,7 +5384,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": {},
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5494,7 +5494,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": false,
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5604,7 +5604,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": 0,
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5714,7 +5714,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5824,7 +5824,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": null,
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -5934,7 +5934,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": [],
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -6044,7 +6044,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": {},
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -6154,7 +6154,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": false,
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -6264,7 +6264,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": 0,
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -6374,7 +6374,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -6484,7 +6484,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": null,
@@ -6594,7 +6594,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": [],
@@ -6704,7 +6704,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": {},
@@ -6814,7 +6814,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": false,
@@ -6924,7 +6924,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": 0,
@@ -7034,7 +7034,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "",
@@ -7144,7 +7144,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7254,7 +7254,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7364,7 +7364,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7474,7 +7474,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7578,7 +7578,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7686,7 +7686,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7796,7 +7796,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -7906,7 +7906,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8008,7 +8008,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8110,7 +8110,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8212,7 +8212,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8314,7 +8314,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8416,7 +8416,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8518,7 +8518,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8626,7 +8626,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8728,7 +8728,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8834,7 +8834,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -8942,7 +8942,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9050,7 +9050,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9158,7 +9158,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9266,7 +9266,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9374,7 +9374,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9476,7 +9476,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9582,7 +9582,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9690,7 +9690,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9798,7 +9798,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -9906,7 +9906,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10014,7 +10014,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10124,7 +10124,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10234,7 +10234,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10344,7 +10344,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10454,7 +10454,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10564,7 +10564,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10668,7 +10668,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10776,7 +10776,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10880,7 +10880,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -10984,7 +10984,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11088,7 +11088,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11192,7 +11192,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11296,7 +11296,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11400,7 +11400,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11510,7 +11510,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11620,7 +11620,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11730,7 +11730,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11840,7 +11840,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -11950,7 +11950,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12060,7 +12060,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12170,7 +12170,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12280,7 +12280,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12390,7 +12390,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12500,7 +12500,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12610,7 +12610,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12720,7 +12720,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12830,7 +12830,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -12940,7 +12940,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13050,7 +13050,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13160,7 +13160,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13270,7 +13270,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13374,7 +13374,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13482,7 +13482,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13553,7 +13553,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13624,7 +13624,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13695,7 +13695,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13766,7 +13766,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13837,7 +13837,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -13908,7 +13908,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14018,7 +14018,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14128,7 +14128,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14238,7 +14238,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14348,7 +14348,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14458,7 +14458,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14568,7 +14568,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14678,7 +14678,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14788,7 +14788,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -14898,7 +14898,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15008,7 +15008,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15118,7 +15118,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15228,7 +15228,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15338,7 +15338,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15448,7 +15448,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15558,7 +15558,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15668,7 +15668,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15778,7 +15778,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15888,7 +15888,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -15998,7 +15998,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16108,7 +16108,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16218,7 +16218,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16328,7 +16328,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16438,7 +16438,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16548,7 +16548,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16658,7 +16658,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16768,7 +16768,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16878,7 +16878,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -16988,7 +16988,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17098,7 +17098,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17202,7 +17202,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17310,7 +17310,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17420,7 +17420,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17530,7 +17530,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17640,7 +17640,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17750,7 +17750,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17860,7 +17860,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -17964,7 +17964,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18072,7 +18072,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18182,7 +18182,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18292,7 +18292,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18402,7 +18402,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18512,7 +18512,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18622,7 +18622,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18726,7 +18726,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18834,7 +18834,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -18944,7 +18944,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19054,7 +19054,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19164,7 +19164,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19274,7 +19274,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19384,7 +19384,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19488,7 +19488,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19596,7 +19596,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19703,7 +19703,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19810,7 +19810,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -19917,7 +19917,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20024,7 +20024,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20131,7 +20131,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20238,7 +20238,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20348,7 +20348,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20458,7 +20458,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20568,7 +20568,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20678,7 +20678,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20782,7 +20782,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -20890,7 +20890,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21000,7 +21000,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21110,7 +21110,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21220,7 +21220,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21330,7 +21330,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21440,7 +21440,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21544,7 +21544,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21652,7 +21652,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21762,7 +21762,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21864,7 +21864,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -21960,7 +21960,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22060,7 +22060,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22162,7 +22162,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22264,7 +22264,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22366,7 +22366,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22468,7 +22468,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22578,7 +22578,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22688,7 +22688,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22798,7 +22798,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -22908,7 +22908,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23018,7 +23018,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23128,7 +23128,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23238,7 +23238,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23348,7 +23348,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23458,7 +23458,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23568,7 +23568,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23678,7 +23678,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23788,7 +23788,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -23898,7 +23898,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24008,7 +24008,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24118,7 +24118,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24228,7 +24228,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24338,7 +24338,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24448,7 +24448,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24558,7 +24558,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24668,7 +24668,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24778,7 +24778,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24888,7 +24888,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -24998,7 +24998,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25108,7 +25108,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25218,7 +25218,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25328,7 +25328,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25438,7 +25438,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25548,7 +25548,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25658,7 +25658,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25768,7 +25768,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25869,7 +25869,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -25964,7 +25964,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26063,7 +26063,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26164,7 +26164,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26265,7 +26265,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26366,7 +26366,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26467,7 +26467,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26577,7 +26577,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26687,7 +26687,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26797,7 +26797,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -26907,7 +26907,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27017,7 +27017,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27127,7 +27127,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27237,7 +27237,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27347,7 +27347,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27457,7 +27457,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27567,7 +27567,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27677,7 +27677,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27787,7 +27787,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -27897,7 +27897,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28007,7 +28007,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28117,7 +28117,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28227,7 +28227,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28337,7 +28337,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28447,7 +28447,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28557,7 +28557,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28667,7 +28667,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28777,7 +28777,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28887,7 +28887,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -28997,7 +28997,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29107,7 +29107,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29217,7 +29217,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29327,7 +29327,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29437,7 +29437,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29547,7 +29547,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29657,7 +29657,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29761,7 +29761,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29869,7 +29869,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -29979,7 +29979,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30089,7 +30089,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30199,7 +30199,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30309,7 +30309,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30419,7 +30419,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30523,7 +30523,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30631,7 +30631,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30718,7 +30718,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30799,7 +30799,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30884,7 +30884,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -30971,7 +30971,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31058,7 +31058,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31145,7 +31145,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31232,7 +31232,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31342,7 +31342,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31452,7 +31452,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31562,7 +31562,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31672,7 +31672,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31782,7 +31782,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -31892,7 +31892,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32002,7 +32002,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32112,7 +32112,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32222,7 +32222,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32332,7 +32332,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32442,7 +32442,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32552,7 +32552,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32657,7 +32657,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32762,7 +32762,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32867,7 +32867,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -32972,7 +32972,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33077,7 +33077,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33182,7 +33182,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33292,7 +33292,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33402,7 +33402,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33512,7 +33512,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33622,7 +33622,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33732,7 +33732,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33842,7 +33842,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -33952,7 +33952,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34062,7 +34062,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34172,7 +34172,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34282,7 +34282,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34392,7 +34392,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34502,7 +34502,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34612,7 +34612,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34722,7 +34722,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34832,7 +34832,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -34942,7 +34942,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35052,7 +35052,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35162,7 +35162,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35272,7 +35272,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35382,7 +35382,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35492,7 +35492,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35602,7 +35602,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35712,7 +35712,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35822,7 +35822,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -35932,7 +35932,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36042,7 +36042,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36152,7 +36152,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36262,7 +36262,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36372,7 +36372,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36482,7 +36482,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36584,7 +36584,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36680,7 +36680,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36780,7 +36780,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36882,7 +36882,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -36984,7 +36984,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37086,7 +37086,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37188,7 +37188,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37298,7 +37298,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37408,7 +37408,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37518,7 +37518,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37628,7 +37628,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37738,7 +37738,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37848,7 +37848,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -37958,7 +37958,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38068,7 +38068,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38178,7 +38178,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38288,7 +38288,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38398,7 +38398,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38508,7 +38508,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38618,7 +38618,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38728,7 +38728,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38838,7 +38838,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -38948,7 +38948,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39058,7 +39058,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39168,7 +39168,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39278,7 +39278,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39388,7 +39388,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39498,7 +39498,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39608,7 +39608,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39718,7 +39718,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39828,7 +39828,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -39938,7 +39938,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40048,7 +40048,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40158,7 +40158,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40268,7 +40268,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40378,7 +40378,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40488,7 +40488,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40575,7 +40575,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40662,7 +40662,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40743,7 +40743,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40828,7 +40828,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40915,7 +40915,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -40996,7 +40996,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41091,7 +41091,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41178,7 +41178,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41250,7 +41250,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41322,7 +41322,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41394,7 +41394,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41481,7 +41481,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41595,7 +41595,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41691,7 +41691,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41796,7 +41796,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41892,7 +41892,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -41992,7 +41992,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42094,7 +42094,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42196,7 +42196,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42291,7 +42291,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42390,7 +42390,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42486,7 +42486,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42586,7 +42586,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42681,7 +42681,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42780,7 +42780,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42875,7 +42875,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -42974,7 +42974,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -43091,7 +43091,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -43193,7 +43193,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "bad",
@@ -43280,7 +43280,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00.000Z",
@@ -43361,7 +43361,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00.000Z",
@@ -43446,7 +43446,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-02-30",
@@ -43527,7 +43527,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-02-30",
@@ -43612,7 +43612,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T24:00:00Z",
@@ -43693,7 +43693,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T24:00:00Z",
@@ -43778,7 +43778,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T24:00:00.0001Z",
@@ -43865,7 +43865,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02t00:00:00z",
@@ -43946,7 +43946,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02t00:00:00z",
@@ -44031,7 +44031,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00+08:00",
@@ -44112,7 +44112,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00+08:00",
@@ -44197,7 +44197,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "Mon, 02 Nov 2026 00:00:00 GMT",
@@ -44278,7 +44278,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "Mon, 02 Nov 2026 00:00:00 GMT",
@@ -44363,7 +44363,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "0",
@@ -44444,7 +44444,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "0",
@@ -44529,7 +44529,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11",
@@ -44610,7 +44610,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11",
@@ -44695,7 +44695,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026",
@@ -44776,7 +44776,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026",
@@ -44861,7 +44861,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": " 2026-11-02 ",
@@ -44942,7 +44942,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": " 2026-11-02 ",
@@ -45027,7 +45027,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-01-00",
@@ -45114,7 +45114,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-13-01",
@@ -45201,7 +45201,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "+010000-01-01T00:00:00Z",
@@ -45282,7 +45282,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "+010000-01-01T00:00:00Z",
@@ -45367,7 +45367,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "+275760-09-13T00:00:00.001Z",
@@ -45454,7 +45454,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "0001",
@@ -45535,7 +45535,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "0001",
@@ -45620,7 +45620,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "001",
@@ -45701,7 +45701,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "001",
@@ -45786,7 +45786,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "Jan 2, 2026",
@@ -45867,7 +45867,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "Jan 2, 2026",
@@ -45952,7 +45952,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-2-30",
@@ -46033,7 +46033,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-2-30",
@@ -46207,7 +46207,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -46366,7 +46366,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -46470,7 +46470,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -46578,7 +46578,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -46688,7 +46688,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -46798,7 +46798,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -46908,7 +46908,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47018,7 +47018,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47128,7 +47128,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47237,7 +47237,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47347,7 +47347,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47457,7 +47457,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47552,7 +47552,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -47634,7 +47634,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47729,7 +47729,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -47815,7 +47815,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -47895,7 +47895,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -47975,7 +47975,7 @@
             "description": "源自代码 line ",
             "revision": "v1",
             "snapshot": {
-              "repository": "/vast",
+              "repository": "/example-project",
               "commit": "abc",
               "fingerprint": "hash1",
               "capturedAt": "2026-11-02T00:00:00Z",
@@ -48064,7 +48064,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -48144,7 +48144,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -48232,7 +48232,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -48312,7 +48312,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -48414,7 +48414,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -48495,7 +48495,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -48645,7 +48645,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -48754,7 +48754,7 @@
         "description": "literal \\u2028 \\u2029 \\\" \\b \b \f \t \r \n \u0000 \u001f",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -48863,7 +48863,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49018,7 +49018,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49158,7 +49158,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49299,7 +49299,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49440,7 +49440,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49582,7 +49582,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49754,7 +49754,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49864,7 +49864,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -49995,7 +49995,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50126,7 +50126,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50261,7 +50261,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50392,7 +50392,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50523,7 +50523,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50658,7 +50658,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50789,7 +50789,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -50920,7 +50920,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51055,7 +51055,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51186,7 +51186,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51317,7 +51317,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51452,7 +51452,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51551,7 +51551,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51682,7 +51682,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51785,7 +51785,7 @@
         "description": "源自代码 line ",
         "revision": "v2",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -51916,7 +51916,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52047,7 +52047,7 @@
         "description": "源自代码 line ",
         "revision": "v2",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52182,7 +52182,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52313,7 +52313,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52444,7 +52444,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52579,7 +52579,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52710,7 +52710,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52841,7 +52841,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -52983,7 +52983,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -53114,7 +53114,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -53251,7 +53251,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -53382,7 +53382,7 @@
         "description": "源自代码 line ",
         "revision": "v1",
         "snapshot": {
-          "repository": "/vast",
+          "repository": "/example-project",
           "commit": "abc",
           "fingerprint": "hash1",
           "capturedAt": "2026-11-02T00:00:00Z",
@@ -53514,12 +53514,12 @@
       "kind": "current",
       "input": {
         "schemaVersion": 1,
-        "id": "a89e9ace-385c-44d2-beb5-0c562646762b",
+        "id": "f867f674-de6d-45c2-9fa3-fc8436fb2ff0",
         "version": 9,
         "round": 2,
         "phase": "approved",
-        "createdAt": "2026-11-08T16:15:34.838Z",
-        "updatedAt": "2026-11-08T16:15:34.848Z",
+        "createdAt": "2026-11-10T03:17:17.565Z",
+        "updatedAt": "2026-11-10T03:17:17.576Z",
         "review": {
           "schemaVersion": 1,
           "id": "review",
@@ -53527,7 +53527,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -53656,7 +53656,7 @@
             "schemaVersion": 1,
             "kind": "logic-margin-feedback",
             "id": "submission-1",
-            "createdAt": "2026-11-08T16:15:34.842Z",
+            "createdAt": "2026-11-10T03:17:17.569Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -53664,7 +53664,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -53758,7 +53758,7 @@
             "schemaVersion": 1,
             "kind": "logic-margin-approval",
             "id": "approved",
-            "createdAt": "2026-11-08T16:15:34.845Z",
+            "createdAt": "2026-11-10T03:17:17.572Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -53766,7 +53766,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -53895,7 +53895,7 @@
         "snapshots": [
           {
             "round": 1,
-            "openedAt": "2026-11-08T16:15:34.838Z",
+            "openedAt": "2026-11-10T03:17:17.565Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -53903,7 +53903,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -53980,7 +53980,7 @@
           },
           {
             "round": 2,
-            "openedAt": "2026-11-08T16:15:34.844Z",
+            "openedAt": "2026-11-10T03:17:17.571Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -53988,7 +53988,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -54148,12 +54148,12 @@
       },
       "output": {
         "schemaVersion": 1,
-        "id": "a89e9ace-385c-44d2-beb5-0c562646762b",
+        "id": "f867f674-de6d-45c2-9fa3-fc8436fb2ff0",
         "version": 9,
         "round": 2,
         "phase": "approved",
-        "createdAt": "2026-11-08T16:15:34.838Z",
-        "updatedAt": "2026-11-08T16:15:34.848Z",
+        "createdAt": "2026-11-10T03:17:17.565Z",
+        "updatedAt": "2026-11-10T03:17:17.576Z",
         "review": {
           "schemaVersion": 1,
           "id": "review",
@@ -54161,7 +54161,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -54290,11 +54290,11 @@
         "snapshots": [
           {
             "round": 1,
-            "openedAt": "2026-11-08T16:15:34.838Z"
+            "openedAt": "2026-11-10T03:17:17.565Z"
           },
           {
             "round": 2,
-            "openedAt": "2026-11-08T16:15:34.844Z",
+            "openedAt": "2026-11-10T03:17:17.571Z",
             "afterSubmission": "submission-1",
             "publication": {
               "baseRound": 1,
@@ -54333,7 +54333,7 @@
           {
             "id": "submission-1",
             "kind": "logic-margin-feedback",
-            "createdAt": "2026-11-08T16:15:34.842Z",
+            "createdAt": "2026-11-10T03:17:17.569Z",
             "round": 1,
             "revision": "v1",
             "fingerprint": "hash1"
@@ -54341,7 +54341,7 @@
           {
             "id": "approved",
             "kind": "logic-margin-approval",
-            "createdAt": "2026-11-08T16:15:34.845Z",
+            "createdAt": "2026-11-10T03:17:17.572Z",
             "round": 2,
             "revision": "v2",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c"
@@ -54362,12 +54362,12 @@
       "kind": "current",
       "input": {
         "schemaVersion": 1,
-        "id": "a89e9ace-385c-44d2-beb5-0c562646762b",
+        "id": "f867f674-de6d-45c2-9fa3-fc8436fb2ff0",
         "version": 9,
         "round": 2,
         "phase": "approved",
-        "createdAt": "2026-11-08T16:15:34.838Z",
-        "updatedAt": "2026-11-08T16:15:34.848Z",
+        "createdAt": "2026-11-10T03:17:17.565Z",
+        "updatedAt": "2026-11-10T03:17:17.576Z",
         "review": {
           "schemaVersion": 1,
           "id": "review",
@@ -54375,7 +54375,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -54504,7 +54504,7 @@
             "schemaVersion": 1,
             "kind": "logic-margin-feedback",
             "id": "submission-1",
-            "createdAt": "2026-11-08T16:15:34.842Z",
+            "createdAt": "2026-11-10T03:17:17.569Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -54512,7 +54512,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -54606,7 +54606,7 @@
             "schemaVersion": 1,
             "kind": "logic-margin-approval",
             "id": "approved",
-            "createdAt": "2026-11-08T16:15:34.845Z",
+            "createdAt": "2026-11-10T03:17:17.572Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -54614,7 +54614,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -54743,7 +54743,7 @@
         "snapshots": [
           {
             "round": 1,
-            "openedAt": "2026-11-08T16:15:34.838Z",
+            "openedAt": "2026-11-10T03:17:17.565Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -54751,7 +54751,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -54828,7 +54828,7 @@
           },
           {
             "round": 2,
-            "openedAt": "2026-11-08T16:15:34.844Z",
+            "openedAt": "2026-11-10T03:17:17.571Z",
             "review": {
               "schemaVersion": 1,
               "id": "review",
@@ -54836,7 +54836,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -54996,12 +54996,12 @@
       },
       "output": {
         "schemaVersion": 1,
-        "id": "a89e9ace-385c-44d2-beb5-0c562646762b",
+        "id": "f867f674-de6d-45c2-9fa3-fc8436fb2ff0",
         "version": 9,
         "round": 2,
         "phase": "approved",
-        "createdAt": "2026-11-08T16:15:34.838Z",
-        "updatedAt": "2026-11-08T16:15:34.848Z",
+        "createdAt": "2026-11-10T03:17:17.565Z",
+        "updatedAt": "2026-11-10T03:17:17.576Z",
         "review": {
           "schemaVersion": 1,
           "id": "review",
@@ -55009,7 +55009,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -55138,11 +55138,11 @@
         "snapshots": [
           {
             "round": 1,
-            "openedAt": "2026-11-08T16:15:34.838Z"
+            "openedAt": "2026-11-10T03:17:17.565Z"
           },
           {
             "round": 2,
-            "openedAt": "2026-11-08T16:15:34.844Z",
+            "openedAt": "2026-11-10T03:17:17.571Z",
             "afterSubmission": "submission-1",
             "publication": {
               "baseRound": 1,
@@ -55181,7 +55181,7 @@
           {
             "id": "submission-1",
             "kind": "logic-margin-feedback",
-            "createdAt": "2026-11-08T16:15:34.842Z",
+            "createdAt": "2026-11-10T03:17:17.569Z",
             "round": 1,
             "revision": "v1",
             "fingerprint": "hash1"
@@ -55189,7 +55189,7 @@
           {
             "id": "approved",
             "kind": "logic-margin-approval",
-            "createdAt": "2026-11-08T16:15:34.845Z",
+            "createdAt": "2026-11-10T03:17:17.572Z",
             "round": 2,
             "revision": "v2",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c"
@@ -55217,7 +55217,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -55309,7 +55309,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -55395,7 +55395,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -55514,7 +55514,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -55615,7 +55615,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -55734,7 +55734,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -55835,7 +55835,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -55997,7 +55997,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -56099,7 +56099,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -56201,7 +56201,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -56298,7 +56298,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -56439,7 +56439,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -56541,7 +56541,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -56643,7 +56643,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -56742,7 +56742,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -56844,7 +56844,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -56946,7 +56946,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -57046,7 +57046,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -57148,7 +57148,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -57250,7 +57250,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -57365,7 +57365,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -57477,7 +57477,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -57579,7 +57579,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -57680,7 +57680,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -57825,7 +57825,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -57960,7 +57960,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -58062,7 +58062,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -58147,7 +58147,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -58322,7 +58322,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -58416,7 +58416,7 @@
           "description": "源自代码 line ",
           "revision": "v1",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "hash1",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -58526,7 +58526,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -58745,7 +58745,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -58882,7 +58882,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -58984,7 +58984,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -59069,7 +59069,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -59251,7 +59251,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -59388,7 +59388,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -59490,7 +59490,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -59627,7 +59627,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -59712,7 +59712,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -59907,7 +59907,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -60044,7 +60044,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -60146,7 +60146,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -60283,7 +60283,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -60368,7 +60368,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -60546,7 +60546,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -60781,7 +60781,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -60918,7 +60918,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61020,7 +61020,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61157,7 +61157,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61242,7 +61242,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61422,7 +61422,7 @@
           "description": "源自代码 line ",
           "revision": "v2",
           "snapshot": {
-            "repository": "/vast",
+            "repository": "/example-project",
             "commit": "abc",
             "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
             "capturedAt": "2026-11-02T00:00:00Z",
@@ -61559,7 +61559,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61661,7 +61661,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61798,7 +61798,7 @@
               "description": "源自代码 line ",
               "revision": "v1",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "hash1",
                 "capturedAt": "2026-11-02T00:00:00Z",
@@ -61883,7 +61883,7 @@
               "description": "源自代码 line ",
               "revision": "v2",
               "snapshot": {
-                "repository": "/vast",
+                "repository": "/example-project",
                 "commit": "abc",
                 "fingerprint": "20f73ec13bfd54db0e2fe01cf5a35117ece9f16c2618816f766d35a6a232606c",
                 "capturedAt": "2026-11-02T00:00:00Z",

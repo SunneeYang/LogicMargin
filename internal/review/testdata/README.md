@@ -1,10 +1,11 @@
-These fixtures were generated from the unchanged TypeScript oracle at
-`73890315827d0c335f360fcf467c33049fdb17cf` (LogicMargin 0.8.7).
+These fixtures use the TypeScript compatibility oracle introduced with
+LogicMargin 0.8.7. The mock repository label has been neutralized and the
+fixtures regenerated from the current generator; they are not unchanged Git snapshots.
 
 Regenerate from the repository root with Node >=22.18:
 
 ```
-/Users/hcm-b0677/.codex/bin/agent-tmp-run node internal/review/testdata/generate-oracle.mjs
+node internal/review/testdata/generate-oracle.mjs
 ```
 
 `oracle.json` contains parser results and exact domain errors, normalized
@@ -27,3 +28,5 @@ surrogates before Go's decoder can replace them. Malformed legacy files remain
 unchanged and cannot be mutated; repair the original file before retrying.
 Platforms whose `os.FileInfo` omits change-time disable
 session caching and conservatively re-read the file.
+
+`agent-tmp-run` is an optional developer-machine temp harness, not a public dependency. Honor local AGENTS requirements when present; the generator also works with the platform temporary directory.

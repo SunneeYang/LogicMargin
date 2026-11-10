@@ -1,712 +1,604 @@
 import type { ReviewDocument } from './types.ts'
 
-// 固定源码快照；更新样例必须同时重核业务说明、行号与指纹。
+// Fictional rules authored in examples/subscription.md; regenerate digests when those rules change.
 export const sampleReview: ReviewDocument = {
   "schemaVersion": 1,
-  "id": "vast-psycho-system-level",
-  "title": "通灵技能 · 共享总等级",
-  "description": "用三个真实入口核对：升级、解锁与上阵分别改变哪些状态。业务语言由当前源码人工整理；L/U/E 为示意状态。",
-  "revision": "worktree-4d5c5409a-887c3c3da061",
+  "id": "demo-subscription-v1",
+  "title": "虚构演示 · 订阅工作区",
+  "description": "三个独立场景演示套餐升级、集成启用和通知设置；所有规则与点数均为虚构，不接入真实支付或消息服务。",
+  "revision": "synthetic-v1",
   "snapshot": {
-    "repository": "Vast · feat/psycho-system-level",
-    "commit": "4d5c5409a3b72e3ce719f19655d5a700c3836f34",
-    "fingerprint": "887c3c3da0614300d0d12f147ef46778c11c08943918ecacaa539fc5b7100b66",
-    "capturedAt": "2026-11-02T12:12:03Z",
-    "dirty": false
+    "repository": "LogicMargin fictional examples",
+    "commit": "synthetic-v1 (not a Git commit)",
+    "fingerprint": "37ee5c15d2036bd7ff1e0ac2640c5e646edd036f2c44c219d6a4ee0e7492d83c",
+    "capturedAt": "2026-11-10T00:00:00Z",
+    "dirty": false,
+    "files": [
+      {
+        "path": "examples/subscription.md",
+        "sha256": "a8560c10b4e48c0e8fbaef8f61f00c0e0d50e86b94b1d92158de8ca1ec41c2e4"
+      }
+    ]
   },
   "coverage": {
     "included": [
-      "系统总等级升级及扣费前的校验出口",
-      "技能解锁资格、重复解锁与资源检查",
-      "上阵/卸下校验、缓存失效与共享等级效果查询"
+      "升级订阅套餐",
+      "启用演示集成",
+      "选择通知渠道"
     ],
     "excluded": [
-      "转职与职业资格转换",
-      "Build 配装、排行快照、导入导出及协议消费者",
-      "客户端、Admin、真实存储与战斗运行时验收",
-      "外部入口的完整调用链、并发、跨对象事务与线上配置有效性"
+      "真实账号、支付、外部服务和生产存储",
+      "并发、事务、部署与线上运行验收"
     ],
-    "note": "这是固定工作区快照的源码说明，捕获时工作区干净；不是线上运行证明。知识图谱对应另一个检出，本样例已直接核对实际文件；尚未完成全工程覆盖，也不会自动监测 Vast 后续变化。"
+    "note": "全部内容为仓库原创的虚构演示，依据是 examples 中的规则文档，不来自业务工程或真实源码快照。稳定图形 ID 仅供交互测试；文档 ID 独立，不迁移其他评审的批注或草稿。"
   },
   "scenes": [
     {
       "id": "upgrade",
-      "title": "升级总等级",
-      "description": "没有解锁或上阵技能时，也能提升共享等级。"
+      "title": "升级订阅套餐",
+      "description": "使用演示点数升级套餐，保留集成和通知设置。"
     },
     {
       "id": "unlock",
-      "title": "解锁新技能",
-      "description": "增加解锁资格，保留总等级与原上阵选择。"
+      "title": "启用演示集成",
+      "description": "检查套餐支持和点数，启用一个虚构集成。"
     },
     {
       "id": "equip",
-      "title": "上阵与卸下",
-      "description": "只切换一个选择，下次生成属性时使用当前总等级。"
+      "title": "选择通知渠道",
+      "description": "保存渠道或暂停状态，只展示预览。"
     }
   ],
   "nodes": [
     {
       "id": "upgrade-start",
       "sceneId": "upgrade",
-      "title": "发起总等级升级",
+      "title": "发起套餐升级",
       "kind": "action",
-      "summary": "无需先解锁或上阵技能。",
-      "detail": "请求不选择某个技能，升级只处理当前化身的通灵系统总等级。示意状态：总等级 L；已解锁集合 U；上阵技能 E。L/U/E 为符号，不代表线上角色。",
-      "input": "当前化身；等级 L；解锁 U；上阵 E",
-      "output": "进入功能开关校验",
+      "summary": "为虚构工作区申请更高套餐。",
+      "detail": "演示请求只携带目标套餐名称，尚不写入任何设置。",
+      "input": "工作区、当前套餐、目标套餐",
+      "output": "进入服务可用性检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 85,
-          "endLine": 89,
-          "digest": "701e02b88d7f53ee92935a7e30daacb80e5188813dd70d22a2be471208083f60"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-start",
+          "startLine": 7,
+          "endLine": 12,
+          "digest": "5cf33c48b58df41131700035d2a3637737d3718d26bb7ff441489d96f0dbee23"
         }
       ]
     },
     {
       "id": "upgrade-toggle",
       "sceneId": "upgrade",
-      "title": "通灵功能是否开放？",
+      "title": "订阅服务是否可用？",
       "kind": "decision",
-      "summary": "关闭时直接拒绝升级。",
-      "detail": "先检查功能开关，关闭时返回“功能未开放”，不进入升级费用处理。",
-      "input": "功能开关；现有养成状态",
-      "output": "开放 → 继续；关闭 → 拒绝",
+      "summary": "维护期间拒绝新升级。",
+      "detail": "此虚构规则要求订阅服务可用后才读取套餐目录；不可用时保留工作区原设置。",
+      "input": "服务状态",
+      "output": "可用时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 86,
-          "endLine": 88,
-          "digest": "5dfedb2a961674f343e39f88697d14ea62afcdee5ec7d84a5ed1ccb38f2acc83"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-toggle",
+          "startLine": 14,
+          "endLine": 19,
+          "digest": "c81ab150f2bba83dc7fed4213842d1886655818bb252b2ffd57afc42e99c5f9d"
         }
       ]
     },
     {
       "id": "upgrade-level",
       "sceneId": "upgrade",
-      "title": "等级与升级配置是否有效？",
+      "title": "目标套餐可以升级吗？",
       "kind": "decision",
-      "summary": "缺省等级按 1；先判满级，再查配置。",
-      "detail": "从升级费用表最大 ID 读取等级上限。已满级优先返回满级错误；否则当前等级行和下一等级行都必须存在。不会读取已解锁、上阵选择或技能效果表。",
-      "input": "等级 L（缺省视为 1）；升级费用表",
-      "output": "未满级且两行齐全 → 继续；满级或缺行 → 拒绝",
+      "summary": "仅允许目录中更高的套餐。",
+      "detail": "当前套餐与目标套餐都必须在演示目录中，目标排序必须更高；不处理降级或续期。",
+      "input": "当前套餐、目标套餐、演示目录",
+      "output": "合法升级或拒绝",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "GetPsychoSkillLevel / PsychoSkillLevelUp",
-          "startLine": 77,
-          "endLine": 99,
-          "digest": "d3ddbd158e2a6795cad397461fa2682dd76d331418c9d2bded895b2f7df4fbcf"
-        },
-        {
-          "path": "server/entry/extends/psycho_skill.go",
-          "symbol": "GetPsychoSystemMaxLevel",
-          "startLine": 15,
-          "endLine": 22,
-          "digest": "b965b5b7b88fd175606a2d3c53fa683aea2c87ffe10a91cc02dc45b0cdd6810f"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-level",
+          "startLine": 21,
+          "endLine": 26,
+          "digest": "792e9e997f5b04095b7f9c8a392777c72f44502e0043c13e972cdf059c4d788a"
         }
       ]
     },
     {
       "id": "upgrade-cost",
       "sceneId": "upgrade",
-      "title": "升级条件和资源是否满足？",
+      "title": "演示额度是否足够？",
       "kind": "decision",
-      "summary": "按当前等级行检查，全部通过后才扣费。",
-      "detail": "检查当前等级行的解锁条件，再将本行费用转换并检查资源。旧技能效果表里的费用不参与本次升级。",
-      "input": "当前等级行的条件与费用；现有资源",
-      "output": "条件与资源充足 → 扣费；任一不足 → 拒绝",
+      "summary": "使用虚构点数演示校验。",
+      "detail": "先比较演示余额与目录中的升级点数。点数没有货币价值，也不接入任何支付服务。",
+      "input": "演示余额、升级点数",
+      "output": "足够时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 100,
-          "endLine": 106,
-          "digest": "213ef4cb73b02211cd619fb33a811c2dd17663765d3bbdeee83bcd4f189524d2"
-        },
-        {
-          "path": "server/servers/game/role/cost.go",
-          "symbol": "CheckCosts",
-          "startLine": 42,
-          "endLine": 50,
-          "digest": "8c0e4875b214498e02ab95e64610ea1cb8860f8e365bb1852bc030b2ce7592eb"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-cost",
+          "startLine": 28,
+          "endLine": 33,
+          "digest": "27c3516235c0f4f90f164a1b67a4cefbe72d0a012c580338aa9cbf349f75a9c6"
         }
       ]
     },
     {
       "id": "upgrade-apply",
       "sceneId": "upgrade",
-      "title": "扣除费用，总等级增加 1",
+      "title": "扣除点数并保存套餐",
       "kind": "action",
-      "summary": "只改变资源与系统总等级。",
-      "detail": "先执行当前等级行的资源扣除，再保存 L + 1。不新增解锁资格，不改变上阵技能。该片段未建立跨对象事务承诺。",
-      "input": "等级 L；解锁 U；上阵 E；足够资源",
-      "output": "等级 L + 1；解锁 U；上阵 E；资源扣除本行费用",
+      "summary": "确认后只改变套餐与演示余额。",
+      "detail": "在本演示的单步状态模型中，保存目标套餐并扣除对应点数；集成集合和通知渠道保持原值。",
+      "input": "合法目标套餐、足够点数",
+      "output": "新套餐、更新后的演示余额",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 107,
-          "endLine": 108,
-          "digest": "824180a505994964fd80065a532db2282956b50b4c4ac419eb4495e41e2dd094"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-apply",
+          "startLine": 35,
+          "endLine": 40,
+          "digest": "935d638ec84dc681d3b7b9a2f1ff8371035016f2662ba0765081e27e5be0f70b"
         }
       ]
     },
     {
       "id": "upgrade-refresh",
       "sceneId": "upgrade",
-      "title": "清除属性缓存并记录更新",
+      "title": "刷新套餐展示",
       "kind": "action",
-      "summary": "下次生成属性时使用新等级。",
-      "detail": "CalcRoleAtt 在这里使角色属性缓存失效；它不会立刻计算全部属性。随后调用现有更新入口。后续正常取属性时重算。",
-      "input": "等级已变为 L + 1；可能存在旧属性缓存",
-      "output": "旧缓存移除；调用角色更新；返回实际消耗",
+      "summary": "更新页面使用的套餐摘要。",
+      "detail": "记录一次展示刷新事件，供演示图说明成功路径；没有真实缓存或外部通知。",
+      "input": "已保存的套餐",
+      "output": "新的展示摘要",
       "position": {
         "x": 0,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 109,
-          "endLine": 111,
-          "digest": "31b4c3d26b63296b5b6109b4cf54b6aadc9596f7086bdce29da534f7b8230980"
-        },
-        {
-          "path": "server/servers/game/role/role.go",
-          "symbol": "CalcRoleAtt",
-          "startLine": 858,
-          "endLine": 860,
-          "digest": "bcc8d10ecd4b0b78c9cf082cd29b03aebeadcf07498b0cc220357b939d166703"
-        },
-        {
-          "path": "server/servers/game/role/role_mgr.go",
-          "symbol": "updateRoleInfo",
-          "startLine": 66,
-          "endLine": 68,
-          "digest": "61e96ebe4fa28905a529f159ad24a79932abacac2861cd1a6460a29628584c6c"
-        },
-        {
-          "path": "server/servers/game/role/role_mgr.go",
-          "symbol": "GetRoleInfo",
-          "startLine": 32,
-          "endLine": 38,
-          "digest": "35ad8d74368ea0f51711d14814d0c50773dbb8bbcbc84178274a25d9ff7f4661"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-refresh",
+          "startLine": 42,
+          "endLine": 47,
+          "digest": "3fe16e0ef9ae89bad588ed5df520cf73f8a7d04876aded91d05d44182b1d3d21"
         }
       ]
     },
     {
       "id": "upgrade-complete",
       "sceneId": "upgrade",
-      "title": "升级完成，解锁与上阵保持",
+      "title": "套餐升级完成",
       "kind": "result",
-      "summary": "没有技能也能升级；共享成长保留。",
-      "detail": "业务结果：总等级只增加一级；U 与 E 保持原值。已有上阵技能的下次属性生成会以新的总等级查询效果。这里展示源码行为，不表示已经完成真实战斗验收。",
-      "input": "升级操作成功",
-      "output": "等级 L → L + 1；解锁 U → U；上阵 E → E",
+      "summary": "集成与通知渠道保持原设置。",
+      "detail": "显示新套餐名称和剩余演示点数，本场景到此结束。",
+      "input": "新套餐、演示余额",
+      "output": "升级成功结果",
       "position": {
         "x": 0,
         "y": 1080
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 85,
-          "endLine": 111,
-          "digest": "2ef60c47c7751a17e98a61222161276786eaa3024f4b6ec73fd3db600a333d70"
-        },
-        {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "calcRolePsychoSkillAtt",
-          "startLine": 122,
-          "endLine": 133,
-          "digest": "faf9b80ce0b25b1e2e4485a95235234e745d774386e5013c34b2cefc7425c3f5"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-complete",
+          "startLine": 49,
+          "endLine": 54,
+          "digest": "642d20f7635693f51aed000c1b26363f0a25b3df4bbb62dee5281b9580879fc2"
         }
       ]
     },
     {
       "id": "upgrade-rejected",
       "sceneId": "upgrade",
-      "title": "拒绝升级，保留原有养成",
+      "title": "拒绝升级，保留设置",
       "kind": "failure",
-      "summary": "错误发生在本次扣费之前。",
-      "detail": "可能原因：功能关闭、已满级、升级配置缺失、条件不满足或资源不足。返回对应错误；不执行本次扣费，不增加总等级，不改变解锁或上阵。",
-      "input": "校验失败",
-      "output": "等级仍为 L；解锁仍为 U；上阵仍为 E；不扣本次费用",
+      "summary": "失败校验不会消耗演示点数。",
+      "detail": "服务不可用、套餐无效或点数不足时返回对应原因，不改变套餐、集成或通知设置。",
+      "input": "校验失败原因",
+      "output": "原设置与原余额",
       "position": {
         "x": 360,
         "y": 400
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLevelUp",
-          "startLine": 85,
-          "endLine": 106,
-          "digest": "2da7ab7749bbd8cdd17234e1973a578ec2ce36cb150a91ec1b0c1cce43a02ad0"
+          "path": "examples/subscription.md",
+          "symbol": "upgrade-rejected",
+          "startLine": 56,
+          "endLine": 61,
+          "digest": "073a7338ffc8760d1be7271dc5c297bc5d61b16b9b2e49d1bf58cb1ef4f37681"
         }
       ]
     },
     {
       "id": "unlock-start",
       "sceneId": "unlock",
-      "title": "选择要解锁的技能",
+      "title": "选择要启用的集成",
       "kind": "action",
-      "summary": "解锁资格与系统等级独立。",
-      "detail": "提交目标技能 S。当前等级可以已经较高；解锁流程不会读取或回写总等级。示意状态：总等级 L；已解锁集合 U；上阵技能 E。L/U/E 为符号，不代表线上角色。",
-      "input": "目标技能 S；等级 L；解锁 U；上阵 E",
-      "output": "进入解锁校验",
+      "summary": "集成是独立于套餐的演示配置。",
+      "detail": "请求选择一个演示集成，例如日历导出；没有真实账号或外部授权。",
+      "input": "工作区、集成键",
+      "output": "进入集成资格检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 15,
-          "endLine": 38,
-          "digest": "7701642ba84f57386f51e1f4d9d5245a2484af300568e08f413a46469be59656"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-start",
+          "startLine": 63,
+          "endLine": 68,
+          "digest": "2341f14ef3d4421dafcc38082b32ec54aed72f67eb06d9e262e8e1d2064d6ade"
         }
       ]
     },
     {
       "id": "unlock-eligible",
       "sceneId": "unlock",
-      "title": "功能、技能与职业是否有效？",
+      "title": "服务与集成是否有效？",
       "kind": "decision",
-      "summary": "功能开放，且技能属于当前职业。",
-      "detail": "先检查功能开关，再检查技能 ID 为正、基础配置存在、配置职业集合包含当前化身职业。不依赖技能等级效果行。",
-      "input": "功能开关；目标 S；技能基础表；当前职业",
-      "output": "全部有效 → 查重；否则 → 拒绝",
+      "summary": "仅允许目录中的集成。",
+      "detail": "服务必须可用，集成键必须存在，且当前套餐需要支持该集成。",
+      "input": "服务状态、集成目录、套餐",
+      "output": "有效时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 16,
-          "endLine": 22,
-          "digest": "ba42824bdcec0e151d1fbf2db941ba478bc0436944b3bb8504d6e8f8b12d7f82"
-        },
-        {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "psychoSkillEntry",
-          "startLine": 41,
-          "endLine": 46,
-          "digest": "29981c8f976a60c531e392404c030f92028f1ff8de0dbda992876437d02b1ec2"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-eligible",
+          "startLine": 70,
+          "endLine": 75,
+          "digest": "baa6cff5b17744230174d99ee61e817ee0111b228923f8c049b5fceed68847a2"
         }
       ]
     },
     {
       "id": "unlock-duplicate",
       "sceneId": "unlock",
-      "title": "这个技能是否尚未解锁？",
+      "title": "集成是否尚未启用？",
       "kind": "decision",
-      "summary": "已解锁会先返回独立业务错误。",
-      "detail": "已解锁时返回“技能已解锁”，不再检查首次解锁条件或费用。此顺序已按捕获时的工作区源码核对。",
-      "input": "已解锁集合 U；目标 S",
-      "output": "S 不在 U → 继续；S 已在 U → 拒绝",
+      "summary": "重复请求不能重复扣点。",
+      "detail": "检查工作区启用集合中是否已包含此集成；已有则拒绝本次重复操作。",
+      "input": "集成键、启用集合",
+      "output": "首次启用或拒绝",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 23,
-          "endLine": 27,
-          "digest": "f5657cb642665357c123deed09f8419ea3c7ef5bca2c3fa52ae981e723f188e3"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-duplicate",
+          "startLine": 77,
+          "endLine": 82,
+          "digest": "1c8586d82b8d94b0785f60d18cab58a950163d8f7e79512e75eea651e1d3f9db"
         }
       ]
     },
     {
       "id": "unlock-cost",
       "sceneId": "unlock",
-      "title": "首次解锁条件和资源是否满足？",
+      "title": "启用额度是否足够？",
       "kind": "decision",
-      "summary": "使用技能基础表的条件和费用。",
-      "detail": "先检查该技能的解锁条件，再转换、校验其解锁费用；任一步失败都在扣费之前返回。",
-      "input": "技能 S 的解锁条件、费用；现有资源",
-      "output": "满足 → 扣费；不满足 → 拒绝",
+      "summary": "先检查集成所需演示点数。",
+      "detail": "目录提供一次启用点数，余额不足时不改变启用集合。",
+      "input": "演示余额、启用点数",
+      "output": "足够时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 28,
-          "endLine": 34,
-          "digest": "0686b58223a41136070852357ca15391bf0237077093358df10789b350c72dab"
-        },
-        {
-          "path": "server/servers/game/role/cost.go",
-          "symbol": "CheckCosts",
-          "startLine": 42,
-          "endLine": 50,
-          "digest": "8c0e4875b214498e02ab95e64610ea1cb8860f8e365bb1852bc030b2ce7592eb"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-cost",
+          "startLine": 84,
+          "endLine": 89,
+          "digest": "9ce78206f518209fa35953dbdc2430cd06d885b483f79896d46ef0b8ab6ddee1"
         }
       ]
     },
     {
       "id": "unlock-apply",
       "sceneId": "unlock",
-      "title": "扣除解锁费用，增加资格",
+      "title": "扣除点数并启用集成",
       "kind": "action",
-      "summary": "只向已解锁集合加入技能 S。",
-      "detail": "执行本次解锁费用扣除，随后将 S 的解锁标志记为真。没有总等级写入，也没有上阵选择写入。",
-      "input": "等级 L；解锁 U；上阵 E；足够资源",
-      "output": "等级 L；解锁 U ∪ {S}；上阵 E；扣除解锁费用",
+      "summary": "只新增一项集成。",
+      "detail": "本演示在一个状态步骤中扣除点数并将集成键加入集合，不改变套餐与通知渠道。",
+      "input": "集成键、足够点数",
+      "output": "更新后的启用集合与余额",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 35,
-          "endLine": 36,
-          "digest": "9707fbf4587fb8c488bc551645164c751de51c5f7680079c5765cd32d871c886"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-apply",
+          "startLine": 91,
+          "endLine": 96,
+          "digest": "2b501ad30a3d704a3c7e27cad859e6c64b30d155cff2e2cc991a8a95e313e717"
         }
       ]
     },
     {
       "id": "unlock-update",
       "sceneId": "unlock",
-      "title": "记录更新，保留现有属性缓存",
+      "title": "记录集成设置",
       "kind": "action",
-      "summary": "新解锁技能不会自动生效。",
-      "detail": "调用现有角色更新并返回实际消耗。本入口不调用 CalcRoleAtt；增加解锁资格本身不改变当前上阵效果。",
-      "input": "技能 S 已解锁；原上阵 E",
-      "output": "角色更新已调用；原上阵和属性缓存保持",
+      "summary": "保留当前通知渠道。",
+      "detail": "记录集成已启用的演示事件，套餐和通知选择继续使用原值。",
+      "input": "新的启用集合",
+      "output": "集成摘要更新",
       "position": {
         "x": 0,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 35,
-          "endLine": 38,
-          "digest": "8eda19db7422bccdaf0ad941b44e832767ac83c2bbe65b46d2e11fbff569f31b"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-update",
+          "startLine": 98,
+          "endLine": 103,
+          "digest": "e095ca2cba77cfc668fdeaed8fe29f3851b36a66370ddc1cb22024aef4824386"
         }
       ]
     },
     {
       "id": "unlock-complete",
       "sceneId": "unlock",
-      "title": "获得解锁资格，等级和上阵保持",
+      "title": "集成启用完成",
       "kind": "result",
-      "summary": "新技能直接共享现有等级，但需要主动上阵。",
-      "detail": "后续选择 S 上阵时，生成效果会使用当时的系统总等级。解锁本身既不降级、不补写缺省等级，也不自动把 S 上阵。",
-      "input": "解锁操作成功",
-      "output": "等级 L → L；解锁 U → U ∪ {S}；上阵 E → E",
+      "summary": "套餐无需随集成变化。",
+      "detail": "结果只报告新增集成与剩余演示点数，不执行外部服务调用。",
+      "input": "新增集成",
+      "output": "启用成功结果",
       "position": {
         "x": 0,
         "y": 1080
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 15,
-          "endLine": 38,
-          "digest": "7701642ba84f57386f51e1f4d9d5245a2484af300568e08f413a46469be59656"
-        },
-        {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "calcRolePsychoSkillAtt",
-          "startLine": 122,
-          "endLine": 133,
-          "digest": "faf9b80ce0b25b1e2e4485a95235234e745d774386e5013c34b2cefc7425c3f5"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-complete",
+          "startLine": 105,
+          "endLine": 110,
+          "digest": "58dbaf915dea2e739701636d678b2a1b4bd7fd4e50c7ff3bccdf819db9fb2efa"
         }
       ]
     },
     {
       "id": "unlock-rejected",
       "sceneId": "unlock",
-      "title": "拒绝解锁，不扣本次费用",
+      "title": "拒绝启用，保留设置",
       "kind": "failure",
-      "summary": "不重复收费，不额外授予资格。",
-      "detail": "可能原因：功能关闭、技能或职业无效、已经解锁、首次解锁条件不足或资源不足。检查失败后不进入费用扣除与新增资格步骤。",
-      "input": "任一解锁校验失败",
-      "output": "等级 L、解锁 U、上阵 E 保持；不扣本次费用",
+      "summary": "本次请求不扣点。",
+      "detail": "服务、目录、套餐、重复请求或点数校验失败时，保留全部工作区设置和余额。",
+      "input": "校验失败原因",
+      "output": "原设置与原余额",
       "position": {
         "x": 360,
         "y": 400
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillUnlock",
-          "startLine": 16,
-          "endLine": 34,
-          "digest": "3d9b0aedac40c12fe20efc865b6a1e993b53ad22646c056c0e32882bd6eeb9e9"
-        },
-        {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "psychoSkillEntry",
-          "startLine": 41,
-          "endLine": 46,
-          "digest": "29981c8f976a60c531e392404c030f92028f1ff8de0dbda992876437d02b1ec2"
+          "path": "examples/subscription.md",
+          "symbol": "unlock-rejected",
+          "startLine": 112,
+          "endLine": 117,
+          "digest": "398b8e859c16176a1cccf0a30253bf72cfc64a6146b18c36e4d89784de1695df"
         }
       ]
     },
     {
       "id": "equip-start",
       "sceneId": "equip",
-      "title": "选择上阵技能或主动卸下",
+      "title": "选择通知渠道或暂停",
       "kind": "action",
-      "summary": "一次只保存一个上阵选择。",
-      "detail": "提交目标技能 S；S = 0 明确表示卸下。不会通过上阵操作提升系统等级、增加解锁资格或收取费用。示意状态：总等级 L；已解锁集合 U；上阵技能 E。L/U/E 为符号，不代表线上角色。",
-      "input": "目标 S 或 0；等级 L；解锁 U；上阵 E",
-      "output": "进入上阵校验",
+      "summary": "通知设置独立于套餐变更。",
+      "detail": "选择演示邮件、站内消息或暂停通知；界面不会实际发送消息。",
+      "input": "工作区、渠道选择",
+      "output": "进入通知服务检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "ValidatePsychoSkillLineUp / PsychoSkillLineUp",
-          "startLine": 50,
-          "endLine": 74,
-          "digest": "ba5633a2984a68b1815bb9c474e1b8e7c728b1a06f5d6d3d9dd261b5badb61ff"
+          "path": "examples/subscription.md",
+          "symbol": "equip-start",
+          "startLine": 119,
+          "endLine": 124,
+          "digest": "798b6222355427b1fd6aee580ffa2693c38a2d990cb4d0d6a1bbc42b20e52a6d"
         }
       ]
     },
     {
       "id": "equip-toggle",
       "sceneId": "equip",
-      "title": "通灵功能是否开放？",
+      "title": "通知服务是否可用？",
       "kind": "decision",
-      "summary": "关闭时，上阵和卸下都会被拒绝。",
-      "detail": "功能开关检查在“0 表示卸下”判断之前。关闭功能时保留当前养成和选择，不接受这次变更。",
-      "input": "功能开关；目标 S 或 0",
-      "output": "开放 → 判断操作；关闭 → 拒绝",
+      "summary": "服务不可用时拒绝修改。",
+      "detail": "演示要求通知服务可用后才允许选择渠道或暂停通知。",
+      "input": "通知服务状态",
+      "output": "可用时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "ValidatePsychoSkillLineUp",
-          "startLine": 50,
-          "endLine": 55,
-          "digest": "9ac664693dd59f443e24690888ca599f4cef6265874f711517fd2022bfd72a0a"
+          "path": "examples/subscription.md",
+          "symbol": "equip-toggle",
+          "startLine": 126,
+          "endLine": 131,
+          "digest": "18047a1df4eb6ee49aaedfc52ba89400fdd8877644c02c06292fb844eef8ce9f"
         }
       ]
     },
     {
       "id": "equip-route",
       "sceneId": "equip",
-      "title": "是否选择了“卸下”？",
+      "title": "是否选择暂停通知？",
       "kind": "decision",
-      "summary": "目标为 0 时直接通过资格校验。",
-      "detail": "卸下不要求当前有已解锁技能，也不查询目标技能配置。非 0 的上阵目标继续验证基础配置、职业与已解锁资格。",
-      "input": "目标技能 ID",
-      "output": "0 → 保存卸下；非 0 → 校验技能资格",
+      "summary": "暂停不需要查询渠道目录。",
+      "detail": "选择暂停时直接进入保存步骤；选择具体渠道时继续校验目录与权限。",
+      "input": "渠道选择",
+      "output": "暂停分支或渠道检查",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "ValidatePsychoSkillLineUp",
-          "startLine": 54,
-          "endLine": 64,
-          "digest": "88adedf35e69a58a806c8ef8de41b9a6a8ca134fb8bc05348e86e88dd9d45c40"
+          "path": "examples/subscription.md",
+          "symbol": "equip-route",
+          "startLine": 133,
+          "endLine": 138,
+          "digest": "8af182ad1b26a1458a68e60498a40a9d1f530f6a78ae54173387f29cf228c0ba"
         }
       ]
     },
     {
       "id": "equip-eligible",
       "sceneId": "equip",
-      "title": "技能是否有效且已经解锁？",
+      "title": "渠道是否可用且获准？",
       "kind": "decision",
-      "summary": "符合当前职业，并已拥有解锁资格。",
-      "detail": "基础配置必须存在，ID 为正，当前职业在配置的职业集合内，并且目标技能已解锁。这里不重查解锁条件，不查等级效果配置。",
-      "input": "目标 S；基础配置；当前职业；集合 U",
-      "output": "合法且 S 在 U → 保存；否则 → 拒绝",
+      "summary": "具体渠道必须在演示白名单中。",
+      "detail": "渠道存在、已启用且受当前套餐支持时才允许保存；不读取真实收件地址。",
+      "input": "渠道目录、套餐",
+      "output": "可用时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "ValidatePsychoSkillLineUp",
-          "startLine": 57,
-          "endLine": 64,
-          "digest": "698ca2441f056fcd49bd4ebbbbc854fe5359a4d45afa1fc3071273081fe966ed"
-        },
-        {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "psychoSkillEntry",
-          "startLine": 41,
-          "endLine": 46,
-          "digest": "29981c8f976a60c531e392404c030f92028f1ff8de0dbda992876437d02b1ec2"
+          "path": "examples/subscription.md",
+          "symbol": "equip-eligible",
+          "startLine": 140,
+          "endLine": 145,
+          "digest": "de98e71981d9a6cdf1ef6c0c35d83608471cbe57ad29b409ee81fd002ce2699b"
         }
       ]
     },
     {
       "id": "equip-apply",
       "sceneId": "equip",
-      "title": "保存唯一上阵选择",
+      "title": "保存通知选择",
       "kind": "action",
-      "summary": "只替换 E，等级、资格与资源保持。",
-      "detail": "校验通过后，将上阵 ID 保存为 S 或 0。此入口不写总等级与解锁集合，也没有费用处理。",
-      "input": "等级 L；解锁 U；原上阵 E",
-      "output": "等级 L；解锁 U；上阵 S（或 0）；资源保持",
+      "summary": "只保存一个渠道或暂停状态。",
+      "detail": "用所选渠道覆盖演示通知设置，不改变套餐、集成集合或余额。",
+      "input": "合法渠道或暂停",
+      "output": "新的通知设置",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLineUp",
-          "startLine": 67,
-          "endLine": 74,
-          "digest": "ddac5f2890c9f762bd2b095f345868fe175994a2bd5032d817a6164f5ebc22b5"
+          "path": "examples/subscription.md",
+          "symbol": "equip-apply",
+          "startLine": 147,
+          "endLine": 152,
+          "digest": "6edac565c3cd3b4064cbaa13bf005bad7923c7660df09d8fb57aefbb0445412a"
         }
       ]
     },
     {
       "id": "equip-refresh",
       "sceneId": "equip",
-      "title": "清除属性缓存并记录更新",
+      "title": "刷新通知预览",
       "kind": "action",
-      "summary": "下次读取时按新选择生成属性。",
-      "detail": "使旧属性缓存失效，随后调用角色更新。普通上阵和卸下使用相同的缓存更新路径。",
-      "input": "新上阵 S 或 0；可能存在旧属性缓存",
-      "output": "旧缓存移除；角色更新已调用",
+      "summary": "展示更新后的通知状态。",
+      "detail": "生成只在页面阅读的预览描述，不发送邮件、不请求外部服务。",
+      "input": "新的通知设置",
+      "output": "通知预览",
       "position": {
         "x": 0,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "PsychoSkillLineUp",
-          "startLine": 71,
-          "endLine": 74,
-          "digest": "25834fe55c14a33a33c1ff06250dd611e1edccf0bbdd4c423e32215f627a9b2f"
-        },
-        {
-          "path": "server/servers/game/role/role.go",
-          "symbol": "CalcRoleAtt",
-          "startLine": 858,
-          "endLine": 860,
-          "digest": "bcc8d10ecd4b0b78c9cf082cd29b03aebeadcf07498b0cc220357b939d166703"
-        },
-        {
-          "path": "server/servers/game/role/role_mgr.go",
-          "symbol": "updateRoleInfo",
-          "startLine": 66,
-          "endLine": 68,
-          "digest": "61e96ebe4fa28905a529f159ad24a79932abacac2861cd1a6460a29628584c6c"
+          "path": "examples/subscription.md",
+          "symbol": "equip-refresh",
+          "startLine": 154,
+          "endLine": 159,
+          "digest": "3d4c972722d12fb43a82ab09f93ca95bb9cf970155f30575f5e178238c630112"
         }
       ]
     },
     {
       "id": "equip-effect",
       "sceneId": "equip",
-      "title": "下次生成时读取共享等级效果",
+      "title": "显示通知预览",
       "kind": "result",
-      "summary": "只处理当前上阵技能；卸下后无通灵效果。",
-      "detail": "功能关闭、无养成状态、上阵 ID 无效或等级效果行缺失时，跳过通灵效果。否则按“上阵技能 S + 当前总等级 L”查行：battleSkillId 为正时加入战斗技能，追加该行 Buff；不读取旧 attrs。缺少效果行不会回退本次上阵操作。",
-      "input": "上阵 S 或 0；当前总等级 L；技能等级效果表",
-      "output": "有效效果 → 战斗技能与 Buff；卸下或缺行 → 不追加通灵效果",
+      "summary": "预览使用当前保存的选择。",
+      "detail": "暂停显示无通知，具体渠道显示对应演示标签，本流程没有消息投递承诺。",
+      "input": "保存的渠道或暂停",
+      "output": "页面预览结果",
       "position": {
         "x": 0,
         "y": 1080
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "calcRolePsychoSkillAtt",
-          "startLine": 114,
-          "endLine": 134,
-          "digest": "0417074c00df782af46c407632c716c22f8d17031de23b24b62198a75bf3562b"
-        },
-        {
-          "path": "server/entry/extends/psycho_skill.go",
-          "symbol": "GetPsychoSkillLevel",
-          "startLine": 6,
-          "endLine": 12,
-          "digest": "e8cac60890a61d6b726966265c8cdc1f57475e5b8f6663ad57bb7bd9296c4b1f"
-        },
-        {
-          "path": "server/servers/game/role/role_mgr.go",
-          "symbol": "GetRoleInfo",
-          "startLine": 32,
-          "endLine": 38,
-          "digest": "35ad8d74368ea0f51711d14814d0c50773dbb8bbcbc84178274a25d9ff7f4661"
-        },
-        {
-          "path": "server/servers/game/role/role.go",
-          "symbol": "calcRoleAtt",
-          "startLine": 926,
-          "endLine": 927,
-          "digest": "475f242c201caca6e82967eabd8b7d10811ad0aa129de1392a13e70d396e2128"
+          "path": "examples/subscription.md",
+          "symbol": "equip-effect",
+          "startLine": 161,
+          "endLine": 166,
+          "digest": "fc295b4bed7cf388846c4fa8b0290b8e5e7a215b1fd136d1ea025d7423ffa0ff"
         }
       ]
     },
     {
       "id": "equip-rejected",
       "sceneId": "equip",
-      "title": "拒绝变更，保留原上阵",
+      "title": "拒绝修改，保留渠道",
       "kind": "failure",
-      "summary": "不扣费，也不改变已有选择。",
-      "detail": "功能关闭，或者非 0 目标的 ID、配置、职业或解锁资格无效时拒绝。此失败发生在保存新选择与清除缓存之前。",
-      "input": "上阵校验失败",
-      "output": "等级 L；解锁 U；上阵仍为 E；资源保持",
+      "summary": "错误不会覆盖已有选择。",
+      "detail": "服务不可用或具体渠道未获准时返回原因，保留原通知设置、套餐与集成集合。",
+      "input": "校验失败原因",
+      "output": "原通知设置",
       "position": {
         "x": 360,
         "y": 400
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/psycho_skill.go",
-          "symbol": "ValidatePsychoSkillLineUp / PsychoSkillLineUp",
-          "startLine": 50,
-          "endLine": 74,
-          "digest": "ba5633a2984a68b1815bb9c474e1b8e7c728b1a06f5d6d3d9dd261b5badb61ff"
+          "path": "examples/subscription.md",
+          "symbol": "equip-rejected",
+          "startLine": 168,
+          "endLine": 173,
+          "digest": "0b018f00b8f984c0484d26800b66db0f5833ead42dd0bfcc5bdfe0c29ab57503"
         }
       ]
     }
@@ -718,47 +610,47 @@ export const sampleReview: ReviewDocument = {
       "source": "upgrade-start",
       "target": "upgrade-toggle",
       "label": "提交",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "detail": "虚构演示规则：提交时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-toggle-to-level",
       "sceneId": "upgrade",
       "source": "upgrade-toggle",
       "target": "upgrade-level",
-      "label": "开放",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "服务可用",
+      "detail": "虚构演示规则：服务可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-level-to-cost",
       "sceneId": "upgrade",
       "source": "upgrade-level",
       "target": "upgrade-cost",
-      "label": "未满级且配置齐全",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "可升级",
+      "detail": "虚构演示规则：可升级时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-cost-to-apply",
       "sceneId": "upgrade",
       "source": "upgrade-cost",
       "target": "upgrade-apply",
-      "label": "条件与资源满足",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "额度足够",
+      "detail": "虚构演示规则：额度足够时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-apply-to-refresh",
       "sceneId": "upgrade",
       "source": "upgrade-apply",
       "target": "upgrade-refresh",
-      "label": "完成扣费与升级",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "套餐已保存",
+      "detail": "虚构演示规则：套餐已保存时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-refresh-to-complete",
       "sceneId": "upgrade",
       "source": "upgrade-refresh",
       "target": "upgrade-complete",
-      "label": "返回成功",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "展示已刷新",
+      "detail": "虚构演示规则：展示已刷新时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-start-to-eligible",
@@ -766,47 +658,47 @@ export const sampleReview: ReviewDocument = {
       "source": "unlock-start",
       "target": "unlock-eligible",
       "label": "提交",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "detail": "虚构演示规则：提交时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-eligible-to-duplicate",
       "sceneId": "unlock",
       "source": "unlock-eligible",
       "target": "unlock-duplicate",
-      "label": "功能、技能、职业有效",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "服务与集成有效",
+      "detail": "虚构演示规则：服务与集成有效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-duplicate-to-cost",
       "sceneId": "unlock",
       "source": "unlock-duplicate",
       "target": "unlock-cost",
-      "label": "尚未解锁",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "尚未启用",
+      "detail": "虚构演示规则：尚未启用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-cost-to-apply",
       "sceneId": "unlock",
       "source": "unlock-cost",
       "target": "unlock-apply",
-      "label": "条件与资源满足",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "额度足够",
+      "detail": "虚构演示规则：额度足够时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-apply-to-update",
       "sceneId": "unlock",
       "source": "unlock-apply",
       "target": "unlock-update",
-      "label": "记录成功",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "集成已保存",
+      "detail": "虚构演示规则：集成已保存时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-update-to-complete",
       "sceneId": "unlock",
       "source": "unlock-update",
       "target": "unlock-complete",
-      "label": "返回成功",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "记录完成",
+      "detail": "虚构演示规则：记录完成时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-start-to-toggle",
@@ -814,31 +706,31 @@ export const sampleReview: ReviewDocument = {
       "source": "equip-start",
       "target": "equip-toggle",
       "label": "提交",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "detail": "虚构演示规则：提交时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-toggle-to-route",
       "sceneId": "equip",
       "source": "equip-toggle",
       "target": "equip-route",
-      "label": "开放",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "服务可用",
+      "detail": "虚构演示规则：服务可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-route-to-eligible",
       "sceneId": "equip",
       "source": "equip-route",
       "target": "equip-eligible",
-      "label": "非 0：上阵技能",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "选择具体渠道",
+      "detail": "虚构演示规则：选择具体渠道时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-eligible-to-apply",
       "sceneId": "equip",
       "source": "equip-eligible",
       "target": "equip-apply",
-      "label": "已解锁且符合职业",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "渠道可用且获准",
+      "detail": "虚构演示规则：渠道可用且获准时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-apply-to-refresh",
@@ -846,87 +738,87 @@ export const sampleReview: ReviewDocument = {
       "source": "equip-apply",
       "target": "equip-refresh",
       "label": "选择已保存",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "detail": "虚构演示规则：选择已保存时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-refresh-to-effect",
       "sceneId": "equip",
       "source": "equip-refresh",
       "target": "equip-effect",
-      "label": "下次读取属性",
-      "detail": "按图示条件或执行顺序进入下一步骤。"
+      "label": "生成预览",
+      "detail": "虚构演示规则：生成预览时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-toggle-to-rejected",
       "sceneId": "upgrade",
       "source": "upgrade-toggle",
       "target": "upgrade-rejected",
-      "label": "功能关闭",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "服务不可用",
+      "detail": "虚构演示规则：服务不可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-level-to-rejected",
       "sceneId": "upgrade",
       "source": "upgrade-level",
       "target": "upgrade-rejected",
-      "label": "满级或配置缺失",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "套餐无效",
+      "detail": "虚构演示规则：套餐无效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "upgrade-cost-to-rejected",
       "sceneId": "upgrade",
       "source": "upgrade-cost",
       "target": "upgrade-rejected",
-      "label": "条件或资源不足",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "额度不足",
+      "detail": "虚构演示规则：额度不足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-eligible-to-rejected",
       "sceneId": "unlock",
       "source": "unlock-eligible",
       "target": "unlock-rejected",
-      "label": "功能、技能或职业无效",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "服务或集成无效",
+      "detail": "虚构演示规则：服务或集成无效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-duplicate-to-rejected",
       "sceneId": "unlock",
       "source": "unlock-duplicate",
       "target": "unlock-rejected",
-      "label": "已经解锁",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "已经启用",
+      "detail": "虚构演示规则：已经启用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "unlock-cost-to-rejected",
       "sceneId": "unlock",
       "source": "unlock-cost",
       "target": "unlock-rejected",
-      "label": "条件或资源不足",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "额度不足",
+      "detail": "虚构演示规则：额度不足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-toggle-to-rejected",
       "sceneId": "equip",
       "source": "equip-toggle",
       "target": "equip-rejected",
-      "label": "功能关闭",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "服务不可用",
+      "detail": "虚构演示规则：服务不可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-eligible-to-rejected",
       "sceneId": "equip",
       "source": "equip-eligible",
       "target": "equip-rejected",
-      "label": "配置、职业或资格无效",
-      "detail": "校验失败即返回；不执行后续变更步骤。"
+      "label": "渠道不可用",
+      "detail": "虚构演示规则：渠道不可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "equip-route-to-apply",
       "sceneId": "equip",
       "source": "equip-route",
       "target": "equip-apply",
-      "label": "0：直接卸下",
-      "detail": "功能开放时，卸下直接通过资格校验，不检查技能配置与解锁集合。"
+      "label": "选择暂停",
+      "detail": "虚构演示规则：选择暂停时沿此分支继续；具体状态变化见目标步骤。"
     }
   ],
   "comments": []

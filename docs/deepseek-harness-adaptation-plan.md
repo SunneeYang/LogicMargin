@@ -2,13 +2,15 @@
 
 日期：2026-11-09。供 `feat/deepseek-harness@8891e79` 实施；本文唯一产品仓库写入，不含提交、推送、账号登录、模型推理或发布。
 
+`agent-tmp-run` 是开发机可选的临时文件 harness，不是公共依赖；以下命令可从仓库根目录执行。有本地 AGENTS 强制要求时仍须使用本地 harness 包裹命令。
+
 ## 结论与版本边界
 
 **最小实现：原生 namespace 插件异步执行现有 launcher 的 `server start`，校验 JSON 中的 `mcpUrl`，先 await 官方 MCP client，再挂官方 filesystem skill provider。** 不写 MCP 桥、不写技能解析器、不调用 Codex 专用 `server setup`；携带现有 launcher/plugin.json 布局，native 版本固定 `0.9.6`。DSH 安装/更新由宿主包管理承担，技能及说明避开当前仅支持 Codex 的网页更新入口。
 
 一手源码锁定 DeepSeek Harness **`fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`**，通过该 SHA 的 GitHub archive 读取；下列 `[S*]` 链接均固定该提交。图谱不可用、coverage unknown，全部依据定向源码 read/rg；没有再调用 Context7。
 
-**必须区分源码与发布制品：本机真实 `dsh@0.2.2-rc.1` 并不包含该 master SHA 的全部功能。** 本机包根为 `/Users/hcm-b0677/.hermes/node/lib/node_modules/@deepseek-ai/dsh`，启动器 `/Users/hcm-b0677/.local/bin/dsh` 使用 Homebrew Node 24。本次读取其 JS/types 并实跑无模型测试：
+**必须区分源码与发布制品：本机真实 `dsh@0.2.2-rc.1` 并不包含该 master SHA 的全部功能。** 本机包根为 `<global-node-modules>/@deepseek-ai/dsh`，启动器 `dsh` 使用 Homebrew Node 24。本次读取其 JS/types 并实跑无模型测试：
 
 | 默认组合 | 锁定源码的 skills / mcpManager | 本机发布包 |
 |---|---|---|
@@ -178,24 +180,26 @@ try {
 
 ### tgz 隔离安装命令（本子任务未执行真实 LogicMargin tgz 安装）
 
-以下初始化加 dump 命令已在临时目录实跑成功（输出 12,577 字符、包含 skill row）；add 部分待父有真实 tgz 后执行。
+早期验证曾在临时目录完成初始化与 dump（输出 12,577 字符、包含 skill row）；下面是移除开发机路径后的可移植示例，本次脱敏未重新执行安装。将归档占位路径替换为实际文件；临时目录在示例结束时清理，需要保留的报告应另存。
 
 ```sh
-/Users/hcm-b0677/.codex/bin/agent-tmp-run /bin/zsh -f -c '
-  export DSH_HOME="$CODEX_AGENT_TMP/dsh"
-  export DSH_AGENTS_HOME="$CODEX_AGENT_TMP/agents"
+(
+  set -eu
+  LM_DEMO_TMP=$(mktemp -d)
+  trap 'rm -rf "$LM_DEMO_TMP"' EXIT
+  export DSH_HOME="$LM_DEMO_TMP/dsh"
+  export DSH_AGENTS_HOME="$LM_DEMO_TMP/agents"
   export DSH_TELEMETRY_DISABLED=1
-  mkdir -p "$CODEX_AGENT_TMP/work"
-  cd "$CODEX_AGENT_TMP/work"
-  /Users/hcm-b0677/.local/bin/dsh --profile lm-test \
-    --from-default-profile headless --dump-config > "$CODEX_AGENT_TMP/before.yml"
-  /Users/hcm-b0677/.local/bin/dsh plugin --profile lm-test add \
-    /ABS/PATH/dsh-plugin-logicmargin-0.9.6.tgz --ignore-scripts \
-    --store-dir "$CODEX_AGENT_TMP/pnpm-store"
-  /Users/hcm-b0677/.local/bin/dsh --profile lm-test --dump-config \
-    > "$CODEX_AGENT_TMP/after.yml"
-  # 在此运行最小 host 自检；需要保留的报告显式写到 harness 外。
-'
+  mkdir -p "$LM_DEMO_TMP/work"
+  cd "$LM_DEMO_TMP/work"
+  dsh --profile lm-test \
+    --from-default-profile headless --dump-config > "$LM_DEMO_TMP/before.yml"
+  dsh plugin --profile lm-test add \
+    /absolute/path/dsh-plugin-logicmargin-0.9.6.tgz --ignore-scripts \
+    --store-dir "$LM_DEMO_TMP/pnpm-store"
+  dsh --profile lm-test --dump-config > "$LM_DEMO_TMP/after.yml"
+  # 在此运行最小 host 自检；需要保留的报告显式写到临时目录外。
+)
 ```
 
 `--dump-config` 走独立 compose 分支，不启动 profile；`dsh plugin` 走包管理分支，不启动模型。仅启动常规 `headless` 并传 prompt 会跑 Agent，应避免。独立 cwd 避开项目 `.env`；最小 host 完全不挂模型/账号插件，因而无需修改默认 provider、清除用户凭据或登录账户。CLI/profile/Node 依赖仍需真实安装检查，不能以 dump 代替 bundle 激活。Desktop reserved profile 必须由应用初始化，不拿真实 desktop profile 做试验。[S9][S10]
