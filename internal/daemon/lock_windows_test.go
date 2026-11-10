@@ -11,6 +11,19 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func TestWindowsLockProbeBusyErrors(t *testing.T) {
+	for _, code := range []error{windows.ERROR_SHARING_VIOLATION, windows.ERROR_ACCESS_DENIED} {
+		if !lockProbeBusy(&os.PathError{Op: "open", Path: "service.lock", Err: code}) {
+			t.Fatalf("wrapped transient directory error was not retried: %v", code)
+		}
+	}
+	for _, code := range []error{nil, windows.ERROR_FILE_NOT_FOUND, windows.ERROR_INVALID_HANDLE} {
+		if lockProbeBusy(code) {
+			t.Fatalf("unrelated error was classified as busy: %v", code)
+		}
+	}
+}
+
 func TestStaleLockWaitsForWindowsDirectoryHandles(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "service.lock")
 	if err := os.Mkdir(path, 0700); err != nil {
