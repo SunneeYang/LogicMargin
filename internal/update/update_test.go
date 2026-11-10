@@ -82,7 +82,10 @@ func helperServe() int {
 			return
 		}
 		if r.URL.Path == "/api/shutdown" && r.Header.Get("X-Logic-Margin-Token") == entry.ShutdownToken {
+			w.Header().Set("Connection", "close")
+			w.Header().Set("Content-Length", "0")
 			w.WriteHeader(200)
+			w.(http.Flusher).Flush()
 			go func() { _ = server.Close() }()
 			return
 		}
@@ -381,6 +384,9 @@ func TestWorkerReleaseAndRestart(t *testing.T) {
 			defer cancel()
 			ready, err := daemon.Ensure(ctx, daemon.Options{Home: home, DataDir: data, Version: "1.0.0", Command: []string{oldBinary}, RequireMCP: true})
 			if err != nil {
+				if log, readErr := os.ReadFile(filepath.Join(home, "daemon.log")); readErr == nil {
+					t.Logf("helper startup log: %s", log[max(0, len(log)-4096):])
+				}
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {

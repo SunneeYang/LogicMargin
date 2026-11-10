@@ -61,13 +61,18 @@ func writeJSON(file string, value any) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	return os.Rename(tmp, file)
+	return retryUpdateFileIO(func() error { return os.Rename(tmp, file) })
 }
 func (m *Manager) Status() (Status, error) {
 	if m.Home == "" {
 		return Status{Phase: "idle"}, nil
 	}
-	raw, err := os.ReadFile(filepath.Join(m.Home, "updates", "status.json"))
+	var raw []byte
+	err := retryUpdateFileIO(func() error {
+		var err error
+		raw, err = os.ReadFile(filepath.Join(m.Home, "updates", "status.json"))
+		return err
+	})
 	if errors.Is(err, os.ErrNotExist) {
 		return Status{Phase: "idle"}, nil
 	}
