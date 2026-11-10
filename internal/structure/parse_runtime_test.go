@@ -94,6 +94,14 @@ func TestBackgroundParserLimits(t *testing.T) {
 				t.Fatalf("exact UTF-16/line boundary: %v", err)
 			}
 			checkCoverage(t, source, doc)
+			if language == "go" {
+				dense := "package p\nfunc padding(){" + strings.Repeat(";", 130_000) + "}\nfunc f(){if ok {return 1}}\n"
+				doc, err := parseSyntax(t, dense, language)
+				if err != nil || len(doc.Tokens) < 130_000 {
+					t.Fatalf("legal dense source rejected or truncated: tokens=%d, err=%v", len(doc.Tokens), err)
+				}
+				checkCoverage(t, dense, doc)
+			}
 			for _, over := range []string{source + " ", strings.Repeat("😀", maxSourceUnits/2+1), strings.Repeat("x", 4*maxSourceUnits+1)} {
 				if _, err := Parse(t.Context(), over, language); !errors.Is(err, ErrBudget) {
 					t.Fatalf("public source budget: %v", err)
