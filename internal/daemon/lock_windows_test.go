@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,79 @@ import (
 
 	"golang.org/x/sys/windows"
 )
+
+func TestRollbackLockWindowsSharing(t *testing.T) {
+	for _, release := range []bool{true, false} {
+		t.Run(fmt.Sprintf("release-%t", release), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "service.lock")
+			name := fmt.Sprintf("%d.%s.owner", os.Getpid(), NewID())
+			if err := os.Mkdir(path, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(path, name), []byte("keep until confirmed"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			identity, err := directoryIdentity(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, err := windows.UTF16PtrFromString(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			held, err := windows.CreateFile(value, windows.GENERIC_READ, 0, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			defer func() {
+				if held != windows.InvalidHandle {
+					_ = windows.CloseHandle(held)
+				}
+				<-done
+			}()
+			go func() { defer close(done); done <- rollbackLock(path, name, identity) }()
+			select {
+			case err := <-done:
+				t.Fatalf("rollback did not wait for the shared handle: %v", err)
+			case <-time.After(40 * time.Millisecond):
+			}
+			closeHeld := func() {
+				if err := windows.CloseHandle(held); err != nil {
+					t.Fatal(err)
+				}
+				held = windows.InvalidHandle
+			}
+			if release {
+				closeHeld()
+			}
+			select {
+			case err := <-done:
+				if release {
+					if err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					if !errors.Is(err, windows.ERROR_SHARING_VIOLATION) && !errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+						t.Fatalf("persistent sharing failure lost its error: %v", err)
+					}
+					closeHeld()
+					if contents, err := os.ReadFile(filepath.Join(path, name)); err != nil || string(contents) != "keep until confirmed" {
+						t.Fatalf("unconfirmed claim changed: %q, %v", contents, err)
+					}
+					if err := rollbackLock(path, name, identity); err != nil {
+						t.Fatal(err)
+					}
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("rollback exceeded its retry budget")
+			}
+			if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("failed claim remains after handle release: %v", err)
+			}
+		})
+	}
+}
 
 func TestWindowsLockProbeBusyErrors(t *testing.T) {
 	for _, code := range []error{windows.ERROR_SHARING_VIOLATION, windows.ERROR_ACCESS_DENIED} {

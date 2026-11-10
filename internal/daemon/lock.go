@@ -120,7 +120,7 @@ func staleLock(path string) (bool, error) {
 	return true, nil
 }
 
-func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() error, error) {
+func AcquireLock(ctx context.Context, path string, wait time.Duration) (release func() error, resultErr error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -142,6 +142,14 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 	if err != nil {
 		return nil, err
 	}
+	published := false
+	defer func() {
+		if published && resultErr != nil {
+			if err := rollbackLock(path, name, identity); err != nil {
+				resultErr = errors.Join(resultErr, fmt.Errorf("回收未完成服务锁：%w", err))
+			}
+		}
+	}()
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -178,6 +186,7 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 			}
 			continue
 		}
+		published = true
 		directory, err := os.OpenRoot(path)
 		for err != nil && lockProbeBusy(err) && time.Now().Before(deadline) {
 			if err := pause(ctx, 50*time.Millisecond); err != nil {
@@ -200,40 +209,82 @@ func AcquireLock(ctx context.Context, path string, wait time.Duration) (func() e
 		var once sync.Once
 		var releaseErr error
 		return func() error {
-			once.Do(func() {
-				defer directory.Close()
-				current, _, err := ownerFS(directory.FS())
-				if err != nil {
-					releaseErr = err
-					return
-				}
-				if current != name {
-					return
-				}
-				if err := directory.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
-					releaseErr = err
-					return
-				}
-				_ = directory.Close()
-				info, err := directoryIdentity(path)
-				if errors.Is(err, os.ErrNotExist) {
-					return
-				}
-				if err != nil {
-					releaseErr = err
-					return
-				}
-				if !os.SameFile(identity, info) {
-					return
-				}
-				if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-					if entries, readErr := os.ReadDir(path); readErr != nil || len(entries) == 0 {
-						releaseErr = err
-					}
-				}
-			})
+			once.Do(func() { releaseErr = releaseLock(directory, path, name, identity) })
 			return releaseErr
 		}, nil
+	}
+}
+
+func releaseLock(directory *os.Root, path, name string, identity os.FileInfo) error {
+	defer directory.Close()
+	current, _, err := ownerFS(directory.FS())
+	if err != nil {
+		return err
+	}
+	if current != name {
+		return nil
+	}
+	if err := directory.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	_ = directory.Close()
+	info, err := directoryIdentity(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !os.SameFile(identity, info) {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if entries, readErr := os.ReadDir(path); readErr != nil || len(entries) == 0 {
+			return err
+		}
+	}
+	return nil
+}
+
+func rollbackLock(path, name string, identity os.FileInfo) error {
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for {
+		err := func() error {
+			directory, err := os.OpenRoot(path)
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			defer directory.Close()
+			current, err := directory.Stat(".")
+			if err != nil {
+				return err
+			}
+			if !os.SameFile(identity, current) {
+				return nil
+			}
+			owner, _, err := ownerFS(directory.FS())
+			if err != nil {
+				return err
+			}
+			if owner != name {
+				if _, err := directory.Lstat(name); !errors.Is(err, os.ErrNotExist) {
+					if err != nil {
+						return err
+					}
+					return fmt.Errorf("服务锁包含未知文件，保留原目录：%s", path)
+				}
+				return nil
+			}
+			return releaseLock(directory, path, name, identity)
+		}()
+		// A canceled acquisition still needs a bounded rollback of its published claim.
+		if err == nil || !lockRemovalBusy(err) || !time.Now().Before(deadline) {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
