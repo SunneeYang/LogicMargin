@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { globalAgent } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { isIP } from 'node:net'
 
@@ -14,7 +15,11 @@ const localMcp = (request: IncomingMessage, response: ServerResponse, next: () =
 
 // Keep Host and Origin paired; Go enforces the same-origin boundary.
 const target = process.env.LOGIC_MARGIN_GO_TARGET
-const proxy = target ? { '/api': { target, changeOrigin: false }, '/mcp': { target, changeOrigin: false } } : undefined
+// An explicit agent avoids forced Connection: close racing Go's early rejection.
+const proxy = target ? {
+  '/api': { target, changeOrigin: false, agent: globalAgent },
+  '/mcp': { target, changeOrigin: false, agent: globalAgent },
+} : undefined
 export default defineConfig({
   plugins: [{
     name: 'logic-margin-local-mcp',
