@@ -166,6 +166,7 @@ func TestStaleLockRecoveryHasOneConcurrentWinner(t *testing.T) {
 		const contenders = 12
 		start := make(chan struct{})
 		releases := make(chan func() error, contenders)
+		failures := make(chan error, contenders)
 		var wg sync.WaitGroup
 		for i := 0; i < contenders; i++ {
 			wg.Add(1)
@@ -174,12 +175,15 @@ func TestStaleLockRecoveryHasOneConcurrentWinner(t *testing.T) {
 				<-start
 				if release, err := AcquireLock(context.Background(), path, 0); err == nil {
 					releases <- release
+				} else {
+					failures <- err
 				}
 			}()
 		}
 		close(start)
 		wg.Wait()
 		close(releases)
+		close(failures)
 		count := 0
 		for release := range releases {
 			count++
@@ -188,10 +192,22 @@ func TestStaleLockRecoveryHasOneConcurrentWinner(t *testing.T) {
 			}
 		}
 		if count == 0 && runtime.GOOS == "windows" {
+			var attempts []string
+			for failure := range failures {
+				attempts = append(attempts, failure.Error())
+			}
+			if name, pid, err := ownerFS(os.DirFS(path)); err == nil && pid == os.Getpid() {
+				t.Fatalf("iteration %d: failed contenders left a live self-PID claim: owner=%q pid=%d attempts=%v", iteration, name, pid, attempts)
+			}
 			// Concurrent reaper handles can temporarily block deletion; recovery still has a deadline.
 			release, err := AcquireLock(context.Background(), path, 3*time.Second)
 			if err != nil {
-				t.Fatal("stale lock did not recover after reaper handles closed:", err)
+				name, pid, ownerErr := ownerFS(os.DirFS(path))
+				var age time.Duration
+				if info, statErr := os.Stat(path); statErr == nil {
+					age = time.Since(info.ModTime())
+				}
+				t.Fatalf("iteration %d: stale lock did not recover after reaper handles closed: %v; owner=%q pid=%d self=%d age=%v ownerErr=%v attempts=%v", iteration, err, name, pid, os.Getpid(), age, ownerErr, attempts)
 			}
 			if other, err := AcquireLock(context.Background(), path, 0); err == nil {
 				_ = other()

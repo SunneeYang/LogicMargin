@@ -51,7 +51,7 @@ jobs:
       - run: npm run build:go
       - name: Exercise Windows lock directory competition
         if: runner.os == 'Windows'
-        run: go test ./internal/daemon -run 'TestWindowsLockProbeBusyErrors|TestAcquireLockSurvivesWindowsDestinationChurn' -count=25
+        run: go test ./internal/daemon -run 'TestWindowsLockProbeBusyErrors|TestAcquireLockSurvivesWindowsDestinationChurn|TestRollbackLockWindowsSharing' -count=25
       - name: Exercise Windows update status sharing
         if: runner.os == 'Windows'
         run: go test ./internal/update -run '^TestWindows(UpdateFileIOErrors|StatusMissingAndInvalid|StatusFileSharing)$' -count=10

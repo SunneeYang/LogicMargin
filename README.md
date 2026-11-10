@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.12-2563eb?style=flat-square" alt="Version 0.9.12" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.13-2563eb?style=flat-square" alt="Version 0.9.13" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -101,7 +101,7 @@ Structural focus is applied automatically for supported Go and JavaScript/TypeSc
 
 ## Quickstart
 
-**0.9.12 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
+**0.9.13 uses a Go executable with the web UI embedded. Users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. Node.js and Go are development/build tools only.
 
 ### Use it with an agent
 
@@ -133,7 +133,7 @@ codex plugin add logic-margin@logic-margin-local
 
 Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, use [Release v0.9.12](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.12). Choose `logic-margin-agent-0.9.12-TARGET.zip` and its `.zip.sha256`:
+For installation without Git, use [Release v0.9.13](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.13). Choose `logic-margin-agent-0.9.13-TARGET.zip` and its `.zip.sha256`:
 
 | Platform | TARGET |
 | --- | --- |
