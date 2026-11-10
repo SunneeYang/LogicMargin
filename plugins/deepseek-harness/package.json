@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-logicmargin",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "type": "module",
   "description": "Source-backed logic reviews with diagrams, saved code diffs, and resumable human feedback.",
   "license": "MIT",

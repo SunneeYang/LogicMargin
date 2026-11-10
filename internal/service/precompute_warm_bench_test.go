@@ -76,13 +76,60 @@ func BenchmarkWarmSession(b *testing.B) {
 	}
 }
 
-func TestWarmIndependentJobsOverlap(t *testing.T) {
-	if runtime.GOMAXPROCS(0) < 3 {
-		t.Skip("requires two prewarm workers plus capacity for interactive requests")
+func TestRunWarmTasksConcurrencyAndCancellation(t *testing.T) {
+	for _, procs := range []int{1, 2, 3, 4, 8} {
+		t.Run(fmt.Sprintf("GOMAXPROCS-%d", procs), func(t *testing.T) {
+			previous := runtime.GOMAXPROCS(procs)
+			defer runtime.GOMAXPROCS(previous)
+			limit := max(1, min(3, procs-1))
+			ctx, cancel := context.WithCancel(t.Context())
+			started := make(chan struct{}, limit+1)
+			done := make(chan struct{})
+			tasks := make([]func(), limit+1)
+			for i := range tasks {
+				tasks[i] = func() {
+					started <- struct{}{}
+					<-ctx.Done()
+				}
+			}
+			go func() { runWarmTasks(ctx, tasks); close(done) }()
+			defer func() {
+				cancel()
+				select {
+				case <-done:
+				case <-time.After(time.Second):
+					t.Error("cancellation left warm workers or scheduling blocked")
+				}
+			}()
+			for range limit {
+				select {
+				case <-started:
+				case <-time.After(time.Second):
+					t.Fatalf("expected %d workers to start while the first batch is blocked", limit)
+				}
+			}
+			select {
+			case <-started:
+				t.Fatalf("warm work exceeded the %d-worker limit", limit)
+			case <-time.After(50 * time.Millisecond):
+			}
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("cancellation left warm scheduling blocked")
+			}
+			if len(started) != 0 {
+				t.Fatal("queued work started after cancellation")
+			}
+		})
 	}
+}
+
+func TestWarmSessionCachesAllArtifacts(t *testing.T) {
 	store := review.NewStore(t.TempDir())
 	defer store.Close()
-	state, err := store.Create(warmBenchmarkReview(false), "current", nil)
+	state, err := store.Create(warmBenchmarkReview(true), "current", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,15 +145,13 @@ func TestWarmIndependentJobsOverlap(t *testing.T) {
 	if stats.Failures != 0 {
 		t.Fatalf("prewarming silently failed: %+v", stats)
 	}
-	if stats.PeakActive < 2 {
-		t.Fatal("independent diff/layout prewarm jobs still run one at a time")
-	}
 	if stats.PeakActive > 3 {
 		t.Fatal("prewarming occupied all four compute workers")
 	}
 	s.warmSession(t.Context(), textForComputation(state["id"]))
-	if s.derived.Stats().Computations != stats.Computations {
-		t.Fatal("prewarming did not retain all computed artifacts")
+	warmed := s.derived.Stats()
+	if warmed.Computations != stats.Computations || warmed.Failures != 0 || warmed.MemoryHits < stats.MemoryHits+stats.Computations {
+		t.Fatalf("prewarming did not retain and reuse all computed artifacts: %+v", warmed)
 	}
 }
 
