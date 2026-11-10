@@ -6,17 +6,17 @@ import { sampleReview } from './sample.ts'
 
 function fixture(): ReviewDocument {
   return {
-    schemaVersion: 1, id: 'review', title: '技能改造', description: '', revision: 'v1',
-    snapshot: { repository: '/vast', commit: 'abc', fingerprint: 'hash1', capturedAt: '2026-11-02T00:00:00Z', dirty: true },
-    coverage: { included: ['升级'], excluded: ['转职'], note: '人工核对' },
+    schemaVersion: 1, id: 'review', title: '订阅设置', description: '', revision: 'v1',
+    snapshot: { repository: '/example-project', commit: 'abc', fingerprint: 'hash1', capturedAt: '2026-11-02T00:00:00Z', dirty: true },
+    coverage: { included: ['升级'], excluded: ['续期'], note: '人工核对' },
     scenes: [{ id: 'level', title: '升级', description: '' }],
     nodes: ['check', 'done'].map((id, index) => ({ id, sceneId: 'level', title: id, kind: 'action', summary: '', detail: '', input: '', output: '',
-      position: { x: index * 200, y: 0 }, evidence: [{ path: 'psycho_skill.go', symbol: 'LevelUp', startLine: 1, endLine: 10, digest: 'abc' }] })),
+      position: { x: index * 200, y: 0 }, evidence: [{ path: 'subscription.go', symbol: 'LevelUp', startLine: 1, endLine: 10, digest: 'abc' }] })),
     edges: [{ id: 'pass', sceneId: 'level', source: 'check', target: 'done', label: '通过', detail: '' }], comments: [],
   }
 }
 
-test('bundled source-backed sample is a valid importable review', () => {
+test('bundled fictional sample is a valid importable review', () => {
   assert.deepEqual(parseReview(sampleReview), sampleReview)
   assert.ok(sampleReview.nodes.every(node => node.evidence.length > 0))
 })

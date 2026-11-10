@@ -10,7 +10,7 @@ async function openReview(page: Page) {
   review = addReply(review, review.comments[0].id, '请核对功能开关、等级配置和消耗校验的先后顺序。失败出口需要保留原资源。')
   await page.getByLabel('导入评审文件').setInputFiles({ name: 'themes.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(review)) })
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
-  await page.getByRole('button', { name: '讨论：通灵功能是否开放？（1 条）', exact: true }).click()
+  await page.getByRole('button', { name: '讨论：订阅服务是否可用？（1 条）', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '节点讨论', exact: true })).toBeVisible()
 }
 
@@ -48,7 +48,7 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
     const camera = await page.locator('.react-flow__viewport').getAttribute('style')
     await chooseTheme(page, theme, mode)
     await expect(input).toHaveValue('主题切换时保留这份回复草稿。')
-    await expect(page.locator('.discussion-target')).toContainText('通灵功能是否开放？')
+    await expect(page.locator('.discussion-target')).toContainText('订阅服务是否可用？')
     await expect(page.locator('.react-flow__viewport')).toHaveAttribute('style', camera!)
     const contrast = await page.evaluate(readContrastPairs, textPairs)
     for (const pair of contrast) expect.soft(pair.value, `${theme} ${mode} ${pair.selector}`).toBeGreaterThanOrEqual(4.5)
@@ -90,7 +90,7 @@ test('explicit selection follows the node and replays a bounded flow while retai
   const node = page.locator('.react-flow__node[data-id="upgrade-start"]')
   await node.locator('.node-title').click()
   await expect(node).toHaveClass(/selected/)
-  await expect(page.locator('.discussion-target')).toContainText('发起总等级升级')
+  await expect(page.locator('.discussion-target')).toContainText('发起套餐升级')
   await expect(page.getByLabel('补充说明', { exact: true })).toHaveCount(0)
   await expect(node).toBeFocused()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('logic-margin:drafts')!)[0].body)).toBe('仍在回复原节点。')
@@ -127,7 +127,7 @@ test('explicit selection follows the node and replays a bounded flow while retai
   await page.evaluate(() => { delete (document as { hidden?: boolean }).hidden })
   await node.locator('.node-title').click()
   await expect.poll(() => light.evaluate(element => element.getAnimations()[0]?.playState)).toBe('running')
-  await page.getByRole('button', { name: /解锁新技能.*8 个步骤/ }).click()
+  await page.getByRole('button', { name: /启用演示集成.*8 个步骤/ }).click()
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
   await expect(page.locator('.edge-flow-light')).toHaveCount(0)
   await page.locator('.react-flow__node').first().focus()
@@ -181,7 +181,7 @@ test('lifted cards keep their actual ports attached and discussion motion can re
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect.poll(gap).toBeLessThan(1)
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  const badge = page.getByRole('button', { name: '讨论：通灵功能是否开放？（1 条）', exact: true })
+  const badge = page.getByRole('button', { name: '讨论：订阅服务是否可用？（1 条）', exact: true })
   await badge.click()
   await discussion.evaluate(element => {
     const animation = element.getAnimations()[0]

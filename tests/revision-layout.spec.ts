@@ -173,7 +173,7 @@ test('each round restores its zoom and reading position when a discussion dialog
   await expect(current).toHaveAttribute('aria-pressed', 'true')
   expect((await canvasLayout(page)).visibleHeight).toBeGreaterThanOrEqual(770)
   await expect(page.locator('.graph-toolbar')).toHaveCSS('height', '44px')
-  const badge = page.getByRole('button', { name: '讨论：通灵功能是否开放？（1 条）', exact: true })
+  const badge = page.getByRole('button', { name: '讨论：订阅服务是否可用？（1 条）', exact: true })
   const original = await viewport(page)
   await badge.click()
   const discussion = page.getByRole('dialog', { name: '节点讨论', exact: true })

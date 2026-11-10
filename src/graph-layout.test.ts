@@ -208,8 +208,8 @@ test('twenty-way fan-in and fan-out keep ports visually separated', () => {
 })
 
 test('all bundled scenes route shared failure exits without entering unrelated nodes or sharing ports', () => {
-  const spirit: ReviewDocument = parseReview(JSON.parse(readFileSync(new URL('../public/reviews/spirit-sanctum.logic-margin.json', import.meta.url), 'utf8')))
-  for (const review of [sampleReview, spirit]) {
+  const pipeline: ReviewDocument = parseReview(JSON.parse(readFileSync(new URL('../public/reviews/task-pipeline.logic-margin.json', import.meta.url), 'utf8')))
+  for (const review of [sampleReview, pipeline]) {
     for (const scene of review.scenes) {
       const nodes = review.nodes.filter(item => item.sceneId === scene.id)
       const edges = review.edges.filter(item => item.sceneId === scene.id)

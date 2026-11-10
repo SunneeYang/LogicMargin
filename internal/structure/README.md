@@ -20,14 +20,14 @@ reads a workspace to supplement its input.
   command followed by `--check`. The build uses the repository's installed Vite
   and Lezer dependencies and emits one self-contained IIFE.
 
-Builds and tests should run through `/Users/hcm-b0677/.codex/bin/agent-tmp-run`.
+`agent-tmp-run` is an optional developer-machine temporary-file harness, not a project dependency. Follow local AGENTS requirements when a harness is required; the portable commands below run from the repository root.
 For example:
 
 ```sh
-/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOTOOLCHAIN=go1.26.0 GOWORK=off go test ./internal/structure -count=1
-/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOTOOLCHAIN=go1.26.0 GOWORK=off go test -race ./internal/structure -count=1
-/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOTOOLCHAIN=go1.26.0 GOWORK=off go vet ./internal/structure
-/Users/hcm-b0677/.codex/bin/agent-tmp-run node scripts/build-structure-parser.mjs --check
+env GOTOOLCHAIN=go1.26.0 GOWORK=off go test ./internal/structure -count=1
+env GOTOOLCHAIN=go1.26.0 GOWORK=off go test -race ./internal/structure -count=1
+env GOTOOLCHAIN=go1.26.0 GOWORK=off go vet ./internal/structure
+node scripts/build-structure-parser.mjs --check
 ```
 
 ## Safety boundaries
@@ -111,7 +111,7 @@ limit with short functions. These are parser microbenchmarks, not HTTP latency
 or overall diff speedups.
 
 ```sh
-/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOTOOLCHAIN=go1.26.0 GOWORK=off go test ./internal/structure -run '^$' -bench BenchmarkParse100K -benchtime=3x -count=1
+env GOTOOLCHAIN=go1.26.0 GOWORK=off go test ./internal/structure -run '^$' -bench BenchmarkParse100K -benchtime=3x -count=1
 ```
 
 | Input | Mean per call | Allocated per call | Result |

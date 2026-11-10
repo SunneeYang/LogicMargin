@@ -35,8 +35,8 @@ const DRAFTS_KEY = SESSION_ID ? `logic-margin:session:${SESSION_ID}:drafts` : 'l
 const HISTORY_KEY = 'logic-margin:record-history'
 const NODE_APPEARANCE_KEY = 'logic-margin:node-appearance'
 const CODE_LAYOUT_KEY = 'logic-margin:code-layout'
-const SPIRIT_SANCTUM_PATH = '/reviews/spirit-sanctum.logic-margin.json'
-const HAS_BUNDLED_SPIRIT_REVIEW = import.meta.env.VITE_LOGIC_MARGIN_PACKAGED !== 'true'
+const TASK_PIPELINE_PATH = '/reviews/task-pipeline.logic-margin.json'
+const HAS_BUNDLED_PIPELINE_REVIEW = import.meta.env.VITE_LOGIC_MARGIN_PACKAGED !== 'true'
 const EMPTY_CHANGES: ReviewChanges = { added: [], changed: [], removed: [] }
 const statusLabels: Record<CommentStatus, string> = { open: '待处理', resolved: '已确认解决', 'needs-review': '待复核' }
 const kindLabels = { action: '操作', decision: '判断', result: '结果', failure: '失败出口' }
@@ -171,7 +171,7 @@ export default function App() {
   }, [])
   const [importChanges, setChanges] = useState(EMPTY_CHANGES)
   const [submitting, setSubmitting] = useState(false)
-  const [loadingSpiritSanctum, setLoadingSpiritSanctum] = useState(false)
+  const [loadingTaskPipeline, setLoadingTaskPipeline] = useState(false)
   const [sessionAction, setSessionAction] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
   const [tasks, setTasks] = useState<SessionSummary[]>([])
@@ -434,7 +434,7 @@ export default function App() {
     if (threadId && (discussionTargets || panelOpen)) document.getElementById(`${discussionTargets ? 'discussion-thread' : 'thread'}-${threadId}`)?.scrollIntoView({ block: 'nearest' })
   }, [threadId, discussionTargets, panelOpen, tab])
   useEffect(() => {
-    if (!SESSION_ID && new URLSearchParams(window.location.search).get('review') === 'spirit-sanctum') void openSpiritSanctum(true)
+    if (!SESSION_ID && new URLSearchParams(window.location.search).get('review') === 'task-pipeline') void openTaskPipeline(true)
     return () => { importSequence.current++; exampleController.current?.abort() }
   }, [])
 
@@ -728,14 +728,14 @@ export default function App() {
   }
   function updateExampleLink(enabled: boolean) {
     const url = new URL(window.location.href)
-    if (enabled) url.searchParams.set('review', 'spirit-sanctum')
-    else if (url.searchParams.get('review') === 'spirit-sanctum') url.searchParams.delete('review')
+    if (enabled) url.searchParams.set('review', 'task-pipeline')
+    else if (url.searchParams.get('review') === 'task-pipeline') url.searchParams.delete('review')
     window.history.replaceState(null, '', url)
   }
   async function importFile(file: File) {
     const sequence = ++importSequence.current
     exampleController.current?.abort()
-    setLoadingSpiritSanctum(false)
+    setLoadingTaskPipeline(false)
     try {
       if (file.size > 10 * 1024 * 1024) throw new Error('评审文件不能超过 10 MB')
       const text = await file.text()
@@ -744,36 +744,36 @@ export default function App() {
       if (sequence === importSequence.current) setNotice({ source: '导入失败：{error}。当前评审已保留。', error: error instanceof Error ? error.message : '文件无法读取' })
     }
   }
-  async function openSpiritSanctum(restoreSaved = false) {
+  async function openTaskPipeline(restoreSaved = false) {
     const sequence = ++importSequence.current
     exampleController.current?.abort()
     const controller = new AbortController()
     exampleController.current = controller
-    setLoadingSpiritSanctum(true)
+    setLoadingTaskPipeline(true)
     try {
       if (restoreSaved) {
-        const saved = localStorage.getItem(STORAGE_PREFIX + 'vast-spirit-sanctum')
+        const saved = localStorage.getItem(STORAGE_PREFIX + 'demo-task-pipeline-v1')
         if (saved) {
           const incoming = parseReview(JSON.parse(saved))
-          if (incoming.id !== 'vast-spirit-sanctum') throw new Error('本机魔灵秘境记录的评审 ID 不匹配，原记录未覆盖')
+          if (incoming.id !== 'demo-task-pipeline-v1') throw new Error('本机任务流水线记录的评审 ID 不匹配，原记录未覆盖')
           applyImport(incoming); updateExampleLink(true); setStatus(''); return
         }
       }
-      const response = await fetch(SPIRIT_SANCTUM_PATH, { signal: controller.signal })
+      const response = await fetch(TASK_PIPELINE_PATH, { signal: controller.signal })
       if (!response.ok) throw new Error(`评审包读取失败（HTTP ${response.status}）`)
       const file = await response.blob()
       if (file.size > 10 * 1024 * 1024) throw new Error('评审文件不能超过 10 MB')
       const text = await file.text()
       if (sequence === importSequence.current) {
         const incoming = parseReview(JSON.parse(text))
-        if (incoming.id !== 'vast-spirit-sanctum') throw new Error('此文件不是魔灵秘境评审包')
+        if (incoming.id !== 'demo-task-pipeline-v1') throw new Error('此文件不是任务流水线评审包')
         applyImport(incoming); updateExampleLink(true)
         if (restoreSaved) setStatus('')
       }
     } catch (error) {
-      if (sequence === importSequence.current && !controller.signal.aborted) setNotice({ source: '打开魔灵秘境失败：{error}。当前评审已保留。', error: error instanceof Error ? error.message : '评审包无法读取' })
+      if (sequence === importSequence.current && !controller.signal.aborted) setNotice({ source: '打开任务流水线失败：{error}。当前评审已保留。', error: error instanceof Error ? error.message : '评审包无法读取' })
     } finally {
-      if (sequence === importSequence.current) setLoadingSpiritSanctum(false)
+      if (sequence === importSequence.current) setLoadingTaskPipeline(false)
     }
   }
   const reviewNext = useCallback((id: string, resolved: boolean) => {
@@ -958,8 +958,8 @@ export default function App() {
         <details className="workspace-menu file-menu"><summary className="button">{t('文件')}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary><div className="menu-content">
           {!SESSION_ID && <button className="button" onClick={() => { closeMenus(); inputRef.current?.click() }}><Upload size={15} />{t('导入评审')}</button>}
           <button className="button" onClick={() => void exportReview()}><ArrowDownToLine size={15} />{t('导出评审')}</button>
-          {!SESSION_ID && HAS_BUNDLED_SPIRIT_REVIEW && <button className="button" disabled={loadingSpiritSanctum} aria-busy={loadingSpiritSanctum} onClick={() => { closeMenus(); void openSpiritSanctum() }}>{loadingSpiritSanctum ? t('正在打开魔灵秘境…') : t('打开魔灵秘境评审')}</button>}
-          {!SESSION_ID && review.id !== sampleReview.id && <button className="button" onClick={() => { closeMenus(); void importFile(new File([JSON.stringify(sampleReview)], 'sample.json')) }}>{t('打开 Vast 样例')}</button>}
+          {!SESSION_ID && HAS_BUNDLED_PIPELINE_REVIEW && <button className="button" disabled={loadingTaskPipeline} aria-busy={loadingTaskPipeline} onClick={() => { closeMenus(); void openTaskPipeline() }}>{loadingTaskPipeline ? t('正在打开任务流水线…') : t('打开任务流水线评审')}</button>}
+          {!SESSION_ID && review.id !== sampleReview.id && <button className="button" onClick={() => { closeMenus(); void importFile(new File([JSON.stringify(sampleReview)], 'sample.json')) }}>{t('打开订阅演示')}</button>}
           <button className="button" {...shortcutProps('taskManager', t('评审任务'))} onClick={openTasks}>{t('评审任务')}</button>
           {SESSION_ID && <button className="button" onClick={() => { closeMenus(); void backupFullSession() }}>{t('备份完整会话')}</button>}
           {!SESSION_ID && !!history.length && <button className="button" onClick={() => { closeMenus(); archiveHistory() }}>{t('导出并归档全部历史')}</button>}

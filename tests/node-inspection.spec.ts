@@ -6,7 +6,7 @@ import type { ReviewDocument } from '../src/types.ts'
 import { openInspector, openMenu } from './ui.ts'
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
-const title = '发起总等级升级'
+const title = '发起套餐升级'
 const target = '.react-flow__node[data-id="upgrade-start"]'
 const surface = (page: Page) => page.locator('[data-composer][data-state="open"]')
 

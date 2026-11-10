@@ -60,9 +60,9 @@ export async function expectRevision(page: Page, revision: string) {
   await menu.locator(':scope > summary').click()
 }
 
-export async function openSpiritReview(page: Page) {
+export async function openPipelineReview(page: Page) {
   await openMenu(page, '.file-menu')
-  await page.getByRole('button', { name: '打开魔灵秘境评审', exact: true }).click()
+  await page.getByRole('button', { name: '打开任务流水线评审', exact: true }).click()
 }
 
 export async function exportReview(page: Page) {

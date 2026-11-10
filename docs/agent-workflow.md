@@ -30,7 +30,7 @@
   "source_root": "/path/to/source-workspace",
   "purpose": "订单失败分支实现复核",
   "context": "实际 thread/workflow 标识",
-  "public_url": "http://100.124.38.121:5173"
+  "public_url": "http://review-host.example:5173"
 }
 ```
 

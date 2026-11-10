@@ -2,11 +2,13 @@
 
 迁移始于 2026-11-08 的 `arch/go-backend`，已通过合并提交 `62dcc38` 进入主线。**0.9.2 默认发行切换为 Go 原生程序，包含代码 diff、结构重点/移动局部对照与流程图预计算；用户无需安装 Node.js 或 Go。** 本文保留迁移阶段的基线与决策，历史测试数字及其边界见 [迁移验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。切换发行入口不证明实际插件、运行服务或云端 Release 已更新，须分别检查。
 
+`agent-tmp-run` 是开发机可选的临时文件 harness，不是公共依赖；以下命令可从仓库根目录执行。有本地 AGENTS 强制要求时仍须使用本地 harness 包裹命令。
+
 ## 迁移阶段的固定基线与工作方式（历史）
 
 - 对照提交：`73890315827d0c335f360fcf467c33049fdb17cf`，LogicMargin 0.8.7。
-- 当时的原主线：`/Users/hcm-b0677/Documents/work/LogicMargin`，保留 `main` 和既有未提交调研材料。
-- 当时的迁移 worktree：`/Users/hcm-b0677/Documents/work/LogicMargin/.scratch/worktrees/go-backend`，由根 agent 独占写入并负责集成；会话存储、HTTP/MCP、评审命令在各自的独立 worktree 实现，完成后只复制各自负责的文件。
+- 当时的原主线：`<repository-root>`，保留 `main` 和既有未提交调研材料。
+- 当时的迁移 worktree：`<migration-worktree>`，由根 agent 独占写入并负责集成；会话存储、HTTP/MCP、评审命令在各自的独立 worktree 实现，完成后只复制各自负责的文件。
 - 首先完成行为等价的 Go 迁移，再增加结构 diff 预计算；两阶段分别记录验证与性能，避免混淆语言迁移和新算法的收益。
 - 创建分支/worktree不包含提交、推送、发布或修改真实评审服务的授权。后续按用户要求交付，合并时保留 `--no-ff` 历史。
 
@@ -97,15 +99,15 @@ Go 迁移也为多用户同时审查做准备。2026-11-09 用户明确：本次
 
 Go 运行时模块位于 `internal/review`、`internal/agent`、`internal/service`、`internal/daemon`、`internal/mcpconfig`；`cmd/logic-margin` 是唯一程序入口。HTTP/MCP 与 CLI 复用同一套评审操作；后台管理只在终端入口解析，避免 Go 包循环依赖。
 
-开发与构建需要 Node.js 和 Go；发行程序运行不依赖这些工具。`npm test` 和旧 `npm run review --` 仅用于 Node 兼容 oracle，正常 CLI 不再通过 Node 调用。以下命令用于 Go 路径，产生大量临时数据的命令用 harness 包裹：
+开发与构建需要 Node.js 和 Go；发行程序运行不依赖这些工具。`npm test` 和旧 `npm run review --` 仅用于 Node 兼容 oracle，正常 CLI 不再通过 Node 调用。以下命令用于 Go 路径；本地 AGENTS 要求 harness 时须包裹执行，公共构建本身不依赖该工具：
 
 ```sh
-/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run build:go
-/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run package:agent -- --target linux-x64
-/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOWORK=off go test ./... -count=1
-/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:agent
-/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:compat
-/Users/hcm-b0677/.codex/bin/agent-tmp-run npm run test:go:e2e -- tests/session.spec.ts tests/baseline-review.spec.ts tests/session-lifecycle.spec.ts tests/round-finish.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts --workers=4
+npm run build:go
+npm run package:agent -- --target linux-x64
+env GOWORK=off go test ./... -count=1
+npm run test:go:agent
+npm run test:go:compat
+npm run test:go:e2e -- tests/session.spec.ts tests/baseline-review.spec.ts tests/session-lifecycle.spec.ts tests/round-finish.spec.ts tests/code-context.spec.ts tests/code-overview.spec.ts --workers=4
 ```
 
 发行 tag 为 `v0.9.2`，五目标 `darwin-arm64`、`darwin-x64`、`linux-arm64`、`linux-x64`、`win32-x64` 各生成 `logic-margin-agent-0.9.2-TARGET.zip` 及同名 `.zip.sha256`。包内直接运行 `scripts/logic-margin`，Windows 为 `scripts/logic-margin.exe`；PowerShell 用 `& $LM_CLI`。完整使用方式见 [原生插件说明](go-agent-plugin.md)。[发行前平台门禁](go-backend-validation.md#090-发行前平台门禁)已在三类操作系统 CI 执行；五目标交叉构建仍不能替代每种架构与真实设备验收。下面的 macOS ARM64 记录属于迁移阶段的历史范围。

@@ -104,7 +104,7 @@
 <section id="workspace" class="workspace variant-a" aria-label="LogicMargin 布局原型">
 <header class="globalbar">
  <div class="brand"><span class="brandmark" aria-hidden="true">↳</span><span class="brand-name">LogicMargin</span></div><span class="bar-rule"></span>
- <div class="document"><h1>魔灵秘境</h1><span class="prototype-label">布局原型 · 不保存批注</span></div>
+ <div class="document"><h1>虚构任务流水线</h1><span class="prototype-label">布局原型 · 不保存批注</span></div>
  <span class="save">原型 · 不保存</span><div class="global-actions"><button id="metadata-button" aria-label="查看版本与评审范围">ⓘ<span class="button-text"> 版本与范围</span></button><button class="less-important" id="file-button">文件</button><button class="primary" id="submit-button">提交本轮</button></div>
 </header>
 <div class="toolbar">
@@ -116,7 +116,7 @@
 </div>
 <div class="content">
  <nav class="rail" aria-label="工具导航"><button id="rail-scenes" aria-label="打开场景导航">☷</button><button id="rail-detail" aria-label="查看步骤详情">▤</button><button id="rail-notes" aria-label="批注交互说明">▢</button><div class="grow"></div><span class="rail-text">5 个<br>场景</span><button id="rail-focus" aria-label="专注画布">⤢</button></nav>
- <nav class="navigator" aria-label="场景导航"><h2>魔灵秘境<span class="muted" style="display:block;font-size:10px;font-weight:400;margin-top:6px">服务端逻辑 · 5 个场景</span></h2><div class="scene-list" id="fixed-scenes"></div></nav>
+ <nav class="navigator" aria-label="场景导航"><h2>虚构任务流水线<span class="muted" style="display:block;font-size:10px;font-weight:400;margin-top:6px">服务端逻辑 · 5 个场景</span></h2><div class="scene-list" id="fixed-scenes"></div></nav>
  <div class="canvas-column">
   <div class="segment-strip" aria-label="流程分段"><button id="segment-prev">← 上一段</button><span id="segment-label" class="caption"></span><button id="segment-next">下一段 →</button><span class="spacer"></span><button id="bottom-toggle">收起步骤说明</button></div>
   <div id="canvas" class="canvas" aria-label="可平移缩放的流程图"><div class="scene-caption" id="scene-caption"></div><div id="graph" class="graph"></div>
@@ -130,1297 +130,1035 @@
 </div>
 <button class="focus-exit" id="focus-exit">退出专注 Esc</button>
 <div id="nav-popover" class="popover"><div class="close-row"><h2>流程场景</h2><button id="close-nav" class="icon" aria-label="关闭场景导航">×</button></div><div class="scene-list" id="popover-scenes"></div></div>
-<div id="meta-popover" class="popover"><div class="close-row"><h2>当前评审范围</h2><button id="close-meta" class="icon" aria-label="关闭版本说明">×</button></div><p>魔灵秘境 · 服务端逻辑评审<br><code id="revision"></code></p><p class="muted">版本、长说明与覆盖边界集中在此；阅读时不占用画布高度。</p><h3>当前未验收</h3><ul><li>正式独立 60 秒关卡：现有引用仍为 180 秒占位。</li><li>客户端与模式 11 验算 JavaScript。</li><li>真实战斗、外部存储及跨设备连接。</li></ul></div>
+<div id="meta-popover" class="popover"><div class="close-row"><h2>当前评审范围</h2><button id="close-meta" class="icon" aria-label="关闭版本说明">×</button></div><p>虚构任务流水线 · 服务端逻辑评审<br><code id="revision"></code></p><p class="muted">版本、长说明与覆盖边界集中在此；阅读时不占用画布高度。</p><h3>当前未验收</h3><ul><li>正式独立 60 秒关卡：现有引用仍为 180 秒占位。</li><li>客户端与模式 11 验算 JavaScript。</li><li>真实任务、外部存储及跨设备连接。</li></ul></div>
 <div id="toast" class="toast" role="status" hidden></div>
 </section>
 <div class="switcher-area"><div class="switcher" aria-label="布局方案切换"><button id="previous-variant" aria-label="上一个布局">←</button><span id="variant-name" class="variant-name"></span><button id="next-variant" aria-label="下一个布局">→</button><button class="direct-choice" data-variant="A">A 画布优先</button><button class="direct-choice" data-variant="B">B 全高纵向</button><button class="direct-choice" data-variant="C">C 分段阅读</button></div><p class="explanation" id="explanation"></p></div>
-<script id="review-data" type="application/json">{
+<script id="review-data" type="application/json">
+{
   "schemaVersion": 1,
-  "id": "vast-spirit-sanctum",
-  "title": "魔灵秘境 · 服务端逻辑评审",
-  "description": "基于当前真实服务端工作区：独立入场、突破与重复结算、最高层扫荡、化身门票和战斗配装。正式关卡与验算 JS 尚未齐备；这是源码评审快照，不是已完成真实战斗验收。",
-  "revision": "worktree-15ee338eb-250b8a044982",
+  "id": "demo-task-pipeline-v1",
+  "title": "虚构演示 · 任务流水线",
+  "description": "五个独立场景展示任务提交、处理审核、重试、额度刷新与设置限制；全部依据为本仓库原创规则，不连接真实执行器。",
+  "revision": "synthetic-v1",
   "snapshot": {
-    "repository": "Vast · feat/spirit-sanctum · 未提交工作区",
-    "commit": "15ee338eb7f512e64f7fc2d6fa3143e2d6b37607",
-    "fingerprint": "250b8a044982e88c51fd438fb49266cb333b9e288622ec75651358823d0aff44",
-    "capturedAt": "2026-11-02T15:35:26Z",
-    "dirty": true
+    "repository": "LogicMargin fictional examples",
+    "commit": "synthetic-v1 (not a Git commit)",
+    "fingerprint": "ab5302962e65145f6b49e561836f656036f7f5652d199862ac10b2aaa2bf2b24",
+    "capturedAt": "2026-11-10T00:00:00Z",
+    "dirty": false,
+    "files": [
+      {
+        "path": "examples/task-pipeline.md",
+        "sha256": "d541a220fe52831cc33c541b1801cde62f95f419de22a11abf640f6909115bb9"
+      }
+    ]
   },
   "coverage": {
     "included": [
-      "独立入场条件、先验证房间与有票才替换原场次",
-      "服务端首领成功、突破标记、既有验算回执入口与重新查票结算",
-      "所选层资格与最高通关层奖励的扫荡区别",
-      "化身独享门票、05:00 离线补发与容量截断",
-      "Devil/魔灵配装共用锁及 Build、药水装配的直接调用例子"
+      "提交与模板校验",
+      "任务执行与审核",
+      "重试历史任务",
+      "工作区额度刷新",
+      "流水线设置限制"
     ],
     "excluded": [
-      "正式关卡仍未补齐：当前层表引用 Stage 2–51，时长均为 180 秒，会被独立 60 秒校验拒绝",
-      "客户端界面、协议消费者及 combat mode 11 的新验算 JavaScript 尚未接入",
-      "真实战斗、真实外部存储、跨进程故障及线上配置开放验收",
-      "全部配装入口的穷尽调用追踪、转职/专家死亡/跨服/赛季继承完整流程",
-      "源工程定向测试结果见本次验收记录；尚未完成真实战斗、正式配置与验算 JS 联调、真实存储或部署验收"
+      "真实账号、支付、外部服务和生产存储",
+      "并发、事务、部署与线上运行验收"
     ],
-    "note": "固定捕获 feat/spirit-sanctum 的未提交工作区（dirty=true），不是 HEAD 已包含此功能的证明。图谱只索引 Vast 主检出，实际工作区证据已逐行直读并计算 SHA-256。各流程分开说明规则，不是同一玩家的一次完整运行；H/票数等为状态符号。该包不含伪造用户意见，后续源码变化需重新核对生成新版。"
+    "note": "全部内容为仓库原创的虚构演示，依据是 examples 中的规则文档，不来自业务工程或真实源码快照。稳定图形 ID 仅供交互测试；文档 ID 独立，不迁移其他评审的批注或草稿。"
   },
   "scenes": [
     {
       "id": "enter",
-      "title": "入场与配置校验",
-      "description": "入场查票但不扣票；独立 60 秒关卡合法后才替换旧场次。当前占位配置仍会被拒绝。"
+      "title": "提交与模板校验",
+      "description": "验证演示模板和输入，准备队列项后检查额度。"
     },
     {
       "id": "battle",
-      "title": "战斗成功与验算回写",
-      "description": "完成时判定是否突破最高层；突破等待合法回执，重复即时结算，发奖前都重新查票。"
+      "title": "任务执行与审核",
+      "description": "本地预览直接保存，需要外发的任务等待模拟审核。"
     },
     {
       "id": "sweep",
-      "title": "按最高层扫荡",
-      "description": "所选层需已在最高通关范围内；双层条件都检查，奖励始终取本化身最高层。"
+      "title": "重试历史任务",
+      "description": "验证归属、输入、次数和当前资源后建立新运行。"
     },
     {
       "id": "tickets",
-      "title": "化身门票发放",
-      "description": "门票与发放时间不跨化身共享；每日 05:00 补发，当前日发与容量均为 2。"
+      "title": "工作区额度刷新",
+      "description": "按演示周期重置额度，同一周期不重复刷新。"
     },
     {
       "id": "loadout",
-      "title": "战斗配装限制",
-      "description": "未结束 Devil/魔灵战斗拒绝改变装配；喝药、读取快照和结束后的操作保留。"
+      "title": "流水线设置限制",
+      "description": "运行中冻结模板选择，只读查询仍可继续。"
     }
   ],
   "nodes": [
     {
       "id": "enter-request",
       "sceneId": "enter",
-      "title": "请求进入指定层",
+      "title": "提交文档处理任务",
       "kind": "action",
-      "summary": "每层独立开放，不要求逐层通关。",
-      "detail": "请求只指定层 ID。服务端加载当前角色与化身，再调用魔灵入场逻辑；不存在角色时拒绝。层资格只检查本层，不要求先通关低层。",
-      "input": "层 ID；当前化身",
-      "output": "进入开关、组队与配置检查",
+      "summary": "为虚构工作区提交一份演示文档。",
+      "detail": "请求包含任务类型与输入摘要，不包含真实文档正文。",
+      "input": "任务类型、输入摘要",
+      "output": "进入提交资格检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/handlers/game/game_handler_spirit_sanctum.go",
-          "symbol": "Handler.SpiritSanctumEnter",
-          "startLine": 15,
-          "endLine": 33,
-          "digest": "69ef23d366cef292b863b07ffad86dc910b48c35580bccca6c8aaf9080cc89c9"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 44,
-          "endLine": 58,
-          "digest": "af728745232acb9622afb1d71943ba46dceeb83ea90a97e0a29f21181933b74d"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-request",
+          "startLine": 7,
+          "endLine": 12,
+          "digest": "e5115ed787e4a10f680684749e841e20d92f303d5c774561886395559d08a151"
         }
       ]
     },
     {
       "id": "enter-eligibility",
       "sceneId": "enter",
-      "title": "功能已开且处于单人状态？",
+      "title": "工作区允许提交吗？",
       "kind": "decision",
-      "summary": "组队或功能关闭时拒绝入场。",
-      "detail": "先检查魔灵功能开关，再检查当前化身是否处于联盟组队。未通过时不替换旧战斗。",
-      "input": "开关；当前化身组队信息",
-      "output": "单人且开放 → 查配置；否则拒绝",
+      "summary": "维护或只读工作区拒绝提交。",
+      "detail": "工作区必须处于可写状态且流水线可用，才继续读取模板。",
+      "input": "工作区状态、流水线状态",
+      "output": "允许时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 44,
-          "endLine": 51,
-          "digest": "346c30ac9c423a280558da8e211635de1b6977e13b8f17cc074c881841615b20"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-eligibility",
+          "startLine": 14,
+          "endLine": 19,
+          "digest": "bb594758aa9eb8a4ffe32fd307e24de2595992a62adbedcfdf01ce0929fb79f2"
         }
       ]
     },
     {
       "id": "enter-config",
       "sceneId": "enter",
-      "title": "是否为合法的独立 60 秒关卡？",
+      "title": "任务模板是否可用？",
       "kind": "decision",
-      "summary": "层、关卡、首领、房间与禁掉落必须有效。",
-      "detail": "层表和真实 Stage 必须存在。运行时要求独立魔灵玩法、60 秒、正数进度和进度掉落、有效首领及房间，并包含 BanLoot；沿用旧 180 秒占位关卡会被拒绝。",
-      "input": "层表引用的 Stage 与相关配置",
-      "output": "合法 → 检查本层限制；占位或缺失 → 拒绝",
+      "summary": "模板需存在且已发布。",
+      "detail": "演示目录中的模板必须有输入格式与输出格式；草稿模板不能运行。",
+      "input": "模板键、模板目录",
+      "output": "可用时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "spiritSanctumEntries",
-          "startLine": 28,
-          "endLine": 41,
-          "digest": "f03dee6759f17f2f6d311ebf53800cffba1b78ff295b38aa6a77f827c62358d0"
-        },
-        {
-          "path": "server/entry/extends/spirit_sanctum.go",
-          "symbol": "ValidateSpiritSanctumStage",
-          "startLine": 11,
-          "endLine": 35,
-          "digest": "0457fb756fa08af9b724b9649282cff75b8ac76bd0cdad65ff2aa49a18c594a6"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-config",
+          "startLine": 21,
+          "endLine": 26,
+          "digest": "074ab8f696ed5982b23134af5350504fd346fc7dbd46b5a4a915f54deffd88c8"
         }
       ]
     },
     {
       "id": "enter-limits",
       "sceneId": "enter",
-      "title": "本层条件和背包检查通过？",
+      "title": "输入格式与大小合规吗？",
       "kind": "decision",
-      "summary": "不检查前一层通关记录。",
-      "detail": "仅调用当前层的 limit，再检查背包是否已满。这里没有“前层已通关”判断，也不以最高层代替当前层限制。",
-      "input": "本层 limit；背包状态",
-      "output": "通过 → 预生成房间；否则拒绝",
+      "summary": "不合规的输入在排队前拒绝。",
+      "detail": "比较输入摘要声明的格式与演示大小限制，不读取任何外部文件。",
+      "input": "输入摘要、模板限制",
+      "output": "合规时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 52,
-          "endLine": 61,
-          "digest": "80b8b4f3a53f6d190bfaa634cf25dd0c7c8cfb1fb82aee0ecb88991034391ded"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-limits",
+          "startLine": 28,
+          "endLine": 33,
+          "digest": "0fe3ccc7e8a0bd428cfc2d3471655c9e684439e17b92753662f945503648c663"
         }
       ]
     },
     {
       "id": "enter-room",
       "sceneId": "enter",
-      "title": "先生成房间，再替换旧场次",
+      "title": "创建候选队列项",
       "kind": "action",
-      "summary": "房间生成失败保留原战斗。",
-      "detail": "在结束旧玩法、清场及创建新战斗之前先生成入口房间。只有房间可用才继续检查门票，避免错误配置破坏正在进行的旧场次。",
-      "input": "合法真实关卡；旧场次",
-      "output": "临时入口房间；旧场次尚未替换",
+      "summary": "先准备候选项，不覆盖旧任务。",
+      "detail": "为当前请求构造演示队列项；构造失败时保留工作区之前的任务记录。",
+      "input": "合法输入、模板",
+      "output": "候选队列项或失败",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 62,
-          "endLine": 66,
-          "digest": "11a577dda0f88e40eff217c0814e210974087577b4e4ed4a6c71c0fdc27b128f"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-room",
+          "startLine": 35,
+          "endLine": 40,
+          "digest": "eea3e4a74e9939babcc645b06d5dde8777478be8b35d8e8d86ade0425df5ae4e"
         }
       ]
     },
     {
       "id": "enter-ticket",
       "sceneId": "enter",
-      "title": "补发后至少有一张门票？",
+      "title": "是否还有执行额度？",
       "kind": "decision",
-      "summary": "入场只检查，不立即扣票。",
-      "detail": "按化身更新门票后读取余额，少于 1 张拒绝入场。门票补发本身可能改变钱包和发票时间，但入场不会扣挑战费。成功结算仍需再次查票。",
-      "input": "当前化身钱包与门票发放时间",
-      "output": "有票 → 开新场；无票 → 保留旧战斗",
+      "summary": "排队前检查工作区额度。",
+      "detail": "候选项有效后比较可用额度，至少一个单位才允许加入队列；此处不消耗额度。",
+      "input": "候选项、工作区额度",
+      "output": "有额度时排队，否则拒绝",
       "position": {
         "x": 0,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 67,
-          "endLine": 72,
-          "digest": "d50083a7a1e4e406acddb5651a57d3c6f8d3b1c33c4c918fffdb5a6ed2a83eba"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-ticket",
+          "startLine": 42,
+          "endLine": 47,
+          "digest": "98e87a8706b7824cda6dee62cd687e453abc5dadaf79bd369ec90042343cea8d"
         }
       ]
     },
     {
       "id": "enter-start",
       "sceneId": "enter",
-      "title": "开始当前层战斗",
+      "title": "任务进入等待队列",
       "kind": "result",
-      "summary": "保存当前层、随机种子、房间与录制。",
-      "detail": "入场条件通过后才结束旧玩法并清理旧场，创建当前层、开始时间、随机种子、药水、房间和录制。返回真实 stageId、seed、房间与属性；此时未扣挑战票。",
-      "input": "已生成房间；至少一张票",
-      "output": "当前层 = 请求层；新录制；余额未因入场减少",
+      "summary": "等待执行时保持原有结果。",
+      "detail": "保存候选队列项并标记等待状态，旧任务的输出记录继续保留。",
+      "input": "候选队列项",
+      "output": "等待中的新任务",
       "position": {
         "x": 0,
         "y": 1080
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 73,
-          "endLine": 88,
-          "digest": "477d90ea996d4aeca3249dd00f2c7359ac788d79fe3afb645d96479df369cc63"
-        },
-        {
-          "path": "server/handlers/game/game_handler_spirit_sanctum.go",
-          "symbol": "Handler.SpiritSanctumEnter",
-          "startLine": 28,
-          "endLine": 33,
-          "digest": "eb9ac40b541fa9b1c5b1eb922e0769f50f614a6f831b6de52026eb529352937e"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-start",
+          "startLine": 49,
+          "endLine": 54,
+          "digest": "7c949a8d693eb3711c0779679f733c767e13661a032a63d0df0c52d3a9710156"
         }
       ]
     },
     {
       "id": "enter-rejected",
       "sceneId": "enter",
-      "title": "拒绝入场，保留原战斗",
+      "title": "拒绝提交，保留记录",
       "kind": "failure",
-      "summary": "未通过检查时不替换旧场次。",
-      "detail": "开关、组队、层条件、背包、房间或门票检查失败均在结束旧场次之前返回。已发生的正常门票补发不回滚；没有入场扣票，也不建立退款账本。",
-      "input": "某项入场检查未通过",
-      "output": "错误响应；旧场次仍保留",
+      "summary": "失败请求不进入队列。",
+      "detail": "资格、输入、候选项或额度检查失败时返回原因，不删除原任务和输出。",
+      "input": "校验失败原因",
+      "output": "原任务与输出",
       "position": {
         "x": 360,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter",
-          "startLine": 44,
-          "endLine": 76,
-          "digest": "d2504b9998db41fe61022dd1fb94a11a8cc3efc9db9193b92c07ea8629ae4375"
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-rejected",
+          "startLine": 56,
+          "endLine": 61,
+          "digest": "5a1c0af776a3b6531655f1969d3a7a5dcff8463681517362657f483a43da148e"
         }
       ]
     },
     {
       "id": "enter-placeholder",
       "sceneId": "enter",
-      "title": "当前配表仍是测试占位",
+      "title": "拒绝未发布模板",
       "kind": "failure",
-      "summary": "50 层引用的 Stage 仍为 180 秒。",
-      "detail": "捕获时层表 id 1–50 引用 Stage 2–51，这些 Stage 的 duration 均为 180；与魔灵运行时要求不符。需策划补齐独立 60 秒关卡后才能进行真实入场与战斗联调，不能把本图当作玩法已可开放。",
-      "input": "当前导出配置；独立 60 秒契约",
-      "output": "配置检查拒绝；正式内容待补齐",
+      "summary": "模板不合规时不创建队列项。",
+      "detail": "缺失、草稿或格式声明不完整的模板都不能启动任务，可修改模板后重新提交。",
+      "input": "无效模板",
+      "output": "模板错误结果",
       "position": {
         "x": 360,
         "y": 900
       },
       "evidence": [
         {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "配表与验算配套",
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-placeholder",
           "startLine": 63,
-          "endLine": 77,
-          "digest": "ae48577fc3f0f247d8460dfb201acd878b2ec4c0e1057565cda78dec0a96ca30"
-        },
-        {
-          "path": "server/entry/extends/spirit_sanctum.go",
-          "symbol": "ValidateSpiritSanctumStage",
-          "startLine": 20,
-          "endLine": 24,
-          "digest": "b95c520e0cc1028a25ddb94bcae0db350a6f76d6d9fcdcb0ade57e6a972b0c78"
+          "endLine": 68,
+          "digest": "066828324e5080c4075e0f0b9ffd4021fdc29fd9b611d444250d4a8299b1d8d3"
         }
       ]
     },
     {
       "id": "battle-progress",
       "sceneId": "battle",
-      "title": "击杀小怪积攒进度",
+      "title": "执行文档转换步骤",
       "kind": "action",
-      "summary": "只按服务端确认的击杀增加进度。",
-      "detail": "击杀结果必须有效；按怪物掉落组对应的进度累加并封顶。魔灵关闭关卡物品掉落，并隔离源初专属首领保底及额外掉落。此场景描述合法独立关卡下的实现流程。",
-      "input": "当前战斗；小怪击杀；进度",
-      "output": "进度增加至上限；无关卡物品奖励",
+      "summary": "工作器按模板生成演示结果。",
+      "detail": "工作器从队列领取任务，更新演示进度；该说明不实现真实文档转换。",
+      "input": "等待任务、模板",
+      "output": "处理中进度",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_style_sanctum.go",
-          "symbol": "StageStyleSanctum.Kill",
-          "startLine": 81,
-          "endLine": 112,
-          "digest": "eb2123950b0d05c02734640891af378fdb5e0099217ffc9bd3cce29c6bfc1327"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.CalcLootModifier",
-          "startLine": 267,
-          "endLine": 269,
-          "digest": "bc85065357d12b219c8f7555e88fa6c6c736a0941b8ea89262e747813badbfca"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-progress",
+          "startLine": 70,
+          "endLine": 75,
+          "digest": "8707d5bd806d54661fbf8eb9055940e7619c03fc40c1c8226bf6ebbbe8ed03be"
         }
       ]
     },
     {
       "id": "battle-boss",
       "sceneId": "battle",
-      "title": "满进度后召唤并击杀首领？",
+      "title": "所有步骤是否成功？",
       "kind": "decision",
-      "summary": "未满进度不能召唤；真实击杀才成功。",
-      "detail": "召唤要求进度已满、首领有效且未召唤过。服务端确认首领击杀后调用 Success，客户端提前上报成功不能跳过这些步骤。",
-      "input": "满进度；首领与召唤状态",
-      "output": "合法击杀 → 成功判定；阵亡或失败 → 清场",
+      "summary": "任一步失败进入失败出口。",
+      "detail": "当模板要求的步骤均成功时继续检查任务期限；失败或用户取消则停止当前处理。",
+      "input": "步骤状态、取消状态",
+      "output": "成功时继续，否则失败",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_style_sanctum.go",
-          "symbol": "StageStyleSanctum.ChallengeBoss",
-          "startLine": 118,
-          "endLine": 151,
-          "digest": "40c250c3eab1481784cdbae2a1aa930ecdde2dcc0c922136c24e7c83cc1bc46f"
-        },
-        {
-          "path": "server/servers/game/role/stage_style_sanctum.go",
-          "symbol": "StageStyleSanctum.Kill",
-          "startLine": 99,
-          "endLine": 113,
-          "digest": "796d4ec2debe6f231b07ed9268f7ed6e2f21378229080b3a399a2b62a9f94aa0"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-boss",
+          "startLine": 77,
+          "endLine": 82,
+          "digest": "a9f1d2be194ddc49d155d15aa30f2810eab7dcaf8f32381b8ac382cb486a5fde"
         }
       ]
     },
     {
       "id": "battle-time",
       "sceneId": "battle",
-      "title": "当前战斗与时长仍有效？",
+      "title": "任务令牌与期限有效吗？",
       "kind": "decision",
-      "summary": "重复成功由 EndTime 阻止。",
-      "detail": "Success 检查当前层、开始时间、随机种子与未结束状态，并检查模拟时长处于合法区间。超时调用失败清场；通过后写 EndTime，避免重复成功处理。",
-      "input": "当前层；开始/结束时间；模拟时长",
-      "output": "有效且限时内 → 决定结算分支",
+      "summary": "只接受当前且未过期的执行。",
+      "detail": "工作区保存的任务令牌必须匹配，且完成时间在演示期限内，避免旧工作器覆盖新任务。",
+      "input": "任务令牌、演示期限",
+      "output": "有效时继续，否则失败",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Success",
-          "startLine": 91,
-          "endLine": 107,
-          "digest": "39dac45f022e4f5e8f8e7822167d9a81c16d1de1c6c2324b5509bea7005233c3"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-time",
+          "startLine": 84,
+          "endLine": 89,
+          "digest": "4fdce8af1f1978d70cb719ec76eee4ac889976d233a9940a0c41182c5221d938"
         }
       ]
     },
     {
       "id": "battle-first-pass",
       "sceneId": "battle",
-      "title": "完成时是否突破最高层？",
+      "title": "是否需要额外审核？",
       "kind": "decision",
-      "summary": "此刻决定突破标记，入场时不预判。",
-      "detail": "以 Success 执行时的本化身 HighestId 判断当前层是否更高，并把结论写进这份战报的 SpiritSanctumFirstPass。战斗期间其他回执可能提高最高层，因此不能在入场时提前决定。",
-      "input": "当前层 ID；完成时最高层 H",
-      "output": "高于 H → 突破战报；否则重复通关",
+      "summary": "带外发标记的任务等待审核。",
+      "detail": "纯本地预览可立即进入保存检查；需要外发的任务生成审核请求。",
+      "input": "模板的外发标记",
+      "output": "本地预览或审核分支",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Success",
-          "startLine": 107,
-          "endLine": 118,
-          "digest": "328c4278ae85fedafbdbe25b9040680d9e0a075873bf2a73ff9fdcf93a646643"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-first-pass",
+          "startLine": 91,
+          "endLine": 96,
+          "digest": "a4ae9129006f89f2bc836c9c65ca888dd6c00160fab7755b8f9fbeceab2b3597"
         }
       ]
     },
     {
       "id": "battle-repeat",
       "sceneId": "battle",
-      "title": "重复通关尝试即时结算",
+      "title": "准备本地预览",
       "kind": "action",
-      "summary": "最高层以内也扣一张票，没有额外首通奖。",
-      "detail": "沿用现有整数秒边界尝试即时结算，然后推通关结果。若此刻无票、背包或条件不满足，奖励为空；后续验算回写因突破标记为 false 不会再次扣票发奖。逐帧发奖前确认仍是未实现边界。",
-      "input": "重复通关；当前钱包和奖励容量",
-      "output": "进入通用结算检查；突破标记 false",
+      "summary": "本地任务直接准备输出。",
+      "detail": "保留演示输出摘要，进入最终配额与容量校验，不向外部地址发送任何内容。",
+      "input": "本地输出摘要",
+      "output": "待保存的结果",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Success",
-          "startLine": 115,
-          "endLine": 118,
-          "digest": "65f2903bd50774ae91067b9fdef42e602ce3bbf6729e06c97cb9434beed9a783"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "dealSpiritSanctumReenact",
-          "startLine": 163,
-          "endLine": 166,
-          "digest": "04c13bd3283ddccfca16c1bd0b63b1b34795182cba07e4996833714273e15911"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-repeat",
+          "startLine": 98,
+          "endLine": 103,
+          "digest": "a4915ad16f765993476660c2ed87a5054d90ad7a264931ee399852cbb5994701"
         }
       ]
     },
     {
       "id": "battle-report",
       "sceneId": "battle",
-      "title": "突破战报进入既有验算流程",
+      "title": "创建审核请求",
       "kind": "action",
-      "summary": "先标高风险，等待合法回执。",
-      "detail": "突破 Success 只提高风险，不立即扣票发奖或提高最高层。成功上报须匹配当前层、真实关卡、seed、结束状态、满进度和原始帧数不超过 duration×30；提前或超帧上报直接返回并保留正常录制。随后复用既有房间/动作检查与任务队列，不新增场次编号或待确认账本。验算关闭分支与既有框架一致。",
-      "input": "突破标记 true；动作和战斗结果",
-      "output": "既有验算任务；当前尚未获得奖励",
+      "summary": "外发任务先等待模拟审核。",
+      "detail": "记录任务令牌和输出摘要，交由演示审核器；无法创建请求则不保存最终输出。",
+      "input": "任务令牌、输出摘要",
+      "output": "待审核请求或失败",
       "position": {
         "x": 360,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Success",
-          "startLine": 107,
-          "endLine": 113,
-          "digest": "023adec75b31bcee7e168220609ed129f1aed8f017431078b069c252a9600d70"
-        },
-        {
-          "path": "server/servers/game/role/reenact.go",
-          "symbol": "ReenactSave",
-          "startLine": 238,
-          "endLine": 254,
-          "digest": "7c148b3be31634a3db79e983b6cc07652fca7f0b038622c6fce179bc23586200"
-        },
-        {
-          "path": "server/servers/game/role/reenact.go",
-          "symbol": "ReenactSave",
-          "startLine": 326,
-          "endLine": 335,
-          "digest": "99dddcb08eb8f75e5358fb13c879fd86f0fbd9958baf0db89df904eaa467ca59"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "存档与结算",
-          "startLine": 34,
-          "endLine": 40,
-          "digest": "e781aa68e85df3d92cd784f3ce9b777d2c76099984dfa9f82be919756addfc43"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-report",
+          "startLine": 105,
+          "endLine": 110,
+          "digest": "f1d65f5099bc97094ca635216626192953ac59868751fd32d9395bdfa16a6e73"
         }
       ]
     },
     {
       "id": "battle-envelope",
       "sceneId": "battle",
-      "title": "完整回执、当前职业和胜利通过？",
+      "title": "审核回执是否完整且匹配？",
       "kind": "decision",
-      "summary": "统一从 DealAsyncModify 消费。",
-      "detail": "使用普通异步回执入口。回执必须包含 Reenact、Params、Result，回执职业匹配当前化身职业，并且 m.Win 为 true，才调用魔灵结算。代理回复或客户端声明成功本身不等于这些条件通过。",
-      "input": "既有异步回执；当前化身职业",
-      "output": "完整且胜利 → 魔灵校验；否则不发奖",
+      "summary": "只接受对应任务的同意回执。",
+      "detail": "审核令牌必须匹配当前任务，字段齐全且结论为同意；拒绝或旧回执不生成输出。",
+      "input": "模拟审核回执、当前任务",
+      "output": "匹配同意时继续，否则不保存",
       "position": {
         "x": 360,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/persona.go",
-          "symbol": "DealAsyncModify",
-          "startLine": 106,
-          "endLine": 111,
-          "digest": "076c3ab0b2473cd97fe1ed4b0c311cd31887c3937dbcd503f6690cac26cfcbd0"
-        },
-        {
-          "path": "server/servers/game/role/persona.go",
-          "symbol": "DealAsyncModify",
-          "startLine": 298,
-          "endLine": 301,
-          "digest": "aeaf5c22b036ac3246e19f2f4baadc622eb171ae37f8ec55657624291c2c9c9c"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-envelope",
+          "startLine": 112,
+          "endLine": 117,
+          "digest": "e6abe04b571bb7a993b33fb01fa95204d4af3c937fc8fd2599a5dcd02e85bc1d"
         }
       ]
     },
     {
       "id": "battle-verified",
       "sceneId": "battle",
-      "title": "突破标记、真实关卡与帧数有效？",
+      "title": "回执是否尚未消费？",
       "kind": "decision",
-      "summary": "重复通关回执在这里直接跳过。",
-      "detail": "只处理保存为突破的战报。检查层 ID、层配置、职业、真实 Stage、验算结果成功且帧数为正、不超过 60 秒关卡的总帧数上限。不重新要求层 ID 大于当前最高层，避免高层先回写吞掉低层合法奖励。",
-      "input": "突破回执；关卡契约与验算帧数",
-      "output": "合法胜利 → 再查票；非法或重复 → 不发奖",
+      "summary": "重复回执不能重复保存。",
+      "detail": "演示状态需仍为等待审核，且回执序号未被处理；检查成功后进入最终保存校验。",
+      "input": "回执序号、任务状态",
+      "output": "首次处理或忽略",
       "position": {
         "x": 360,
         "y": 1080
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "dealSpiritSanctumReenact",
-          "startLine": 163,
-          "endLine": 178,
-          "digest": "6230d3313fa8094224b3508d36d138b4ba462c2b5e06c7302ad16d0044ceeace"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "存档与结算",
-          "startLine": 36,
-          "endLine": 40,
-          "digest": "8ec86f204893d5661afc58bcf8fce80a0244e033527d74e6dc381551b77563dc"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-verified",
+          "startLine": 119,
+          "endLine": 124,
+          "digest": "861425b0011c09a072638b97b0b6401a944fd6bc038d88dbb7cea3e959b86e82"
         }
       ]
     },
     {
       "id": "battle-assets",
       "sceneId": "battle",
-      "title": "结算时仍满足条件、门票与容量？",
+      "title": "额度与输出空间仍充足吗？",
       "kind": "decision",
-      "summary": "战斗中扫荡可能已用掉门票。",
-      "detail": "每次结算重新检查层配置与 limit、背包未满、至少一张票和实际奖励剩余容量。所有检查通过后才扣票发奖；无票不会自动等待补票重发。",
-      "input": "结算对应层；当前钱包；奖励容量",
-      "output": "全部满足 → 扣一张票；否则无奖",
+      "summary": "保存前重新检查当前资源。",
+      "detail": "比较工作区当前额度和输出槽位，不依赖排队时的旧值；不足则结束本次处理。",
+      "input": "当前额度、输出槽位",
+      "output": "充足时保存，否则不保存",
       "position": {
         "x": 0,
         "y": 1260
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "settleSpiritSanctum",
-          "startLine": 132,
-          "endLine": 149,
-          "digest": "8d2a7cad3cc137292b50dff3a6a762a3aac5119e3ed2f99a474514debbef3ae3"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "存档与结算",
-          "startLine": 36,
-          "endLine": 38,
-          "digest": "a6d32f52403d165422241bd067b59c9f370ce1e358d7a396d98867a422e0acb3"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-assets",
+          "startLine": 126,
+          "endLine": 131,
+          "digest": "e7fc2e429e4ff3e88032746799828d5df5826b1604b9d1c4b961eefb3c85ba8a"
         }
       ]
     },
     {
       "id": "battle-reward",
       "sceneId": "battle",
-      "title": "扣票、发奖并更新最高层",
+      "title": "保存输出并完成任务",
       "kind": "result",
-      "summary": "最高层只取 max，不覆盖当前战斗。",
-      "detail": "扣一张票，按本次对应层奖励发放，最高层写 max(已有最高层, 本次层)。每份已标突破且合法的在途战报分别结算；回写不修改当前层、Stage 或录制。同批回执不保证顺序，余额不够时仅仍有票的回执可得奖。",
-      "input": "本次层 ID；余额至少 1；最高层 H",
-      "output": "票 -1；获得奖励；最高层 max(H, ID)",
+      "summary": "单步更新演示状态。",
+      "detail": "消耗一个演示额度、保存输出摘要并标记任务完成；这不是外部存储事务的实现证明。",
+      "input": "合法输出、足够额度与槽位",
+      "output": "完成任务与输出记录",
       "position": {
         "x": 0,
         "y": 1440
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "settleSpiritSanctum",
-          "startLine": 150,
-          "endLine": 160,
-          "digest": "c617208f8e967b437a2cb655bc0e0b0b6a1d91cd60a493027f62962949e11c1c"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "dealSpiritSanctumReenact",
-          "startLine": 176,
-          "endLine": 178,
-          "digest": "9cea785970192acc81ccd25ca76affd5489416bd8b5f270cf43e4ccbf0d4b2e1"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum_test.go",
-          "symbol": "乱序回执回归（主任务定向验证见验收记录）",
-          "startLine": 435,
-          "endLine": 454,
-          "digest": "b42ad292b6bbe8bbfb639ea6957f141fe4e5e33662b3255ac41ac206954f7601"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-reward",
+          "startLine": 133,
+          "endLine": 138,
+          "digest": "0635db3d277ec9e1df6677f90c93b6f389cc1b843689799980e562dcb394a26e"
         }
       ]
     },
     {
       "id": "battle-no-award",
       "sceneId": "battle",
-      "title": "本次处理不新增奖励",
+      "title": "本次不保存最终输出",
       "kind": "failure",
-      "summary": "未通过校验不扣票；已即时结算的不重发。",
-      "detail": "无效、职业不匹配、非突破、验算失败或超帧回执不进入魔灵发奖；结算检查失败也不扣票。已有历史最高层保留；补票后不会自动重发。这不额外承诺消费后的永久去重或跨进程故障原子性。",
-      "input": "未通过回执或结算校验",
-      "output": "本次处理不新增魔灵奖励；重复回执不会重发已即时结算的奖励",
+      "summary": "无效回执或资源不足均不产出。",
+      "detail": "保留原输出记录，当前请求记录失败原因；重复回执不会生成第二份结果。",
+      "input": "处理失败原因",
+      "output": "原输出记录",
       "position": {
         "x": 720,
         "y": 1260
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "settleSpiritSanctum",
-          "startLine": 132,
-          "endLine": 155,
-          "digest": "3c57396538f82d8642844c606d737b670bcbb0a092c4899a7cebbb81549d36a3"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "dealSpiritSanctumReenact",
-          "startLine": 163,
-          "endLine": 178,
-          "digest": "6230d3313fa8094224b3508d36d138b4ba462c2b5e06c7302ad16d0044ceeace"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "存档与结算",
-          "startLine": 36,
-          "endLine": 38,
-          "digest": "a6d32f52403d165422241bd067b59c9f370ce1e358d7a396d98867a422e0acb3"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-no-award",
+          "startLine": 140,
+          "endLine": 145,
+          "digest": "56555fd4af9bd631f196f5864fd11441462429a61307675e0fd3b02794fe70cc"
         }
       ]
     },
     {
       "id": "battle-fail",
       "sceneId": "battle",
-      "title": "失败或中断，清当前战斗",
+      "title": "任务失败或取消",
       "kind": "failure",
-      "summary": "不扣挑战票；保留最高层与发票时间。",
-      "detail": "失败清零魔灵 CurId 并清理共用 Stage，没有入场扣费可退。已提交验算按既有异步流程继续处理，不在这里重置最高层或 TicketTime。专家死亡的领域重置是另一个入口，本图不把它与普通失败混同。",
-      "input": "当前魔灵挑战或超时",
-      "output": "当前层清零；普通失败不消费挑战票",
+      "summary": "停止本次处理并记录原因。",
+      "detail": "步骤失败、取消或期限无效时标记当前任务失败，保留其他任务的输出和可用额度。",
+      "input": "失败或取消信号",
+      "output": "失败任务记录",
       "position": {
         "x": 720,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Fail",
-          "startLine": 121,
-          "endLine": 129,
-          "digest": "375939c7887bc01fa01a5edb09f2bf8b4fc0c8e54ef7b87f53be050ab66037f4"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "存档与结算",
-          "startLine": 42,
-          "endLine": 42,
-          "digest": "b7418091bef5ef8a9b898ad09f6220b1cc64957f31c69b3b0dc7d1a65637ead7"
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-fail",
+          "startLine": 147,
+          "endLine": 152,
+          "digest": "9d00fec1622ce8389d40934c4ec2ee1e906372caa52387af837de42eb2d2cb7d"
         }
       ]
     },
     {
       "id": "sweep-request",
       "sceneId": "sweep",
-      "title": "请求扫荡当前所选层",
+      "title": "请求重试历史任务",
       "kind": "action",
-      "summary": "每次只扫荡一次，不接受奖励参数。",
-      "detail": "请求提供所选层 ID，服务端按当前化身状态决定是否可扫荡及实际奖励。返回本次实际获得奖励，不推战斗通关结果。",
-      "input": "所选层 ID；当前化身",
-      "output": "进入扫荡资格检查",
+      "summary": "为失败任务创建新的运行。",
+      "detail": "选择工作区内的历史失败任务，仅引用输入摘要，不复用旧工作器令牌。",
+      "input": "历史任务键",
+      "output": "进入重试资格检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/handlers/game/game_handler_spirit_sanctum.go",
-          "symbol": "Handler.SpiritSanctumSweep",
-          "startLine": 36,
-          "endLine": 50,
-          "digest": "62b2a156df865a083560d500bbde9eee309110a0c5ac5a0d4729efa9f2b19ca3"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-request",
+          "startLine": 154,
+          "endLine": 159,
+          "digest": "f34332e66be4c97bb4286e124627b57b3331826e1ba5d9954b3238552fb4f60f"
         }
       ]
     },
     {
       "id": "sweep-eligibility",
       "sceneId": "sweep",
-      "title": "已开放、购卡且单人？",
+      "title": "重试权限是否满足？",
       "kind": "decision",
-      "summary": "需要双倍挂机卡，奖励本身不翻倍。",
-      "detail": "魔灵功能开启且购买 AutoBattle 权益，并且当前化身不在组队状态，才继续。购卡是扫荡资格，不为魔灵附加双倍奖励。",
-      "input": "功能开关；购卡权益；组队状态",
-      "output": "资格满足 → 查所选层；否则拒绝",
+      "summary": "演示需允许重试且工作区可写。",
+      "detail": "工作区、流水线与重试开关均有效时继续；不使用任何付费权益判断。",
+      "input": "工作区与重试开关",
+      "output": "满足时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 181,
-          "endLine": 188,
-          "digest": "ee0f1fc1beca38ff68b656a18dd934ff1f1bd487bfc3c91a824e8d08f8cad096"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "已确认规则",
-          "startLine": 15,
-          "endLine": 17,
-          "digest": "3a5a98f1db4d1f6165f5205b9af46533d727648b2643dc2044c1a76f30f65e3c"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-eligibility",
+          "startLine": 161,
+          "endLine": 166,
+          "digest": "03b1a73b483e2ef8d311a668a97a784f76dd9aa200e290ccfb39f647bec1b33e"
         }
       ]
     },
     {
       "id": "sweep-selected",
       "sceneId": "sweep",
-      "title": "所选层配置与最高层范围有效？",
+      "title": "目标任务属于本工作区吗？",
       "kind": "decision",
-      "summary": "所选层必须为正且不超过已通关最高层。",
-      "detail": "先验证所选层的层表和真实关卡，再读取当前化身最高通关层。所选 ID 必须大于 0 且不高于最高层；不会因为最高层高就允许请求缺失层。",
-      "input": "所选层；本化身最高通关层 H",
-      "output": "配置合法且 0 \u003c 所选层 ≤ H → 检查条件",
+      "summary": "仅可重试仍保留的失败任务。",
+      "detail": "任务存在、归属匹配且状态为失败，避免引用其他工作区或已删除的记录。",
+      "input": "任务键、历史记录",
+      "output": "有效时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 189,
-          "endLine": 196,
-          "digest": "127aa8c5dd7c814abe3b6a5d53e0f9251a7135b501cf1df608a12dc310d2a44a"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-selected",
+          "startLine": 168,
+          "endLine": 173,
+          "digest": "0f96f970993510e54ffb9eae1e2d759b25a33154829ddeb0593184872dba2a90"
         }
       ]
     },
     {
       "id": "sweep-limit",
       "sceneId": "sweep",
-      "title": "所选层自己的限制满足？",
+      "title": "输入摘要仍可使用吗？",
       "kind": "decision",
-      "summary": "低层仍检查低层自身条件。",
-      "detail": "调用 selected.Limit 检查当前所选层条件。此时尚未以所选层发奖，也未扣票；随后结算最高层时还会再检查最高层自身条件。",
-      "input": "所选层 limit；化身状态",
-      "output": "满足 → 正常补票；否则拒绝",
+      "summary": "重试需要可用的输入摘要。",
+      "detail": "摘要格式与当前模板兼容，且未被用户移除；不自动补造丢失输入。",
+      "input": "历史输入摘要、当前模板",
+      "output": "可用时继续，否则拒绝",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 197,
-          "endLine": 202,
-          "digest": "bc5117b8739d121c7f10ed031fa3a366be6ba40a753c7c35000bd6558d217d2c"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-limit",
+          "startLine": 175,
+          "endLine": 180,
+          "digest": "4c9c7fabd2fee851c336e5e713b321c3f0f527c229c70e3167a36c566765d7a7"
         }
       ]
     },
     {
       "id": "sweep-refresh",
       "sceneId": "sweep",
-      "title": "按当前化身正常补发门票",
+      "title": "刷新重试计数视图",
       "kind": "action",
-      "summary": "补发不会重置正在进行的战斗。",
-      "detail": "调用与入场、每日刷新共用的 DealSpiritTicket；有变化时保存。扫荡不调用当前玩法 Fail、clearStage 或 reenactClear，不终止现有战斗。",
-      "input": "当前化身的票与发票时间",
-      "output": "补发后的余额；原战斗继续",
+      "summary": "读取当前工作区的重试次数。",
+      "detail": "刷新演示统计，统计只用于此工作区，不改变其他工作区状态。",
+      "input": "工作区统计",
+      "output": "当前重试次数",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 200,
-          "endLine": 208,
-          "digest": "f6891b15f2ce01a9eedb2664cd4fa504186b6b8ca942338031339d9039c8d3b7"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-refresh",
+          "startLine": 182,
+          "endLine": 187,
+          "digest": "49224e65ebcc7256034e672e27aefb0b6f306a6f8ba48b70912eda70dacdfcee"
         }
       ]
     },
     {
       "id": "sweep-highest",
       "sceneId": "sweep",
-      "title": "最高层条件、门票和实际奖励容量通过？",
+      "title": "重试上限与额度通过吗？",
       "kind": "decision",
-      "summary": "奖励取最高层，不取所选层。",
-      "detail": "把 HighestId 传给通用结算函数，重新检查最高层合法配置、最高层 limit、背包、票和按最高层奖励转换后的剩余容量。任一失败都不扣这次扫荡票。",
-      "input": "H 对应奖励；当前资源与容量",
-      "output": "全部通过 → 扣票发最高层奖励",
+      "summary": "每个任务有固定演示重试上限。",
+      "detail": "检查该任务未达上限，且当前工作区有执行额度和队列槽位。",
+      "input": "重试次数、额度、槽位",
+      "output": "满足时排队，否则拒绝",
       "position": {
         "x": 0,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 203,
-          "endLine": 208,
-          "digest": "b263bf10444d73454ec8454e02f83a79135071054f2b1b0a875b5a3c78c123ac"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "settleSpiritSanctum",
-          "startLine": 132,
-          "endLine": 149,
-          "digest": "8d2a7cad3cc137292b50dff3a6a762a3aac5119e3ed2f99a474514debbef3ae3"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-highest",
+          "startLine": 189,
+          "endLine": 194,
+          "digest": "3ca6e0c2e562be534197f9e368edcaee2f6278dd97140614dc5a3553aacd3690"
         }
       ]
     },
     {
       "id": "sweep-reward",
       "sceneId": "sweep",
-      "title": "扣一张票，返回最高层奖励",
+      "title": "创建新的重试任务",
       "kind": "result",
-      "summary": "不结束当前战斗，不额外翻倍。",
-      "detail": "统一扣票发奖、保存后返回 rewards。最高层保持 max(H,H)，不产生一次新的战斗完成。若扫荡耗尽票，仍在进行的挑战完成时会再查票并可能无奖。",
-      "input": "票至少 1；通过全部扫荡检查",
-      "output": "票 -1；获得 H 层奖励；当前战斗不变",
+      "summary": "新任务使用独立运行令牌。",
+      "detail": "增加重试计数并生成等待任务；实际执行额度仍在保存输出时消耗。",
+      "input": "历史输入摘要、可用槽位",
+      "output": "新的等待任务",
       "position": {
         "x": 0,
         "y": 1080
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "settleSpiritSanctum",
-          "startLine": 150,
-          "endLine": 155,
-          "digest": "5b7fe914d9cab79ac841354b1153d714f920534d84512fb5e789d1f446043cc1"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 203,
-          "endLine": 208,
-          "digest": "b263bf10444d73454ec8454e02f83a79135071054f2b1b0a875b5a3c78c123ac"
-        },
-        {
-          "path": "server/handlers/game/game_handler_spirit_sanctum.go",
-          "symbol": "Handler.SpiritSanctumSweep",
-          "startLine": 45,
-          "endLine": 49,
-          "digest": "c6f6336895ef20edd9ce08d34ec2e203cf42ec5bd304ed9daaa87f6c7d4d1e74"
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-reward",
+          "startLine": 196,
+          "endLine": 201,
+          "digest": "5a94467c4d7166e8ebf9b21315bf1e1e03dab3babe4f38498e6aa8e17638bd39"
         }
       ]
     },
     {
       "id": "sweep-rejected",
       "sceneId": "sweep",
-      "title": "拒绝扫荡，不扣本次挑战票",
+      "title": "拒绝重试，保留历史",
       "kind": "failure",
-      "summary": "检查不通过则不发扫荡奖励。",
-      "detail": "未开放、未购卡、组队、层配置/范围/条件非法、背包满、实际奖励容量或票不足均拒绝。已发生的正常每日补发可能保留，不把“没有扫荡消耗”误作整个请求绝无状态变化。",
-      "input": "某项扫荡检查失败",
-      "output": "错误响应；无本次扫荡扣票与奖励",
+      "summary": "无效请求不会覆盖失败记录。",
+      "detail": "归属、状态、输入或资源检查失败时保留历史任务，不增加重试计数。",
+      "input": "检查失败原因",
+      "output": "原任务记录",
       "position": {
         "x": 360,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctumSweep",
-          "startLine": 181,
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-rejected",
+          "startLine": 203,
           "endLine": 208,
-          "digest": "b01030b86cfef8b504d1da71dfeedc141dad7e05ee54d14c02fa34371c5581fb"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "settleSpiritSanctum",
-          "startLine": 132,
-          "endLine": 149,
-          "digest": "8d2a7cad3cc137292b50dff3a6a762a3aac5119e3ed2f99a474514debbef3ae3"
+          "digest": "45f84e9b0d0ac797cc3241f06271574faf21b02d1d76dd2dbea23240d1b996b2"
         }
       ]
     },
     {
       "id": "tickets-trigger",
       "sceneId": "tickets",
-      "title": "加载、每日边界或玩法入口触发",
+      "title": "打开工作区额度视图",
       "kind": "action",
-      "summary": "按每日 05:00 计算补发。",
-      "detail": "每日 05:00 事件、既有玩法门票刷新以及魔灵入场/扫荡都会进入同一发票函数。这里展示化身票的发放规则，不模拟真实玩家登录。",
-      "input": "当前时间；当前化身",
-      "output": "进入门票开关与上次发票时间检查",
+      "summary": "按需刷新演示额度。",
+      "detail": "进入工作区或打开额度页时读取演示周期状态，不触发后台定时任务。",
+      "input": "工作区、当前演示周期",
+      "output": "进入额度功能检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/role.go",
-          "symbol": "handleTimeChangeEvent",
-          "startLine": 56,
-          "endLine": 60,
-          "digest": "b91dca2511894f8b5174537b1a9a4f2f452efd4d437d6d1e5e4323900ceb9576"
-        },
-        {
-          "path": "server/servers/game/role/stage.go",
-          "symbol": "DealStageTicket",
-          "startLine": 705,
-          "endLine": 714,
-          "digest": "4db4e0eb5658ce96d2b5a1ef54ae9adc012d955296f4f494ec469a591aeaaa99"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Enter / StageSpiritSanctumSweep",
-          "startLine": 67,
-          "endLine": 72,
-          "digest": "d50083a7a1e4e406acddb5651a57d3c6f8d3b1c33c4c918fffdb5a6ed2a83eba"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-trigger",
+          "startLine": 210,
+          "endLine": 215,
+          "digest": "b465e4c1cfac117260607b594ad9261da9a916c8c2c14dad4f48c6f95e826aa1"
         }
       ]
     },
     {
       "id": "tickets-toggle",
       "sceneId": "tickets",
-      "title": "魔灵功能已经开启？",
+      "title": "额度演示是否开启？",
       "kind": "decision",
-      "summary": "未开启时不发票，也不记发票时间。",
-      "detail": "DealSpiritTicket 首先检查开关，关闭直接返回 false。开关打开后才加载当前化身的魔灵状态。",
-      "input": "魔灵开关",
-      "output": "开启 → 查化身状态；关闭 → 不处理",
+      "summary": "未开启时不调整额度。",
+      "detail": "只有演示开关打开才读取当前工作区的额度记录。",
+      "input": "额度演示开关",
+      "output": "开启时继续，否则跳过",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "DealSpiritTicket",
-          "startLine": 211,
-          "endLine": 215,
-          "digest": "84ea1fc165ad8411961fc9718d30418bfcb77a4d537b63947c8bfe0cf321faaa"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-toggle",
+          "startLine": 217,
+          "endLine": 222,
+          "digest": "9f2ae78cd6775e8e676fcd43f9a92be871cd7962865b2cbdb85d094138dc15c7"
         }
       ]
     },
     {
       "id": "tickets-wallet",
       "sceneId": "tickets",
-      "title": "使用本化身门票和发放时间",
+      "title": "读取工作区额度记录",
       "kind": "action",
-      "summary": "货币 16 的 shared=0，容量为 2。",
-      "detail": "余额通过 Money[16].shared=0 路由到 Persona.Wallets；TicketTime 位于当前 Persona.SpiritSanctum。另一化身有独立余额和发放时点；角色共享钱包中的同类型余额不用于魔灵。当前日发数量也是 2。",
-      "input": "当前 Persona；Money[16]；TicketTime",
-      "output": "只读取本化身的魔灵票状态",
+      "summary": "额度按工作区独立保存。",
+      "detail": "读取该工作区的余额与最后周期键，不查询真实用户、账号或钱包。",
+      "input": "工作区键",
+      "output": "余额、最后周期键",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/money.go",
-          "symbol": "GetMoney",
-          "startLine": 17,
-          "endLine": 33,
-          "digest": "9940fc4b8c693c13c73c929631359d3014313598d0cbfd90bf89c226c6f4ee60"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "DealSpiritTicket",
-          "startLine": 215,
-          "endLine": 218,
-          "digest": "7afa44c2c75bc5680d15ef986adc39125b8d78571abe34f9fab217538f9553bd"
-        },
-        {
-          "path": "server/entry/entry/Money.json",
-          "symbol": "Money[16]",
-          "startLine": 123,
-          "endLine": 129,
-          "digest": "28aeb4643670de5eaa8e3d81ce2b7fb7ab7875dd3498d4b31ed8fb3e28b7e81f"
-        },
-        {
-          "path": "server/entry/entry/Configuration.json",
-          "symbol": "Configuration.SpiritTicketDailyReward",
-          "startLine": 754,
-          "endLine": 756,
-          "digest": "302345b752ddf8254954729b7fa477ba18bc72478670e4950addf9be7e753f35"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-wallet",
+          "startLine": 224,
+          "endLine": 229,
+          "digest": "833e1d3dff94e913c997570a3528ff77da45259f26efc86ede75c066804a306e"
         }
       ]
     },
     {
       "id": "tickets-days",
       "sceneId": "tickets",
-      "title": "首次领取或跨越新的 05:00 日界？",
+      "title": "是否进入新的演示周期？",
       "kind": "decision",
-      "summary": "首次给一日量，之后累计离线日数。",
-      "detail": "从未发放时 days=1；已有 TicketTime 时用 CalculateDayDifference(last,now,5)，diff≤1 不重发，跨日则 days=diff-1。同一化身当日重复进入不会重复领票。",
-      "input": "上次发票时间；现在；05:00 日界",
-      "output": "有待发天数 → 计算数量；否则跳过",
+      "summary": "同一周期不会重复刷新。",
+      "detail": "首次使用或周期键变化时重置演示额度，同一周期重复打开只读状态。",
+      "input": "当前周期键、最后周期键",
+      "output": "新周期或跳过",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "DealSpiritTicket",
-          "startLine": 216,
-          "endLine": 225,
-          "digest": "28bf60f1e25f4ce96caf9e3a25fb9dbf04ac14261e536a8ab2a4170f6571f067"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-days",
+          "startLine": 231,
+          "endLine": 236,
+          "digest": "87c7b3cfc909a4822bb2f6675262a52338b55e8c8a88c8861ae5427003d07091"
         }
       ]
     },
     {
       "id": "tickets-grant",
       "sceneId": "tickets",
-      "title": "按天补发并截断到容量",
+      "title": "按周期重置演示额度",
       "kind": "action",
-      "summary": "离线补发超过容量的部分销毁。",
-      "detail": "数量 = 待发天数 × 当前配置每日量。IncMoney 选择化身钱包，再将最终余额封顶到货币容量；当前容量 2，即使离线多天也不无限囤票。发放失败时不推进 TicketTime。",
-      "input": "待发数量；当前余额；容量 2",
-      "output": "余额增加但不超过容量；或发放失败",
+      "summary": "固定重置为十个单位。",
+      "detail": "将演示可用额度设置为十，不累计错过的周期；写入失败保留旧周期键。",
+      "input": "新的周期键",
+      "output": "十个单位或写入失败",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "DealSpiritTicket",
-          "startLine": 225,
-          "endLine": 230,
-          "digest": "5e9b908896e867e219842f8a352baf304ca27f025da0fd7bac47b28f28c87b39"
-        },
-        {
-          "path": "server/servers/game/role/money.go",
-          "symbol": "IncMoney",
-          "startLine": 77,
-          "endLine": 105,
-          "digest": "f2e86942260089fa27e2ad5a448707ac1b47881e6925290a1a9d5bee0cbb3cb1"
-        },
-        {
-          "path": "server/servers/game/role/money.go",
-          "symbol": "IncMoney",
-          "startLine": 113,
-          "endLine": 121,
-          "digest": "63485f9e5d5a08a30bdabf517e7132f5f012c37c7809c77f0f5c21588d06fa66"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-grant",
+          "startLine": 238,
+          "endLine": 243,
+          "digest": "87add35be6dd0a682bcdd8cbdd222e828e00ab3adbb4aaa204bd7c2dad49682d"
         }
       ]
     },
     {
       "id": "tickets-record",
       "sceneId": "tickets",
-      "title": "更新当前化身发票时间",
+      "title": "记录新的周期键",
       "kind": "result",
-      "summary": "补票结束后记录当前时间。",
-      "detail": "数量处理成功后将本化身 TicketTime 设为 now 并返回 true，由调用方按需保存。容量已满时也会记录发放时点，不在同一日反复补发被截断的票。",
-      "input": "发放完成；当前时间",
-      "output": "TicketTime=now；调用方保存",
+      "summary": "刷新后保存周期标记。",
+      "detail": "额度重置成功后记录新周期键，供下次访问判断是否需要刷新。",
+      "input": "刷新成功的额度、周期键",
+      "output": "已记录的新周期",
       "position": {
         "x": 0,
         "y": 900
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "DealSpiritTicket",
-          "startLine": 225,
-          "endLine": 232,
-          "digest": "d924401267bdf569c07653cb78c0ca0f6899a28dc9b6c903756862fd79d08def"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-record",
+          "startLine": 245,
+          "endLine": 250,
+          "digest": "5e40901cc5ae54f79af58cf9647413d7bbaa173f23721f5461668732e6452d8d"
         }
       ]
     },
     {
       "id": "tickets-skip",
       "sceneId": "tickets",
-      "title": "本次不重发门票",
+      "title": "本次跳过额度刷新",
       "kind": "failure",
-      "summary": "关闭、尚未跨日或发放错误时退出。",
-      "detail": "开关关闭、当日已领或 IncMoney 返回错误时返回 false。没有在此扣票；出错时不推进 TicketTime。正常玩法成功扣票与本流程独立。",
-      "input": "无可发天数或发放未成功",
-      "output": "余额不因本流程增加；发票时间不推进",
+      "summary": "开关关闭或周期未变化。",
+      "detail": "不重复刷新额度，写入失败也不前移周期标记，以便之后重试。",
+      "input": "无需刷新或写入失败",
+      "output": "原额度与周期键",
       "position": {
         "x": 360,
         "y": 540
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "DealSpiritTicket",
-          "startLine": 211,
-          "endLine": 232,
-          "digest": "d6e9651ad3f8c63b56bc76e26cc19c76d1f0c78e245f028959fb3deb60f2c398"
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-skip",
+          "startLine": 252,
+          "endLine": 257,
+          "digest": "a58a94226aee5af4ef8a4d1ce19a3a1903f6796b1c17b1d911eafad5427e9a53"
         }
       ]
     },
     {
       "id": "loadout-request",
       "sceneId": "loadout",
-      "title": "发起配装相关操作",
+      "title": "申请修改流水线设置",
       "kind": "action",
-      "summary": "应用或改变装配先检查当前战斗。",
-      "detail": "Devil 与魔灵共用 checkStageLoadoutChange。以 Build 应用和药水装配为直接源码例子；完整操作清单以功能文档为需求范围，本包未逐一追踪所有 41 个调用入口。",
-      "input": "装备/技能/Build 应用等变更请求",
-      "output": "进入当前战斗状态判断",
+      "summary": "设置修改先查看任务状态。",
+      "detail": "请求修改工作区的演示模板选择，所有权限检查仍由设置流程自身处理。",
+      "input": "新模板选择、工作区",
+      "output": "进入活动任务检查",
       "position": {
         "x": 0,
         "y": 0
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/build.go",
-          "symbol": "BuildApply",
-          "startLine": 110,
-          "endLine": 118,
-          "digest": "f4fb70b0cb1901205007a6048b7eb9480a82633175ec74893fc57003789c4074"
-        },
-        {
-          "path": "server/servers/game/role/psychic_potion.go",
-          "symbol": "PsychicPotionLineUp",
-          "startLine": 61,
-          "endLine": 68,
-          "digest": "9a0b107946b53fd6e6de6082003ee0ad2f6020797bcc13e5348f9850f01b07de"
-        },
-        {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "已确认规则",
-          "startLine": 14,
-          "endLine": 14,
-          "digest": "389edb9c8326fd0ee27909ae24c51d8c9af7de728beba2ae3c624e9c51999bb5"
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-request",
+          "startLine": 259,
+          "endLine": 264,
+          "digest": "83cab89b691e998ceffb5be39d1cd7bce516af02d1eea5b266e3f36e6fb539c6"
         }
       ]
     },
     {
       "id": "loadout-active",
       "sceneId": "loadout",
-      "title": "Devil 或魔灵战斗尚未结束？",
+      "title": "当前是否仍有运行任务？",
       "kind": "decision",
-      "summary": "看当前玩法 ID 与 EndTime，不只看 RoleState。",
-      "detail": "存在 Devil 当前层或魔灵 CurId，且 Stage 缺失或 EndTime≤0 时视为未结束。正常空 Stage 不创建一场战斗；残留魔灵当前层但 Stage 缺失仍受保护。",
-      "input": "当前 Devil/魔灵层；Stage；结束时间",
-      "output": "未结束 → 拒绝；已结束或无关玩法 → 放行",
+      "summary": "运行期间冻结模板选择。",
+      "detail": "任务处于等待、执行或审核状态时拒绝修改模板，避免同一运行混用设置。",
+      "input": "当前任务状态",
+      "output": "运行中拒绝，否则继续",
       "position": {
         "x": 0,
         "y": 180
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_loadout.go",
-          "symbol": "checkStageLoadoutChange",
-          "startLine": 9,
-          "endLine": 18,
-          "digest": "1f9e21be3ed59d80c14226ab5469207d74df5528dd054b7ee20b687be9cfc66e"
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-active",
+          "startLine": 266,
+          "endLine": 271,
+          "digest": "9608f0d3f6245b3deeacda44717329c5866dc826071affa2272a31b707a322ac"
         }
       ]
     },
     {
       "id": "loadout-reject",
       "sceneId": "loadout",
-      "title": "拒绝本次配装变更",
+      "title": "拒绝本次模板变更",
       "kind": "failure",
-      "summary": "返回 InvalidParameter，先不改配装。",
-      "detail": "共用校验失败直接返回错误，BuildApply 和 PsychicPotionLineUp 在写入装配之前执行它。用户需先完成或清理战斗，不能用配装操作改变正在验算的战斗条件。",
-      "input": "尚未结束的 Devil/魔灵战斗",
-      "output": "本次示例变更不执行",
+      "summary": "保留运行任务使用的模板。",
+      "detail": "返回任务仍活动的原因，不覆盖工作区原模板；任务结束后允许重新申请。",
+      "input": "活动任务、新模板选择",
+      "output": "原模板选择",
       "position": {
         "x": 360,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_loadout.go",
-          "symbol": "checkStageLoadoutChange",
-          "startLine": 15,
-          "endLine": 18,
-          "digest": "924deb7075d69b41f39e7130d077ff3591316676810e45859a60714ccb50bd8e"
-        },
-        {
-          "path": "server/servers/game/role/build.go",
-          "symbol": "BuildApply",
-          "startLine": 110,
-          "endLine": 118,
-          "digest": "f4fb70b0cb1901205007a6048b7eb9480a82633175ec74893fc57003789c4074"
-        },
-        {
-          "path": "server/servers/game/role/psychic_potion.go",
-          "symbol": "PsychicPotionLineUp",
-          "startLine": 61,
-          "endLine": 68,
-          "digest": "9a0b107946b53fd6e6de6082003ee0ad2f6020797bcc13e5348f9850f01b07de"
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-reject",
+          "startLine": 273,
+          "endLine": 278,
+          "digest": "2eb84da0b1229302ab8536e5714c220bcbda238c1105520fa20c45d091c2da21"
         }
       ]
     },
     {
       "id": "loadout-pass",
       "sceneId": "loadout",
-      "title": "继续该操作自身校验",
+      "title": "继续设置自身校验",
       "kind": "result",
-      "summary": "战斗结束、清场或无关玩法不被此锁拦截。",
-      "detail": "没有处于未结束 Devil/魔灵场景时，共用校验返回 nil；之后还要执行相应功能自己的参数、解锁与资源检查。这仅表示不被战斗配装锁拒绝，不代表请求一定成功。",
-      "input": "共用战斗检查已通过",
-      "output": "继续原有业务流程",
+      "summary": "无活动任务时可继续修改。",
+      "detail": "只解除活动任务这一道限制，模板存在性和编辑权限仍需后续检查。",
+      "input": "无活动任务、新模板选择",
+      "output": "进入设置流程",
       "position": {
         "x": 0,
         "y": 360
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_loadout.go",
-          "symbol": "checkStageLoadoutChange",
-          "startLine": 9,
-          "endLine": 18,
-          "digest": "1f9e21be3ed59d80c14226ab5469207d74df5528dd054b7ee20b687be9cfc66e"
-        },
-        {
-          "path": "server/servers/game/role/psychic_potion.go",
-          "symbol": "PsychicPotionLineUp",
-          "startLine": 61,
-          "endLine": 71,
-          "digest": "0791e6a3243be26c0e2b01b40c824ca497c6fe829f05d3d7a78eeaf326365a56"
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-pass",
+          "startLine": 280,
+          "endLine": 285,
+          "digest": "184abe8af20507c9132baa18c09fe285fd7bdeace1e491ca25c4cda211d14e97"
         }
       ]
     },
     {
       "id": "loadout-read",
       "sceneId": "loadout",
-      "title": "喝药与读取 Build 快照保留",
+      "title": "允许只读预览与查看记录",
       "kind": "result",
-      "summary": "读当前配装不等于应用新配装。",
-      "detail": "功能契约保留喝药和纯读取 Build 快照；BuildSave 不调用配装锁，仍执行其既有条件。应用 Build 与保存快照是不同操作。这里以契约和 BuildSave 源码说明边界，未重新验收所有客户端操作。",
-      "input": "战斗中喝药或读取/保存配装快照",
-      "output": "按既有功能规则处理",
+      "summary": "读操作不修改模板选择。",
+      "detail": "只读预览和历史记录查询可直接进入各自权限检查，不需要等待运行结束。",
+      "input": "预览或查询请求",
+      "output": "只读流程",
       "position": {
         "x": 0,
         "y": 540
       },
       "evidence": [
         {
-          "path": "docs/features/spirit-sanctum.md",
-          "symbol": "已确认规则",
-          "startLine": 14,
-          "endLine": 14,
-          "digest": "389edb9c8326fd0ee27909ae24c51d8c9af7de728beba2ae3c624e9c51999bb5"
-        },
-        {
-          "path": "server/servers/game/role/build.go",
-          "symbol": "BuildSave",
-          "startLine": 74,
-          "endLine": 107,
-          "digest": "f445ec4e8dabd9fed922b2d448787e7d7be707a6f67b1461044402b0079ea08d"
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-read",
+          "startLine": 287,
+          "endLine": 292,
+          "digest": "0fd6eae5a918e29872cd00de43071ad520774b0aeb9c4b4c5a529bb105d3820f"
         }
       ]
     },
     {
       "id": "loadout-restore",
       "sceneId": "loadout",
-      "title": "结束或清场后恢复变更",
+      "title": "任务结束后重新申请",
       "kind": "result",
-      "summary": "共用校验依实时存档状态判断。",
-      "detail": "合法 Success 写入 EndTime 后，或普通失败清空 CurId 并清理 Stage 后，共用锁不再按未结束魔灵战斗拒绝。仍须通过对应操作自身校验。",
-      "input": "EndTime>0，或已完成普通清场",
-      "output": "可继续请求新的配装变更",
+      "summary": "状态变化后重新检查限制。",
+      "detail": "用户在任务完成或取消后再次提出模板变更，重新执行活动任务检查，不自动应用旧请求。",
+      "input": "已结束任务、新请求",
+      "output": "可重新申请设置变更",
       "position": {
         "x": 0,
         "y": 720
       },
       "evidence": [
         {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Success",
-          "startLine": 103,
-          "endLine": 109,
-          "digest": "16a18eb901540e8438b0b99c3e19761da408219f0d8a6e2964a8f94940bbc637"
-        },
-        {
-          "path": "server/servers/game/role/stage_spirit_sanctum.go",
-          "symbol": "StageSpiritSanctum.Fail",
-          "startLine": 121,
-          "endLine": 129,
-          "digest": "375939c7887bc01fa01a5edb09f2bf8b4fc0c8e54ef7b87f53be050ab66037f4"
-        },
-        {
-          "path": "server/servers/game/role/stage_loadout.go",
-          "symbol": "checkStageLoadoutChange",
-          "startLine": 9,
-          "endLine": 18,
-          "digest": "1f9e21be3ed59d80c14226ab5469207d74df5528dd054b7ee20b687be9cfc66e"
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-restore",
+          "startLine": 294,
+          "endLine": 299,
+          "digest": "9b564aab93a6e6e30f9ad916c4ad2feed3982e536f92183ea861ce3c8902699b"
         }
       ]
     }
@@ -1431,400 +1169,400 @@
       "sceneId": "enter",
       "source": "enter-request",
       "target": "enter-eligibility",
-      "label": "校验身份",
-      "detail": "有效身份进入业务入场。"
+      "label": "检查工作区",
+      "detail": "虚构演示规则：检查工作区时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-eligibility-to-enter-config",
       "sceneId": "enter",
       "source": "enter-eligibility",
       "target": "enter-config",
-      "label": "开放且单人",
-      "detail": "继续检查配置。"
+      "label": "允许提交",
+      "detail": "虚构演示规则：允许提交时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-eligibility-to-enter-rejected",
       "sceneId": "enter",
       "source": "enter-eligibility",
       "target": "enter-rejected",
-      "label": "关闭或组队",
-      "detail": "不替换原战斗。"
+      "label": "维护或只读",
+      "detail": "虚构演示规则：维护或只读时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-config-to-enter-limits",
       "sceneId": "enter",
       "source": "enter-config",
       "target": "enter-limits",
-      "label": "配置合法",
-      "detail": "继续检查当前层条件。"
+      "label": "模板可用",
+      "detail": "虚构演示规则：模板可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-config-to-enter-placeholder",
       "sceneId": "enter",
       "source": "enter-config",
       "target": "enter-placeholder",
-      "label": "当前占位不合法",
-      "detail": "捕获时正式配置不能支持真实战斗。"
+      "label": "模板未发布或不完整",
+      "detail": "虚构演示规则：模板未发布或不完整时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-limits-to-enter-room",
       "sceneId": "enter",
       "source": "enter-limits",
       "target": "enter-room",
-      "label": "条件满足",
-      "detail": "预生成房间。"
+      "label": "输入合规",
+      "detail": "虚构演示规则：输入合规时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-limits-to-enter-rejected",
       "sceneId": "enter",
       "source": "enter-limits",
       "target": "enter-rejected",
-      "label": "限制或背包不满足",
-      "detail": "入场失败。"
+      "label": "输入不合规",
+      "detail": "虚构演示规则：输入不合规时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-room-to-enter-ticket",
       "sceneId": "enter",
       "source": "enter-room",
       "target": "enter-ticket",
-      "label": "房间有效",
-      "detail": "补发并检查门票。"
+      "label": "候选项有效",
+      "detail": "虚构演示规则：候选项有效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-room-to-enter-rejected",
       "sceneId": "enter",
       "source": "enter-room",
       "target": "enter-rejected",
-      "label": "房间生成失败",
-      "detail": "旧场次保留。"
+      "label": "候选项创建失败",
+      "detail": "虚构演示规则：候选项创建失败时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-ticket-to-enter-start",
       "sceneId": "enter",
       "source": "enter-ticket",
       "target": "enter-start",
-      "label": "至少一张票",
-      "detail": "仅开始战斗，不扣票。"
+      "label": "还有额度",
+      "detail": "虚构演示规则：还有额度时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "enter-ticket-to-enter-rejected",
       "sceneId": "enter",
       "source": "enter-ticket",
       "target": "enter-rejected",
-      "label": "没有门票",
-      "detail": "不进入新战斗。"
+      "label": "额度不足",
+      "detail": "虚构演示规则：额度不足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-progress-to-battle-boss",
       "sceneId": "battle",
       "source": "battle-progress",
       "target": "battle-boss",
-      "label": "进度积满",
-      "detail": "召唤并击杀首领。"
+      "label": "步骤执行完成",
+      "detail": "虚构演示规则：步骤执行完成时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-boss-to-battle-time",
       "sceneId": "battle",
       "source": "battle-boss",
       "target": "battle-time",
-      "label": "真实击杀首领",
-      "detail": "进入服务端成功处理。"
+      "label": "全部成功",
+      "detail": "虚构演示规则：全部成功时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-boss-to-battle-fail",
       "sceneId": "battle",
       "source": "battle-boss",
       "target": "battle-fail",
-      "label": "失败或中断",
-      "detail": "不扣票清场。"
+      "label": "失败或取消",
+      "detail": "虚构演示规则：失败或取消时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-time-to-battle-first-pass",
       "sceneId": "battle",
       "source": "battle-time",
       "target": "battle-first-pass",
-      "label": "当前场次合法",
-      "detail": "结束标记写入后判最高层。"
+      "label": "令牌与期限有效",
+      "detail": "虚构演示规则：令牌与期限有效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-time-to-battle-fail",
       "sceneId": "battle",
       "source": "battle-time",
       "target": "battle-fail",
-      "label": "模拟超时",
-      "detail": "失败清场。"
+      "label": "令牌失效或过期",
+      "detail": "虚构演示规则：令牌失效或过期时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-first-pass-to-battle-repeat",
       "sceneId": "battle",
       "source": "battle-first-pass",
       "target": "battle-repeat",
-      "label": "未突破",
-      "detail": "尝试即时结算。"
+      "label": "仅本地预览",
+      "detail": "虚构演示规则：仅本地预览时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-first-pass-to-battle-report",
       "sceneId": "battle",
       "source": "battle-first-pass",
       "target": "battle-report",
-      "label": "突破最高层",
-      "detail": "高风险等待验算。"
+      "label": "需要模拟审核",
+      "detail": "虚构演示规则：需要模拟审核时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-repeat-to-battle-assets",
       "sceneId": "battle",
       "source": "battle-repeat",
       "target": "battle-assets",
-      "label": "即时结算",
-      "detail": "结算仍查当前资源。"
+      "label": "预览已准备",
+      "detail": "虚构演示规则：预览已准备时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-report-to-battle-envelope",
       "sceneId": "battle",
       "source": "battle-report",
       "target": "battle-envelope",
-      "label": "已有框架回传",
-      "detail": "mode11 JS 未齐，真实链路尚未验收。"
+      "label": "审核请求已创建",
+      "detail": "虚构演示规则：审核请求已创建时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-report-to-battle-no-award",
       "sceneId": "battle",
       "source": "battle-report",
       "target": "battle-no-award",
-      "label": "成功上报非法",
-      "detail": "不提交非法胜利，也不清除正常录制。"
+      "label": "审核请求创建失败",
+      "detail": "虚构演示规则：审核请求创建失败时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-envelope-to-battle-verified",
       "sceneId": "battle",
       "source": "battle-envelope",
       "target": "battle-verified",
-      "label": "完整、同职业且胜利",
-      "detail": "进入魔灵专用回写。"
+      "label": "回执匹配且同意",
+      "detail": "虚构演示规则：回执匹配且同意时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-envelope-to-battle-no-award",
       "sceneId": "battle",
       "source": "battle-envelope",
       "target": "battle-no-award",
-      "label": "不完整、换职业或非胜利",
-      "detail": "不发魔灵奖励。"
+      "label": "回执无效或拒绝",
+      "detail": "虚构演示规则：回执无效或拒绝时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-verified-to-battle-assets",
       "sceneId": "battle",
       "source": "battle-verified",
       "target": "battle-assets",
-      "label": "合法突破回执",
-      "detail": "按保存层 ID 检查奖励和门票。"
+      "label": "首次消费回执",
+      "detail": "虚构演示规则：首次消费回执时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-verified-to-battle-no-award",
       "sceneId": "battle",
       "source": "battle-verified",
       "target": "battle-no-award",
-      "label": "非突破或非法结果",
-      "detail": "不重复结算。"
+      "label": "回执已消费或状态无效",
+      "detail": "虚构演示规则：回执已消费或状态无效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-assets-to-battle-reward",
       "sceneId": "battle",
       "source": "battle-assets",
       "target": "battle-reward",
-      "label": "条件和资源满足",
-      "detail": "先检查后扣票发奖。"
+      "label": "额度与空间充足",
+      "detail": "虚构演示规则：额度与空间充足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "battle-assets-to-battle-no-award",
       "sceneId": "battle",
       "source": "battle-assets",
       "target": "battle-no-award",
-      "label": "无票或容量不足",
-      "detail": "无奖，不等待补票重发。"
+      "label": "额度或空间不足",
+      "detail": "虚构演示规则：额度或空间不足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-request-to-sweep-eligibility",
       "sceneId": "sweep",
       "source": "sweep-request",
       "target": "sweep-eligibility",
-      "label": "每次一次",
-      "detail": "服务端决定奖励。"
+      "label": "提交重试",
+      "detail": "虚构演示规则：提交重试时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-eligibility-to-sweep-selected",
       "sceneId": "sweep",
       "source": "sweep-eligibility",
       "target": "sweep-selected",
-      "label": "资格满足",
-      "detail": "继续检查所选层。"
+      "label": "允许重试",
+      "detail": "虚构演示规则：允许重试时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-eligibility-to-sweep-rejected",
       "sceneId": "sweep",
       "source": "sweep-eligibility",
       "target": "sweep-rejected",
-      "label": "资格不满足",
-      "detail": "不进入扣票。"
+      "label": "无重试权限",
+      "detail": "虚构演示规则：无重试权限时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-selected-to-sweep-limit",
       "sceneId": "sweep",
       "source": "sweep-selected",
       "target": "sweep-limit",
-      "label": "所选层合法且已在范围内",
-      "detail": "检查本层条件。"
+      "label": "本工作区失败任务",
+      "detail": "虚构演示规则：本工作区失败任务时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-selected-to-sweep-rejected",
       "sceneId": "sweep",
       "source": "sweep-selected",
       "target": "sweep-rejected",
-      "label": "配置或范围非法",
-      "detail": "拒绝请求。"
+      "label": "任务归属或状态无效",
+      "detail": "虚构演示规则：任务归属或状态无效时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-limit-to-sweep-refresh",
       "sceneId": "sweep",
       "source": "sweep-limit",
       "target": "sweep-refresh",
-      "label": "所选层条件满足",
-      "detail": "正常补发当前化身票。"
+      "label": "输入仍可用",
+      "detail": "虚构演示规则：输入仍可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-limit-to-sweep-rejected",
       "sceneId": "sweep",
       "source": "sweep-limit",
       "target": "sweep-rejected",
-      "label": "所选层条件不满足",
-      "detail": "拒绝请求。"
+      "label": "输入不可用",
+      "detail": "虚构演示规则：输入不可用时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-refresh-to-sweep-highest",
       "sceneId": "sweep",
       "source": "sweep-refresh",
       "target": "sweep-highest",
-      "label": "用 HighestId 结算",
-      "detail": "所选层并非奖励层。"
+      "label": "统计已刷新",
+      "detail": "虚构演示规则：统计已刷新时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-highest-to-sweep-reward",
       "sceneId": "sweep",
       "source": "sweep-highest",
       "target": "sweep-reward",
-      "label": "最高层及资源满足",
-      "detail": "检查后扣票发奖。"
+      "label": "未达上限且资源充足",
+      "detail": "虚构演示规则：未达上限且资源充足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "sweep-highest-to-sweep-rejected",
       "sceneId": "sweep",
       "source": "sweep-highest",
       "target": "sweep-rejected",
-      "label": "条件、票或容量不足",
-      "detail": "不扣本次扫荡票。"
+      "label": "次数或资源不满足",
+      "detail": "虚构演示规则：次数或资源不满足时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-trigger-to-tickets-toggle",
       "sceneId": "tickets",
       "source": "tickets-trigger",
       "target": "tickets-toggle",
-      "label": "刷新",
-      "detail": "进入同一发票函数。"
+      "label": "打开额度视图",
+      "detail": "虚构演示规则：打开额度视图时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-toggle-to-tickets-wallet",
       "sceneId": "tickets",
       "source": "tickets-toggle",
       "target": "tickets-wallet",
-      "label": "已经开启",
-      "detail": "只访问当前化身。"
+      "label": "演示已开启",
+      "detail": "虚构演示规则：演示已开启时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-toggle-to-tickets-skip",
       "sceneId": "tickets",
       "source": "tickets-toggle",
       "target": "tickets-skip",
-      "label": "未开启",
-      "detail": "不发放。"
+      "label": "演示未开启",
+      "detail": "虚构演示规则：演示未开启时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-wallet-to-tickets-days",
       "sceneId": "tickets",
       "source": "tickets-wallet",
       "target": "tickets-days",
-      "label": "读取本化身时间",
-      "detail": "判断待补天数。"
+      "label": "读取周期键",
+      "detail": "虚构演示规则：读取周期键时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-days-to-tickets-grant",
       "sceneId": "tickets",
       "source": "tickets-days",
       "target": "tickets-grant",
-      "label": "首次或有新天数",
-      "detail": "按天计算数量。"
+      "label": "首次或新周期",
+      "detail": "虚构演示规则：首次或新周期时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-days-to-tickets-skip",
       "sceneId": "tickets",
       "source": "tickets-days",
       "target": "tickets-skip",
-      "label": "本日已经领取",
-      "detail": "不重复发放。"
+      "label": "同一周期",
+      "detail": "虚构演示规则：同一周期时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-grant-to-tickets-record",
       "sceneId": "tickets",
       "source": "tickets-grant",
       "target": "tickets-record",
-      "label": "发放处理成功",
-      "detail": "容量截断后记录时间。"
+      "label": "额度重置成功",
+      "detail": "虚构演示规则：额度重置成功时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "tickets-grant-to-tickets-skip",
       "sceneId": "tickets",
       "source": "tickets-grant",
       "target": "tickets-skip",
-      "label": "发放错误",
-      "detail": "保留上次时间。"
+      "label": "写入失败",
+      "detail": "虚构演示规则：写入失败时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "loadout-request-to-loadout-active",
       "sceneId": "loadout",
       "source": "loadout-request",
       "target": "loadout-active",
-      "label": "先校验",
-      "detail": "示例变更写入前检查。"
+      "label": "修改模板请求",
+      "detail": "虚构演示规则：修改模板请求时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "loadout-active-to-loadout-reject",
       "sceneId": "loadout",
       "source": "loadout-active",
       "target": "loadout-reject",
-      "label": "尚未结束",
-      "detail": "拒绝改变装配。"
+      "label": "仍有运行任务",
+      "detail": "虚构演示规则：仍有运行任务时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "loadout-active-to-loadout-pass",
       "sceneId": "loadout",
       "source": "loadout-active",
       "target": "loadout-pass",
-      "label": "已结束或无关玩法",
-      "detail": "继续原业务检查。"
+      "label": "没有运行任务",
+      "detail": "虚构演示规则：没有运行任务时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "loadout-reject-to-loadout-restore",
       "sceneId": "loadout",
       "source": "loadout-reject",
       "target": "loadout-restore",
-      "label": "完成或清场后再请求",
-      "detail": "状态变化后重新判断。"
+      "label": "任务结束后重新申请",
+      "detail": "虚构演示规则：任务结束后重新申请时沿此分支继续；具体状态变化见目标步骤。"
     },
     {
       "id": "loadout-request-to-loadout-read",
       "sceneId": "loadout",
       "source": "loadout-request",
       "target": "loadout-read",
-      "label": "喝药或快照操作",
-      "detail": "契约保留的喝药和快照操作不等于应用新配装，仍按自身规则处理。"
+      "label": "只读预览或查询",
+      "detail": "虚构演示规则：只读预览或查询时沿此分支继续；具体状态变化见目标步骤。"
     }
   ],
   "comments": []
@@ -1846,7 +1584,7 @@ function applyTransform(){ $('graph').style.transform=`translate(${state.x}px,${
 function positionNodes(){state.positions=new Map();const list=nodes();list.forEach(n=>{const p=state.direction==='vertical'?{x:n.position.x*.85,y:n.position.y*.92}:{x:n.position.y*1.8,y:n.position.x*.76};state.positions.set(n.id,p)});state.width=Math.max(...list.map(n=>state.positions.get(n.id).x+216))+30;state.height=Math.max(...list.map(n=>state.positions.get(n.id).y+112))+30;}
 function graphMarkup(){positionNodes();const links=review.edges.filter(e=>e.sceneId===state.scene).map(e=>{const a=state.positions.get(e.source),b=state.positions.get(e.target);let sx,sy,tx,ty,d,lx,ly;if(state.direction==='horizontal'){sx=a.x+216;sy=a.y+56;tx=b.x;ty=b.y+56;const mid=sx+(tx-sx)/2;d=`M${sx},${sy}H${mid}V${ty}H${tx}`;lx=mid;ly=sy===ty?sy-8:(sy+ty)/2-6;}else{sx=a.x+108;sy=a.y+112;tx=b.x+108;ty=b.y;const mid=sy+(ty-sy)/2;d=`M${sx},${sy}V${mid}H${tx}V${ty}`;lx=sx===tx?sx+8:(sx+tx)/2;ly=mid-7;}return `<path class="edge" d="${d}" marker-end="url(#arrow)"/><text class="edge-label" x="${lx}" y="${ly}">${esc(e.label)}</text>`}).join('');const cards=nodes().map((n,i)=>{const p=state.positions.get(n.id);return `<button class="node ${n.kind} ${state.selected===n.id?'selected':''}" data-node="${esc(n.id)}" style="left:${p.x}px;top:${p.y}px" aria-label="查看步骤：${esc(n.title)}"><span class="kind">${kindLabels[n.kind]}</span><span class="step-number">${String(i+1).padStart(2,'0')}</span><strong>${esc(n.title)}</strong><span class="summary">${esc(n.summary)}</span></button>`}).join('');$('graph').innerHTML=`<svg width="${state.width}" height="${state.height}" aria-hidden="true"><defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="var(--color-edge)"/></marker></defs>${links}</svg>${cards}`;document.querySelectorAll('[data-node]').forEach(el=>el.onclick=()=>selectNode(el.dataset.node));drawMinimap();applyTransform();}
 function drawMinimap(){const list=nodes();$('minimap').setAttribute('viewBox',`-12 -12 ${state.width+24} ${state.height+24}`);$('minimap').innerHTML=list.map(n=>{const p=state.positions.get(n.id);return `<rect class="${n.kind==='failure'?'failure-map':''} ${state.selected===n.id?'selected-map':''}" x="${p.x}" y="${p.y}" width="216" height="112" rx="8"/>`}).join('');}
-function detailMarkup(){const n=review.nodes.find(n=>n.id===state.selected)||nodes()[0];$('detail').innerHTML=`<div class="eyebrow">${kindLabels[n.kind]} · ${esc(scene().title)}</div><h2>${esc(n.title)}</h2><section class="detail-section"><h3>这里发生什么</h3><p>${esc(n.detail)}</p></section><section class="detail-section"><h3>数据变化</h3><div class="state-pair"><div><span>执行前</span><strong>${esc(n.input)}</strong></div><div><span>执行后</span><strong>${esc(n.output)}</strong></div></div></section><section class="detail-section"><h3>源码依据 · ${n.evidence.length} 处</h3>${n.evidence.map(e=>`<div class="evidence-item"><code>${esc(e.symbol)}</code><br>${esc(e.path)}:${e.startLine}–${e.endLine}</div>`).join('')}</section><p class="prototype-note">布局原型，只验证空间与阅读方式。没有真实讨论、提交或批注保存；业务说明来自当前魔灵秘境评审快照。</p>`;$('bottom-title').textContent=n.title;$('bottom-body').innerHTML=`<div><h3>业务规则</h3><p>${esc(n.detail)}</p></div><div><h3>执行前</h3><p>${esc(n.input)}</p></div><div><h3>执行后</h3><p>${esc(n.output)}</p></div>`;}
+function detailMarkup(){const n=review.nodes.find(n=>n.id===state.selected)||nodes()[0];$('detail').innerHTML=`<div class="eyebrow">${kindLabels[n.kind]} · ${esc(scene().title)}</div><h2>${esc(n.title)}</h2><section class="detail-section"><h3>这里发生什么</h3><p>${esc(n.detail)}</p></section><section class="detail-section"><h3>数据变化</h3><div class="state-pair"><div><span>执行前</span><strong>${esc(n.input)}</strong></div><div><span>执行后</span><strong>${esc(n.output)}</strong></div></div></section><section class="detail-section"><h3>源码依据 · ${n.evidence.length} 处</h3>${n.evidence.map(e=>`<div class="evidence-item"><code>${esc(e.symbol)}</code><br>${esc(e.path)}:${e.startLine}–${e.endLine}</div>`).join('')}</section><p class="prototype-note">布局原型，只验证空间与阅读方式。没有真实讨论、提交或批注保存；业务说明来自当前虚构任务流水线评审快照。</p>`;$('bottom-title').textContent=n.title;$('bottom-body').innerHTML=`<div><h3>业务规则</h3><p>${esc(n.detail)}</p></div><div><h3>执行前</h3><p>${esc(n.input)}</p></div><div><h3>执行后</h3><p>${esc(n.output)}</p></div>`;}
 function render(){const root=$('workspace');root.className=`workspace variant-${state.variant.toLowerCase()}${state.panel?' panel-open':''}${state.focus?' focus-mode':''}`;if(state.variant==='B')state.direction='vertical';if(state.variant==='C')state.direction='horizontal';$('direction').value=state.direction;$('direction').disabled=state.variant!=='A';$('scene-trigger').textContent=`☷ ${scene().title} ▾`;$('scene-count').textContent=`${nodes().length} 个步骤`;$('scene-caption').textContent=state.variant==='B'?`${scene().title} · 纵向可读视图`:'选择一个步骤查看规则与证据';$('variant-name').textContent=variants[state.variant].name;$('explanation').innerHTML=variants[state.variant].note;document.querySelectorAll('[data-variant]').forEach(b=>b.classList.toggle('active',b.dataset.variant===state.variant));$('bottom-detail').hidden=!state.bottom;$('bottom-toggle').textContent=state.bottom?'收起步骤说明':'展开步骤说明';$('revision').textContent=review.revision;sceneButtons();detailMarkup();graphMarkup();const groups=Math.max(1,Math.ceil(nodes().filter(n=>n.position.x===0).length/3));state.segment=Math.min(state.segment,groups-1);$('segment-label').textContent=`第 ${state.segment+1} / ${groups} 段`;$('segment-prev').disabled=state.segment===0;$('segment-next').disabled=state.segment===groups-1;}
 function resetView(){state.zoom=innerWidth<700?.88:.9;state.x=state.direction==='vertical'?Math.max(24,($('canvas').clientWidth-state.width)/2):(innerWidth<700?30:40);state.y=state.direction==='vertical'?62:Math.max(80,Math.min(150,$('canvas').clientHeight*.21));if(state.variant==='C'){state.x=28;state.y=70;}applyTransform();}
 function selectNode(id){state.selected=id;if(state.variant!=='C')state.panel=true;state.zoom=Math.max(state.zoom,.85);render();requestAnimationFrame(()=>focusSelected());}

@@ -16,10 +16,10 @@ const quantiles = values => {
 const temporary = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-browser-perf-'))
 let server, browser
 try {
-  const source = JSON.parse(await readFile(new URL('../public/reviews/spirit-sanctum.logic-margin.json', import.meta.url), 'utf8'))
+  const source = JSON.parse(await readFile(new URL('../public/reviews/task-pipeline.logic-margin.json', import.meta.url), 'utf8'))
   const fixtures = []
   for (const [name, nodeCount, commentCount, rounds] of [
-    ['spirit-sanctum-r1-c0', 42, 0, 1], ['real-shape-42-r10-c200', 42, 200, 10],
+    ['task-pipeline-r1-c0', 42, 0, 1], ['real-shape-42-r10-c200', 42, 200, 10],
     ['synthetic-200-r10-c200', 200, 200, 10], ['synthetic-1000-r10-c1000', 1000, 1000, 10],
   ]) {
     let review = structuredClone(source)

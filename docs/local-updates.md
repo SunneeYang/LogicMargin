@@ -4,6 +4,8 @@
 
 The settings panel shows the version of the running Go backend under “Version and updates”, independent of the loaded frontend bundle. “Check for updates” reads the official GitHub release only. Checking is manual, read-only, and shared across hosts; installation is currently supported only for an existing enabled Codex `logic-margin@logic-margin-local` installation.
 
+`agent-tmp-run` 是开发机可选的临时文件 harness，不是公共依赖；以下命令可从仓库根目录执行。有本地 AGENTS 强制要求时仍须使用本地 harness 包裹命令。
+
 ## 一键操作与信任边界
 
 在服务本机以 `http://127.0.0.1:PORT`、`http://localhost:PORT` 或 IPv6 回环地址打开原评审链接，检查新版后点击“一键更新本机插件与服务”。远程局域网/Tailscale 页面可以检查发行版本，但不能安装；请在服务机器打开同一端口与 session 链接的回环地址。反向代理也不能用转发头取得安装权限。
@@ -48,7 +50,7 @@ MCP may require reconnection after success. A canceled or failed job is not a co
 开发验证使用临时 home、自定义 dataDir、假官方发行传输与假 Codex 子进程，覆盖稳定版/平台/恶意 ZIP/校验和、分别 refresh/install、旧缓存被删除、取消、重启失败恢复、端口和全部示例数据保留。生产没有可配置的假源或任意命令后门。运行测试：
 
 ```sh
-/Users/hcm-b0677/.codex/bin/agent-tmp-run env GOWORK=off go test ./internal/update ./internal/service ./internal/daemon ./internal/mcpconfig -count=1
+env GOWORK=off go test ./internal/update ./internal/service ./internal/daemon ./internal/mcpconfig -count=1
 ```
 
 `tests/update-settings.spec.ts` 的浏览器路由模拟验证双语页面、只手动检查、受控请求、重启后的真实版本、远程禁用和错误重试；它不更新真实 Codex。正式发行前仍须在目标 OS 的隔离 Codex home 做原生安装演练，且该演练须另行授权。交叉构建不等于 Windows/Linux 原生安装已验收。

@@ -1,0 +1,1432 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-task-pipeline-v1",
+  "title": "虚构演示 · 任务流水线",
+  "description": "五个独立场景展示任务提交、处理审核、重试、额度刷新与设置限制；全部依据为本仓库原创规则，不连接真实执行器。",
+  "revision": "synthetic-v1",
+  "snapshot": {
+    "repository": "LogicMargin fictional examples",
+    "commit": "synthetic-v1 (not a Git commit)",
+    "fingerprint": "ab5302962e65145f6b49e561836f656036f7f5652d199862ac10b2aaa2bf2b24",
+    "capturedAt": "2026-11-10T00:00:00Z",
+    "dirty": false,
+    "files": [
+      {
+        "path": "examples/task-pipeline.md",
+        "sha256": "d541a220fe52831cc33c541b1801cde62f95f419de22a11abf640f6909115bb9"
+      }
+    ]
+  },
+  "coverage": {
+    "included": [
+      "提交与模板校验",
+      "任务执行与审核",
+      "重试历史任务",
+      "工作区额度刷新",
+      "流水线设置限制"
+    ],
+    "excluded": [
+      "真实账号、支付、外部服务和生产存储",
+      "并发、事务、部署与线上运行验收"
+    ],
+    "note": "全部内容为仓库原创的虚构演示，依据是 examples 中的规则文档，不来自业务工程或真实源码快照。稳定图形 ID 仅供交互测试；文档 ID 独立，不迁移其他评审的批注或草稿。"
+  },
+  "scenes": [
+    {
+      "id": "enter",
+      "title": "提交与模板校验",
+      "description": "验证演示模板和输入，准备队列项后检查额度。"
+    },
+    {
+      "id": "battle",
+      "title": "任务执行与审核",
+      "description": "本地预览直接保存，需要外发的任务等待模拟审核。"
+    },
+    {
+      "id": "sweep",
+      "title": "重试历史任务",
+      "description": "验证归属、输入、次数和当前资源后建立新运行。"
+    },
+    {
+      "id": "tickets",
+      "title": "工作区额度刷新",
+      "description": "按演示周期重置额度，同一周期不重复刷新。"
+    },
+    {
+      "id": "loadout",
+      "title": "流水线设置限制",
+      "description": "运行中冻结模板选择，只读查询仍可继续。"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "enter-request",
+      "sceneId": "enter",
+      "title": "提交文档处理任务",
+      "kind": "action",
+      "summary": "为虚构工作区提交一份演示文档。",
+      "detail": "请求包含任务类型与输入摘要，不包含真实文档正文。",
+      "input": "任务类型、输入摘要",
+      "output": "进入提交资格检查",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-request",
+          "startLine": 7,
+          "endLine": 12,
+          "digest": "e5115ed787e4a10f680684749e841e20d92f303d5c774561886395559d08a151"
+        }
+      ]
+    },
+    {
+      "id": "enter-eligibility",
+      "sceneId": "enter",
+      "title": "工作区允许提交吗？",
+      "kind": "decision",
+      "summary": "维护或只读工作区拒绝提交。",
+      "detail": "工作区必须处于可写状态且流水线可用，才继续读取模板。",
+      "input": "工作区状态、流水线状态",
+      "output": "允许时继续，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-eligibility",
+          "startLine": 14,
+          "endLine": 19,
+          "digest": "bb594758aa9eb8a4ffe32fd307e24de2595992a62adbedcfdf01ce0929fb79f2"
+        }
+      ]
+    },
+    {
+      "id": "enter-config",
+      "sceneId": "enter",
+      "title": "任务模板是否可用？",
+      "kind": "decision",
+      "summary": "模板需存在且已发布。",
+      "detail": "演示目录中的模板必须有输入格式与输出格式；草稿模板不能运行。",
+      "input": "模板键、模板目录",
+      "output": "可用时继续，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-config",
+          "startLine": 21,
+          "endLine": 26,
+          "digest": "074ab8f696ed5982b23134af5350504fd346fc7dbd46b5a4a915f54deffd88c8"
+        }
+      ]
+    },
+    {
+      "id": "enter-limits",
+      "sceneId": "enter",
+      "title": "输入格式与大小合规吗？",
+      "kind": "decision",
+      "summary": "不合规的输入在排队前拒绝。",
+      "detail": "比较输入摘要声明的格式与演示大小限制，不读取任何外部文件。",
+      "input": "输入摘要、模板限制",
+      "output": "合规时继续，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-limits",
+          "startLine": 28,
+          "endLine": 33,
+          "digest": "0fe3ccc7e8a0bd428cfc2d3471655c9e684439e17b92753662f945503648c663"
+        }
+      ]
+    },
+    {
+      "id": "enter-room",
+      "sceneId": "enter",
+      "title": "创建候选队列项",
+      "kind": "action",
+      "summary": "先准备候选项，不覆盖旧任务。",
+      "detail": "为当前请求构造演示队列项；构造失败时保留工作区之前的任务记录。",
+      "input": "合法输入、模板",
+      "output": "候选队列项或失败",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-room",
+          "startLine": 35,
+          "endLine": 40,
+          "digest": "eea3e4a74e9939babcc645b06d5dde8777478be8b35d8e8d86ade0425df5ae4e"
+        }
+      ]
+    },
+    {
+      "id": "enter-ticket",
+      "sceneId": "enter",
+      "title": "是否还有执行额度？",
+      "kind": "decision",
+      "summary": "排队前检查工作区额度。",
+      "detail": "候选项有效后比较可用额度，至少一个单位才允许加入队列；此处不消耗额度。",
+      "input": "候选项、工作区额度",
+      "output": "有额度时排队，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 900
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-ticket",
+          "startLine": 42,
+          "endLine": 47,
+          "digest": "98e87a8706b7824cda6dee62cd687e453abc5dadaf79bd369ec90042343cea8d"
+        }
+      ]
+    },
+    {
+      "id": "enter-start",
+      "sceneId": "enter",
+      "title": "任务进入等待队列",
+      "kind": "result",
+      "summary": "等待执行时保持原有结果。",
+      "detail": "保存候选队列项并标记等待状态，旧任务的输出记录继续保留。",
+      "input": "候选队列项",
+      "output": "等待中的新任务",
+      "position": {
+        "x": 0,
+        "y": 1080
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-start",
+          "startLine": 49,
+          "endLine": 54,
+          "digest": "7c949a8d693eb3711c0779679f733c767e13661a032a63d0df0c52d3a9710156"
+        }
+      ]
+    },
+    {
+      "id": "enter-rejected",
+      "sceneId": "enter",
+      "title": "拒绝提交，保留记录",
+      "kind": "failure",
+      "summary": "失败请求不进入队列。",
+      "detail": "资格、输入、候选项或额度检查失败时返回原因，不删除原任务和输出。",
+      "input": "校验失败原因",
+      "output": "原任务与输出",
+      "position": {
+        "x": 360,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-rejected",
+          "startLine": 56,
+          "endLine": 61,
+          "digest": "5a1c0af776a3b6531655f1969d3a7a5dcff8463681517362657f483a43da148e"
+        }
+      ]
+    },
+    {
+      "id": "enter-placeholder",
+      "sceneId": "enter",
+      "title": "拒绝未发布模板",
+      "kind": "failure",
+      "summary": "模板不合规时不创建队列项。",
+      "detail": "缺失、草稿或格式声明不完整的模板都不能启动任务，可修改模板后重新提交。",
+      "input": "无效模板",
+      "output": "模板错误结果",
+      "position": {
+        "x": 360,
+        "y": 900
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "enter-placeholder",
+          "startLine": 63,
+          "endLine": 68,
+          "digest": "066828324e5080c4075e0f0b9ffd4021fdc29fd9b611d444250d4a8299b1d8d3"
+        }
+      ]
+    },
+    {
+      "id": "battle-progress",
+      "sceneId": "battle",
+      "title": "执行文档转换步骤",
+      "kind": "action",
+      "summary": "工作器按模板生成演示结果。",
+      "detail": "工作器从队列领取任务，更新演示进度；该说明不实现真实文档转换。",
+      "input": "等待任务、模板",
+      "output": "处理中进度",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-progress",
+          "startLine": 70,
+          "endLine": 75,
+          "digest": "8707d5bd806d54661fbf8eb9055940e7619c03fc40c1c8226bf6ebbbe8ed03be"
+        }
+      ]
+    },
+    {
+      "id": "battle-boss",
+      "sceneId": "battle",
+      "title": "所有步骤是否成功？",
+      "kind": "decision",
+      "summary": "任一步失败进入失败出口。",
+      "detail": "当模板要求的步骤均成功时继续检查任务期限；失败或用户取消则停止当前处理。",
+      "input": "步骤状态、取消状态",
+      "output": "成功时继续，否则失败",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-boss",
+          "startLine": 77,
+          "endLine": 82,
+          "digest": "a9f1d2be194ddc49d155d15aa30f2810eab7dcaf8f32381b8ac382cb486a5fde"
+        }
+      ]
+    },
+    {
+      "id": "battle-time",
+      "sceneId": "battle",
+      "title": "任务令牌与期限有效吗？",
+      "kind": "decision",
+      "summary": "只接受当前且未过期的执行。",
+      "detail": "工作区保存的任务令牌必须匹配，且完成时间在演示期限内，避免旧工作器覆盖新任务。",
+      "input": "任务令牌、演示期限",
+      "output": "有效时继续，否则失败",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-time",
+          "startLine": 84,
+          "endLine": 89,
+          "digest": "4fdce8af1f1978d70cb719ec76eee4ac889976d233a9940a0c41182c5221d938"
+        }
+      ]
+    },
+    {
+      "id": "battle-first-pass",
+      "sceneId": "battle",
+      "title": "是否需要额外审核？",
+      "kind": "decision",
+      "summary": "带外发标记的任务等待审核。",
+      "detail": "纯本地预览可立即进入保存检查；需要外发的任务生成审核请求。",
+      "input": "模板的外发标记",
+      "output": "本地预览或审核分支",
+      "position": {
+        "x": 0,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-first-pass",
+          "startLine": 91,
+          "endLine": 96,
+          "digest": "a4ae9129006f89f2bc836c9c65ca888dd6c00160fab7755b8f9fbeceab2b3597"
+        }
+      ]
+    },
+    {
+      "id": "battle-repeat",
+      "sceneId": "battle",
+      "title": "准备本地预览",
+      "kind": "action",
+      "summary": "本地任务直接准备输出。",
+      "detail": "保留演示输出摘要，进入最终配额与容量校验，不向外部地址发送任何内容。",
+      "input": "本地输出摘要",
+      "output": "待保存的结果",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-repeat",
+          "startLine": 98,
+          "endLine": 103,
+          "digest": "a4915ad16f765993476660c2ed87a5054d90ad7a264931ee399852cbb5994701"
+        }
+      ]
+    },
+    {
+      "id": "battle-report",
+      "sceneId": "battle",
+      "title": "创建审核请求",
+      "kind": "action",
+      "summary": "外发任务先等待模拟审核。",
+      "detail": "记录任务令牌和输出摘要，交由演示审核器；无法创建请求则不保存最终输出。",
+      "input": "任务令牌、输出摘要",
+      "output": "待审核请求或失败",
+      "position": {
+        "x": 360,
+        "y": 720
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-report",
+          "startLine": 105,
+          "endLine": 110,
+          "digest": "f1d65f5099bc97094ca635216626192953ac59868751fd32d9395bdfa16a6e73"
+        }
+      ]
+    },
+    {
+      "id": "battle-envelope",
+      "sceneId": "battle",
+      "title": "审核回执是否完整且匹配？",
+      "kind": "decision",
+      "summary": "只接受对应任务的同意回执。",
+      "detail": "审核令牌必须匹配当前任务，字段齐全且结论为同意；拒绝或旧回执不生成输出。",
+      "input": "模拟审核回执、当前任务",
+      "output": "匹配同意时继续，否则不保存",
+      "position": {
+        "x": 360,
+        "y": 900
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-envelope",
+          "startLine": 112,
+          "endLine": 117,
+          "digest": "e6abe04b571bb7a993b33fb01fa95204d4af3c937fc8fd2599a5dcd02e85bc1d"
+        }
+      ]
+    },
+    {
+      "id": "battle-verified",
+      "sceneId": "battle",
+      "title": "回执是否尚未消费？",
+      "kind": "decision",
+      "summary": "重复回执不能重复保存。",
+      "detail": "演示状态需仍为等待审核，且回执序号未被处理；检查成功后进入最终保存校验。",
+      "input": "回执序号、任务状态",
+      "output": "首次处理或忽略",
+      "position": {
+        "x": 360,
+        "y": 1080
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-verified",
+          "startLine": 119,
+          "endLine": 124,
+          "digest": "861425b0011c09a072638b97b0b6401a944fd6bc038d88dbb7cea3e959b86e82"
+        }
+      ]
+    },
+    {
+      "id": "battle-assets",
+      "sceneId": "battle",
+      "title": "额度与输出空间仍充足吗？",
+      "kind": "decision",
+      "summary": "保存前重新检查当前资源。",
+      "detail": "比较工作区当前额度和输出槽位，不依赖排队时的旧值；不足则结束本次处理。",
+      "input": "当前额度、输出槽位",
+      "output": "充足时保存，否则不保存",
+      "position": {
+        "x": 0,
+        "y": 1260
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-assets",
+          "startLine": 126,
+          "endLine": 131,
+          "digest": "e7fc2e429e4ff3e88032746799828d5df5826b1604b9d1c4b961eefb3c85ba8a"
+        }
+      ]
+    },
+    {
+      "id": "battle-reward",
+      "sceneId": "battle",
+      "title": "保存输出并完成任务",
+      "kind": "result",
+      "summary": "单步更新演示状态。",
+      "detail": "消耗一个演示额度、保存输出摘要并标记任务完成；这不是外部存储事务的实现证明。",
+      "input": "合法输出、足够额度与槽位",
+      "output": "完成任务与输出记录",
+      "position": {
+        "x": 0,
+        "y": 1440
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-reward",
+          "startLine": 133,
+          "endLine": 138,
+          "digest": "0635db3d277ec9e1df6677f90c93b6f389cc1b843689799980e562dcb394a26e"
+        }
+      ]
+    },
+    {
+      "id": "battle-no-award",
+      "sceneId": "battle",
+      "title": "本次不保存最终输出",
+      "kind": "failure",
+      "summary": "无效回执或资源不足均不产出。",
+      "detail": "保留原输出记录，当前请求记录失败原因；重复回执不会生成第二份结果。",
+      "input": "处理失败原因",
+      "output": "原输出记录",
+      "position": {
+        "x": 720,
+        "y": 1260
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-no-award",
+          "startLine": 140,
+          "endLine": 145,
+          "digest": "56555fd4af9bd631f196f5864fd11441462429a61307675e0fd3b02794fe70cc"
+        }
+      ]
+    },
+    {
+      "id": "battle-fail",
+      "sceneId": "battle",
+      "title": "任务失败或取消",
+      "kind": "failure",
+      "summary": "停止本次处理并记录原因。",
+      "detail": "步骤失败、取消或期限无效时标记当前任务失败，保留其他任务的输出和可用额度。",
+      "input": "失败或取消信号",
+      "output": "失败任务记录",
+      "position": {
+        "x": 720,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "battle-fail",
+          "startLine": 147,
+          "endLine": 152,
+          "digest": "9d00fec1622ce8389d40934c4ec2ee1e906372caa52387af837de42eb2d2cb7d"
+        }
+      ]
+    },
+    {
+      "id": "sweep-request",
+      "sceneId": "sweep",
+      "title": "请求重试历史任务",
+      "kind": "action",
+      "summary": "为失败任务创建新的运行。",
+      "detail": "选择工作区内的历史失败任务，仅引用输入摘要，不复用旧工作器令牌。",
+      "input": "历史任务键",
+      "output": "进入重试资格检查",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-request",
+          "startLine": 154,
+          "endLine": 159,
+          "digest": "f34332e66be4c97bb4286e124627b57b3331826e1ba5d9954b3238552fb4f60f"
+        }
+      ]
+    },
+    {
+      "id": "sweep-eligibility",
+      "sceneId": "sweep",
+      "title": "重试权限是否满足？",
+      "kind": "decision",
+      "summary": "演示需允许重试且工作区可写。",
+      "detail": "工作区、流水线与重试开关均有效时继续；不使用任何付费权益判断。",
+      "input": "工作区与重试开关",
+      "output": "满足时继续，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-eligibility",
+          "startLine": 161,
+          "endLine": 166,
+          "digest": "03b1a73b483e2ef8d311a668a97a784f76dd9aa200e290ccfb39f647bec1b33e"
+        }
+      ]
+    },
+    {
+      "id": "sweep-selected",
+      "sceneId": "sweep",
+      "title": "目标任务属于本工作区吗？",
+      "kind": "decision",
+      "summary": "仅可重试仍保留的失败任务。",
+      "detail": "任务存在、归属匹配且状态为失败，避免引用其他工作区或已删除的记录。",
+      "input": "任务键、历史记录",
+      "output": "有效时继续，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-selected",
+          "startLine": 168,
+          "endLine": 173,
+          "digest": "0f96f970993510e54ffb9eae1e2d759b25a33154829ddeb0593184872dba2a90"
+        }
+      ]
+    },
+    {
+      "id": "sweep-limit",
+      "sceneId": "sweep",
+      "title": "输入摘要仍可使用吗？",
+      "kind": "decision",
+      "summary": "重试需要可用的输入摘要。",
+      "detail": "摘要格式与当前模板兼容，且未被用户移除；不自动补造丢失输入。",
+      "input": "历史输入摘要、当前模板",
+      "output": "可用时继续，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-limit",
+          "startLine": 175,
+          "endLine": 180,
+          "digest": "4c9c7fabd2fee851c336e5e713b321c3f0f527c229c70e3167a36c566765d7a7"
+        }
+      ]
+    },
+    {
+      "id": "sweep-refresh",
+      "sceneId": "sweep",
+      "title": "刷新重试计数视图",
+      "kind": "action",
+      "summary": "读取当前工作区的重试次数。",
+      "detail": "刷新演示统计，统计只用于此工作区，不改变其他工作区状态。",
+      "input": "工作区统计",
+      "output": "当前重试次数",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-refresh",
+          "startLine": 182,
+          "endLine": 187,
+          "digest": "49224e65ebcc7256034e672e27aefb0b6f306a6f8ba48b70912eda70dacdfcee"
+        }
+      ]
+    },
+    {
+      "id": "sweep-highest",
+      "sceneId": "sweep",
+      "title": "重试上限与额度通过吗？",
+      "kind": "decision",
+      "summary": "每个任务有固定演示重试上限。",
+      "detail": "检查该任务未达上限，且当前工作区有执行额度和队列槽位。",
+      "input": "重试次数、额度、槽位",
+      "output": "满足时排队，否则拒绝",
+      "position": {
+        "x": 0,
+        "y": 900
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-highest",
+          "startLine": 189,
+          "endLine": 194,
+          "digest": "3ca6e0c2e562be534197f9e368edcaee2f6278dd97140614dc5a3553aacd3690"
+        }
+      ]
+    },
+    {
+      "id": "sweep-reward",
+      "sceneId": "sweep",
+      "title": "创建新的重试任务",
+      "kind": "result",
+      "summary": "新任务使用独立运行令牌。",
+      "detail": "增加重试计数并生成等待任务；实际执行额度仍在保存输出时消耗。",
+      "input": "历史输入摘要、可用槽位",
+      "output": "新的等待任务",
+      "position": {
+        "x": 0,
+        "y": 1080
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-reward",
+          "startLine": 196,
+          "endLine": 201,
+          "digest": "5a94467c4d7166e8ebf9b21315bf1e1e03dab3babe4f38498e6aa8e17638bd39"
+        }
+      ]
+    },
+    {
+      "id": "sweep-rejected",
+      "sceneId": "sweep",
+      "title": "拒绝重试，保留历史",
+      "kind": "failure",
+      "summary": "无效请求不会覆盖失败记录。",
+      "detail": "归属、状态、输入或资源检查失败时保留历史任务，不增加重试计数。",
+      "input": "检查失败原因",
+      "output": "原任务记录",
+      "position": {
+        "x": 360,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "sweep-rejected",
+          "startLine": 203,
+          "endLine": 208,
+          "digest": "45f84e9b0d0ac797cc3241f06271574faf21b02d1d76dd2dbea23240d1b996b2"
+        }
+      ]
+    },
+    {
+      "id": "tickets-trigger",
+      "sceneId": "tickets",
+      "title": "打开工作区额度视图",
+      "kind": "action",
+      "summary": "按需刷新演示额度。",
+      "detail": "进入工作区或打开额度页时读取演示周期状态，不触发后台定时任务。",
+      "input": "工作区、当前演示周期",
+      "output": "进入额度功能检查",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-trigger",
+          "startLine": 210,
+          "endLine": 215,
+          "digest": "b465e4c1cfac117260607b594ad9261da9a916c8c2c14dad4f48c6f95e826aa1"
+        }
+      ]
+    },
+    {
+      "id": "tickets-toggle",
+      "sceneId": "tickets",
+      "title": "额度演示是否开启？",
+      "kind": "decision",
+      "summary": "未开启时不调整额度。",
+      "detail": "只有演示开关打开才读取当前工作区的额度记录。",
+      "input": "额度演示开关",
+      "output": "开启时继续，否则跳过",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-toggle",
+          "startLine": 217,
+          "endLine": 222,
+          "digest": "9f2ae78cd6775e8e676fcd43f9a92be871cd7962865b2cbdb85d094138dc15c7"
+        }
+      ]
+    },
+    {
+      "id": "tickets-wallet",
+      "sceneId": "tickets",
+      "title": "读取工作区额度记录",
+      "kind": "action",
+      "summary": "额度按工作区独立保存。",
+      "detail": "读取该工作区的余额与最后周期键，不查询真实用户、账号或钱包。",
+      "input": "工作区键",
+      "output": "余额、最后周期键",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-wallet",
+          "startLine": 224,
+          "endLine": 229,
+          "digest": "833e1d3dff94e913c997570a3528ff77da45259f26efc86ede75c066804a306e"
+        }
+      ]
+    },
+    {
+      "id": "tickets-days",
+      "sceneId": "tickets",
+      "title": "是否进入新的演示周期？",
+      "kind": "decision",
+      "summary": "同一周期不会重复刷新。",
+      "detail": "首次使用或周期键变化时重置演示额度，同一周期重复打开只读状态。",
+      "input": "当前周期键、最后周期键",
+      "output": "新周期或跳过",
+      "position": {
+        "x": 0,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-days",
+          "startLine": 231,
+          "endLine": 236,
+          "digest": "87c7b3cfc909a4822bb2f6675262a52338b55e8c8a88c8861ae5427003d07091"
+        }
+      ]
+    },
+    {
+      "id": "tickets-grant",
+      "sceneId": "tickets",
+      "title": "按周期重置演示额度",
+      "kind": "action",
+      "summary": "固定重置为十个单位。",
+      "detail": "将演示可用额度设置为十，不累计错过的周期；写入失败保留旧周期键。",
+      "input": "新的周期键",
+      "output": "十个单位或写入失败",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-grant",
+          "startLine": 238,
+          "endLine": 243,
+          "digest": "87add35be6dd0a682bcdd8cbdd222e828e00ab3adbb4aaa204bd7c2dad49682d"
+        }
+      ]
+    },
+    {
+      "id": "tickets-record",
+      "sceneId": "tickets",
+      "title": "记录新的周期键",
+      "kind": "result",
+      "summary": "刷新后保存周期标记。",
+      "detail": "额度重置成功后记录新周期键，供下次访问判断是否需要刷新。",
+      "input": "刷新成功的额度、周期键",
+      "output": "已记录的新周期",
+      "position": {
+        "x": 0,
+        "y": 900
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-record",
+          "startLine": 245,
+          "endLine": 250,
+          "digest": "5e40901cc5ae54f79af58cf9647413d7bbaa173f23721f5461668732e6452d8d"
+        }
+      ]
+    },
+    {
+      "id": "tickets-skip",
+      "sceneId": "tickets",
+      "title": "本次跳过额度刷新",
+      "kind": "failure",
+      "summary": "开关关闭或周期未变化。",
+      "detail": "不重复刷新额度，写入失败也不前移周期标记，以便之后重试。",
+      "input": "无需刷新或写入失败",
+      "output": "原额度与周期键",
+      "position": {
+        "x": 360,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "tickets-skip",
+          "startLine": 252,
+          "endLine": 257,
+          "digest": "a58a94226aee5af4ef8a4d1ce19a3a1903f6796b1c17b1d911eafad5427e9a53"
+        }
+      ]
+    },
+    {
+      "id": "loadout-request",
+      "sceneId": "loadout",
+      "title": "申请修改流水线设置",
+      "kind": "action",
+      "summary": "设置修改先查看任务状态。",
+      "detail": "请求修改工作区的演示模板选择，所有权限检查仍由设置流程自身处理。",
+      "input": "新模板选择、工作区",
+      "output": "进入活动任务检查",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-request",
+          "startLine": 259,
+          "endLine": 264,
+          "digest": "83cab89b691e998ceffb5be39d1cd7bce516af02d1eea5b266e3f36e6fb539c6"
+        }
+      ]
+    },
+    {
+      "id": "loadout-active",
+      "sceneId": "loadout",
+      "title": "当前是否仍有运行任务？",
+      "kind": "decision",
+      "summary": "运行期间冻结模板选择。",
+      "detail": "任务处于等待、执行或审核状态时拒绝修改模板，避免同一运行混用设置。",
+      "input": "当前任务状态",
+      "output": "运行中拒绝，否则继续",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-active",
+          "startLine": 266,
+          "endLine": 271,
+          "digest": "9608f0d3f6245b3deeacda44717329c5866dc826071affa2272a31b707a322ac"
+        }
+      ]
+    },
+    {
+      "id": "loadout-reject",
+      "sceneId": "loadout",
+      "title": "拒绝本次模板变更",
+      "kind": "failure",
+      "summary": "保留运行任务使用的模板。",
+      "detail": "返回任务仍活动的原因，不覆盖工作区原模板；任务结束后允许重新申请。",
+      "input": "活动任务、新模板选择",
+      "output": "原模板选择",
+      "position": {
+        "x": 360,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-reject",
+          "startLine": 273,
+          "endLine": 278,
+          "digest": "2eb84da0b1229302ab8536e5714c220bcbda238c1105520fa20c45d091c2da21"
+        }
+      ]
+    },
+    {
+      "id": "loadout-pass",
+      "sceneId": "loadout",
+      "title": "继续设置自身校验",
+      "kind": "result",
+      "summary": "无活动任务时可继续修改。",
+      "detail": "只解除活动任务这一道限制，模板存在性和编辑权限仍需后续检查。",
+      "input": "无活动任务、新模板选择",
+      "output": "进入设置流程",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-pass",
+          "startLine": 280,
+          "endLine": 285,
+          "digest": "184abe8af20507c9132baa18c09fe285fd7bdeace1e491ca25c4cda211d14e97"
+        }
+      ]
+    },
+    {
+      "id": "loadout-read",
+      "sceneId": "loadout",
+      "title": "允许只读预览与查看记录",
+      "kind": "result",
+      "summary": "读操作不修改模板选择。",
+      "detail": "只读预览和历史记录查询可直接进入各自权限检查，不需要等待运行结束。",
+      "input": "预览或查询请求",
+      "output": "只读流程",
+      "position": {
+        "x": 0,
+        "y": 540
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-read",
+          "startLine": 287,
+          "endLine": 292,
+          "digest": "0fd6eae5a918e29872cd00de43071ad520774b0aeb9c4b4c5a529bb105d3820f"
+        }
+      ]
+    },
+    {
+      "id": "loadout-restore",
+      "sceneId": "loadout",
+      "title": "任务结束后重新申请",
+      "kind": "result",
+      "summary": "状态变化后重新检查限制。",
+      "detail": "用户在任务完成或取消后再次提出模板变更，重新执行活动任务检查，不自动应用旧请求。",
+      "input": "已结束任务、新请求",
+      "output": "可重新申请设置变更",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "evidence": [
+        {
+          "path": "examples/task-pipeline.md",
+          "symbol": "loadout-restore",
+          "startLine": 294,
+          "endLine": 299,
+          "digest": "9b564aab93a6e6e30f9ad916c4ad2feed3982e536f92183ea861ce3c8902699b"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "enter-request-to-enter-eligibility",
+      "sceneId": "enter",
+      "source": "enter-request",
+      "target": "enter-eligibility",
+      "label": "检查工作区",
+      "detail": "虚构演示规则：检查工作区时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-eligibility-to-enter-config",
+      "sceneId": "enter",
+      "source": "enter-eligibility",
+      "target": "enter-config",
+      "label": "允许提交",
+      "detail": "虚构演示规则：允许提交时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-eligibility-to-enter-rejected",
+      "sceneId": "enter",
+      "source": "enter-eligibility",
+      "target": "enter-rejected",
+      "label": "维护或只读",
+      "detail": "虚构演示规则：维护或只读时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-config-to-enter-limits",
+      "sceneId": "enter",
+      "source": "enter-config",
+      "target": "enter-limits",
+      "label": "模板可用",
+      "detail": "虚构演示规则：模板可用时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-config-to-enter-placeholder",
+      "sceneId": "enter",
+      "source": "enter-config",
+      "target": "enter-placeholder",
+      "label": "模板未发布或不完整",
+      "detail": "虚构演示规则：模板未发布或不完整时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-limits-to-enter-room",
+      "sceneId": "enter",
+      "source": "enter-limits",
+      "target": "enter-room",
+      "label": "输入合规",
+      "detail": "虚构演示规则：输入合规时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-limits-to-enter-rejected",
+      "sceneId": "enter",
+      "source": "enter-limits",
+      "target": "enter-rejected",
+      "label": "输入不合规",
+      "detail": "虚构演示规则：输入不合规时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-room-to-enter-ticket",
+      "sceneId": "enter",
+      "source": "enter-room",
+      "target": "enter-ticket",
+      "label": "候选项有效",
+      "detail": "虚构演示规则：候选项有效时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-room-to-enter-rejected",
+      "sceneId": "enter",
+      "source": "enter-room",
+      "target": "enter-rejected",
+      "label": "候选项创建失败",
+      "detail": "虚构演示规则：候选项创建失败时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-ticket-to-enter-start",
+      "sceneId": "enter",
+      "source": "enter-ticket",
+      "target": "enter-start",
+      "label": "还有额度",
+      "detail": "虚构演示规则：还有额度时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "enter-ticket-to-enter-rejected",
+      "sceneId": "enter",
+      "source": "enter-ticket",
+      "target": "enter-rejected",
+      "label": "额度不足",
+      "detail": "虚构演示规则：额度不足时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-progress-to-battle-boss",
+      "sceneId": "battle",
+      "source": "battle-progress",
+      "target": "battle-boss",
+      "label": "步骤执行完成",
+      "detail": "虚构演示规则：步骤执行完成时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-boss-to-battle-time",
+      "sceneId": "battle",
+      "source": "battle-boss",
+      "target": "battle-time",
+      "label": "全部成功",
+      "detail": "虚构演示规则：全部成功时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-boss-to-battle-fail",
+      "sceneId": "battle",
+      "source": "battle-boss",
+      "target": "battle-fail",
+      "label": "失败或取消",
+      "detail": "虚构演示规则：失败或取消时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-time-to-battle-first-pass",
+      "sceneId": "battle",
+      "source": "battle-time",
+      "target": "battle-first-pass",
+      "label": "令牌与期限有效",
+      "detail": "虚构演示规则：令牌与期限有效时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-time-to-battle-fail",
+      "sceneId": "battle",
+      "source": "battle-time",
+      "target": "battle-fail",
+      "label": "令牌失效或过期",
+      "detail": "虚构演示规则：令牌失效或过期时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-first-pass-to-battle-repeat",
+      "sceneId": "battle",
+      "source": "battle-first-pass",
+      "target": "battle-repeat",
+      "label": "仅本地预览",
+      "detail": "虚构演示规则：仅本地预览时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-first-pass-to-battle-report",
+      "sceneId": "battle",
+      "source": "battle-first-pass",
+      "target": "battle-report",
+      "label": "需要模拟审核",
+      "detail": "虚构演示规则：需要模拟审核时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-repeat-to-battle-assets",
+      "sceneId": "battle",
+      "source": "battle-repeat",
+      "target": "battle-assets",
+      "label": "预览已准备",
+      "detail": "虚构演示规则：预览已准备时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-report-to-battle-envelope",
+      "sceneId": "battle",
+      "source": "battle-report",
+      "target": "battle-envelope",
+      "label": "审核请求已创建",
+      "detail": "虚构演示规则：审核请求已创建时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-report-to-battle-no-award",
+      "sceneId": "battle",
+      "source": "battle-report",
+      "target": "battle-no-award",
+      "label": "审核请求创建失败",
+      "detail": "虚构演示规则：审核请求创建失败时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-envelope-to-battle-verified",
+      "sceneId": "battle",
+      "source": "battle-envelope",
+      "target": "battle-verified",
+      "label": "回执匹配且同意",
+      "detail": "虚构演示规则：回执匹配且同意时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-envelope-to-battle-no-award",
+      "sceneId": "battle",
+      "source": "battle-envelope",
+      "target": "battle-no-award",
+      "label": "回执无效或拒绝",
+      "detail": "虚构演示规则：回执无效或拒绝时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-verified-to-battle-assets",
+      "sceneId": "battle",
+      "source": "battle-verified",
+      "target": "battle-assets",
+      "label": "首次消费回执",
+      "detail": "虚构演示规则：首次消费回执时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-verified-to-battle-no-award",
+      "sceneId": "battle",
+      "source": "battle-verified",
+      "target": "battle-no-award",
+      "label": "回执已消费或状态无效",
+      "detail": "虚构演示规则：回执已消费或状态无效时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-assets-to-battle-reward",
+      "sceneId": "battle",
+      "source": "battle-assets",
+      "target": "battle-reward",
+      "label": "额度与空间充足",
+      "detail": "虚构演示规则：额度与空间充足时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "battle-assets-to-battle-no-award",
+      "sceneId": "battle",
+      "source": "battle-assets",
+      "target": "battle-no-award",
+      "label": "额度或空间不足",
+      "detail": "虚构演示规则：额度或空间不足时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-request-to-sweep-eligibility",
+      "sceneId": "sweep",
+      "source": "sweep-request",
+      "target": "sweep-eligibility",
+      "label": "提交重试",
+      "detail": "虚构演示规则：提交重试时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-eligibility-to-sweep-selected",
+      "sceneId": "sweep",
+      "source": "sweep-eligibility",
+      "target": "sweep-selected",
+      "label": "允许重试",
+      "detail": "虚构演示规则：允许重试时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-eligibility-to-sweep-rejected",
+      "sceneId": "sweep",
+      "source": "sweep-eligibility",
+      "target": "sweep-rejected",
+      "label": "无重试权限",
+      "detail": "虚构演示规则：无重试权限时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-selected-to-sweep-limit",
+      "sceneId": "sweep",
+      "source": "sweep-selected",
+      "target": "sweep-limit",
+      "label": "本工作区失败任务",
+      "detail": "虚构演示规则：本工作区失败任务时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-selected-to-sweep-rejected",
+      "sceneId": "sweep",
+      "source": "sweep-selected",
+      "target": "sweep-rejected",
+      "label": "任务归属或状态无效",
+      "detail": "虚构演示规则：任务归属或状态无效时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-limit-to-sweep-refresh",
+      "sceneId": "sweep",
+      "source": "sweep-limit",
+      "target": "sweep-refresh",
+      "label": "输入仍可用",
+      "detail": "虚构演示规则：输入仍可用时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-limit-to-sweep-rejected",
+      "sceneId": "sweep",
+      "source": "sweep-limit",
+      "target": "sweep-rejected",
+      "label": "输入不可用",
+      "detail": "虚构演示规则：输入不可用时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-refresh-to-sweep-highest",
+      "sceneId": "sweep",
+      "source": "sweep-refresh",
+      "target": "sweep-highest",
+      "label": "统计已刷新",
+      "detail": "虚构演示规则：统计已刷新时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-highest-to-sweep-reward",
+      "sceneId": "sweep",
+      "source": "sweep-highest",
+      "target": "sweep-reward",
+      "label": "未达上限且资源充足",
+      "detail": "虚构演示规则：未达上限且资源充足时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "sweep-highest-to-sweep-rejected",
+      "sceneId": "sweep",
+      "source": "sweep-highest",
+      "target": "sweep-rejected",
+      "label": "次数或资源不满足",
+      "detail": "虚构演示规则：次数或资源不满足时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-trigger-to-tickets-toggle",
+      "sceneId": "tickets",
+      "source": "tickets-trigger",
+      "target": "tickets-toggle",
+      "label": "打开额度视图",
+      "detail": "虚构演示规则：打开额度视图时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-toggle-to-tickets-wallet",
+      "sceneId": "tickets",
+      "source": "tickets-toggle",
+      "target": "tickets-wallet",
+      "label": "演示已开启",
+      "detail": "虚构演示规则：演示已开启时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-toggle-to-tickets-skip",
+      "sceneId": "tickets",
+      "source": "tickets-toggle",
+      "target": "tickets-skip",
+      "label": "演示未开启",
+      "detail": "虚构演示规则：演示未开启时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-wallet-to-tickets-days",
+      "sceneId": "tickets",
+      "source": "tickets-wallet",
+      "target": "tickets-days",
+      "label": "读取周期键",
+      "detail": "虚构演示规则：读取周期键时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-days-to-tickets-grant",
+      "sceneId": "tickets",
+      "source": "tickets-days",
+      "target": "tickets-grant",
+      "label": "首次或新周期",
+      "detail": "虚构演示规则：首次或新周期时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-days-to-tickets-skip",
+      "sceneId": "tickets",
+      "source": "tickets-days",
+      "target": "tickets-skip",
+      "label": "同一周期",
+      "detail": "虚构演示规则：同一周期时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-grant-to-tickets-record",
+      "sceneId": "tickets",
+      "source": "tickets-grant",
+      "target": "tickets-record",
+      "label": "额度重置成功",
+      "detail": "虚构演示规则：额度重置成功时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "tickets-grant-to-tickets-skip",
+      "sceneId": "tickets",
+      "source": "tickets-grant",
+      "target": "tickets-skip",
+      "label": "写入失败",
+      "detail": "虚构演示规则：写入失败时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "loadout-request-to-loadout-active",
+      "sceneId": "loadout",
+      "source": "loadout-request",
+      "target": "loadout-active",
+      "label": "修改模板请求",
+      "detail": "虚构演示规则：修改模板请求时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "loadout-active-to-loadout-reject",
+      "sceneId": "loadout",
+      "source": "loadout-active",
+      "target": "loadout-reject",
+      "label": "仍有运行任务",
+      "detail": "虚构演示规则：仍有运行任务时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "loadout-active-to-loadout-pass",
+      "sceneId": "loadout",
+      "source": "loadout-active",
+      "target": "loadout-pass",
+      "label": "没有运行任务",
+      "detail": "虚构演示规则：没有运行任务时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "loadout-reject-to-loadout-restore",
+      "sceneId": "loadout",
+      "source": "loadout-reject",
+      "target": "loadout-restore",
+      "label": "任务结束后重新申请",
+      "detail": "虚构演示规则：任务结束后重新申请时沿此分支继续；具体状态变化见目标步骤。"
+    },
+    {
+      "id": "loadout-request-to-loadout-read",
+      "sceneId": "loadout",
+      "source": "loadout-request",
+      "target": "loadout-read",
+      "label": "只读预览或查询",
+      "detail": "虚构演示规则：只读预览或查询时沿此分支继续；具体状态变化见目标步骤。"
+    }
+  ],
+  "comments": []
+}

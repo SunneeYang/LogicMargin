@@ -91,14 +91,14 @@ test('short consecutive turns stay in order and degenerate routes remain finite'
 })
 
 test('bundled workflows and cycles preserve endpoints and avoid unrelated nodes at varied sizes', () => {
-  const spirit = parseReview(JSON.parse(readFileSync(new URL('../public/reviews/spirit-sanctum.logic-margin.json', import.meta.url), 'utf8')))
+  const pipeline = parseReview(JSON.parse(readFileSync(new URL('../public/reviews/task-pipeline.logic-margin.json', import.meta.url), 'utf8')))
   const cycleNodes: ReviewNode[] = ['a', 'b'].map(id => ({
     id, sceneId: 'cycle', title: id, kind: 'action', summary: '', detail: '', input: '', output: '', position: { x: 0, y: 0 }, evidence: [],
   }))
   const cycleEdges: ReviewEdge[] = [['forward', 'a', 'b'], ['back', 'b', 'a'], ['loop', 'a', 'a']].map(([id, source, target]) => ({
     id, source, target, sceneId: 'cycle', label: '继续', detail: '',
   }))
-  const scenes = [sampleReview, spirit].flatMap(review => review.scenes.map(scene => ({
+  const scenes = [sampleReview, pipeline].flatMap(review => review.scenes.map(scene => ({
     nodes: review.nodes.filter(node => node.sceneId === scene.id), edges: review.edges.filter(edge => edge.sceneId === scene.id),
   })))
   scenes.push({ nodes: cycleNodes, edges: cycleEdges })
