@@ -11,10 +11,21 @@ jobs:
   recovery:
     runs-on: windows-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: contended
+            pattern: '^TestStaleLockRecoveryHasOneConcurrentWinner$'
+            count: 5
+          - name: package
+            pattern: '.'
+            count: 5
+    name: recovery-${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test -race ./internal/daemon -run '^TestStaleLockRecoveryHasOneConcurrentWinner$' -count=5 -v
+      - run: go test -race ./internal/daemon -run '${{ matrix.pattern }}' -count=${{ matrix.count }} -v
