@@ -18,7 +18,7 @@ import { sampleReview } from '../src/sample.ts'
 const execute = promisify(execFile)
 const sha = value => createHash('sha256').update(value).digest('hex')
 
-test('MCP proxy rejects remote sockets with spoofed local headers in dev and preview', { timeout: 30000 }, async t => {
+test('dev and preview preserve MCP locality and early Go rejections', { timeout: 30000 }, async t => {
   const remote = Object.values(networkInterfaces()).flat().find(address => address.family === 'IPv4' && !address.internal)?.address
   if (!remote) { t.skip('A non-loopback IPv4 interface is required'); return }
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-proxy-boundary-'))
@@ -64,6 +64,20 @@ test('MCP proxy rejects remote sockets with spoofed local headers in dev and pre
     const accepted = await initialize('127.0.0.1')
     assert.equal(accepted.status, 200, `${mode} rejected a local client`)
     assert.ok(accepted.sessionId, `${mode} did not initialize the actual Go MCP transport`)
+    for (const padding of ['', 'x'.repeat(230000)]) {
+      const requestBody = JSON.stringify({ review: sampleReview, padding })
+      assert.ok(Buffer.byteLength(requestBody) < 256 * 1024, 'stay within Go\'s automatic body drain window')
+      // Repeat the upload/early-response race without retrying a failed request.
+      for (let attempt = 0; attempt < (padding ? 100 : 1); attempt++) {
+        const rejected = await fetch(`http://127.0.0.1:${port}/api/review-sessions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://untrusted.invalid' },
+          body: requestBody, signal: AbortSignal.timeout(5000),
+        })
+        const body = await rejected.text()
+        assert.equal(rejected.status, 403, `${mode} lost the upstream rejection: ${body}`)
+        assert.equal(JSON.parse(body).error, '拒绝跨域会话写入')
+      }
+    }
     await closeVite()
   }
 })
@@ -143,7 +157,12 @@ test('Vite proxies actual Go health/API/MCP and source CLI, preserving origins a
   assert.equal(saved.review.nodes[0].evidence[0].code, content.trimEnd())
   assert.equal(JSON.parse(await readFile(join(env.LOGIC_MARGIN_DATA_DIR, `${started.sessionId}.json`), 'utf8')).id, started.sessionId)
   const denied = await fetch(`${url}/api/review-sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://untrusted.invalid' }, body: JSON.stringify({ review }) })
-  assert.equal(denied.status, 403)
+  assert.equal(denied.status, 403, `${await denied.text()}\n${stderr}`)
+  const waitStarted = performance.now()
+  const timedOut = await client.callTool({ name: 'wait_review', arguments: { session_id: started.sessionId, timeout_seconds: 6 } })
+  assert.equal(timedOut.isError, true)
+  assert.match(JSON.stringify(timedOut), /等待审查超时/)
+  assert.ok(performance.now() - waitStarted >= 5500, 'proxy ended a long MCP call before its deadline')
   const finished = await fetch(`${url}/api/review-sessions/${started.sessionId}/finish`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: url }, body: JSON.stringify({ kind: 'approval', expectedVersion: saved.version }) })
   assert.equal(finished.status, 200)
   assert.equal(JSON.parse((await cli(['wait', started.sessionId, '--url', url, '--timeout', '2'])).stdout).approved, true)
