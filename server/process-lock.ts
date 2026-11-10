@@ -45,6 +45,11 @@ export async function acquireProcessLock(path: string, waitMs = 10000): Promise<
   while (true) {
     try { await mkdir(path, { mode: 0o700 }) }
     catch (error) {
+      // Windows may report EPERM while another process's directory deletion is pending.
+      if (process.platform === 'win32' && (error as NodeJS.ErrnoException).code === 'EPERM' && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 50))
+        continue
+      }
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
       if (await removeStale(path)) continue
       if (Date.now() >= deadline) throw new Error(`服务锁仍被其他进程占用：${path}`)

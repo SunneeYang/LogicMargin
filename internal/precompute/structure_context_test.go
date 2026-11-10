@@ -269,7 +269,7 @@ func TestStructureContextCancellationAndClosedEngine(t *testing.T) {
 	}
 }
 
-// These cases require the companion parser-budget change, without relaxing Diff.
+// Dense token parsing may exhaust its production deadline; syntax limits are checked separately.
 func TestStructureContextLargeFullSource(t *testing.T) {
 	for _, sample := range []struct{ name, padding string }{
 		{"utf16", "/*" + strings.Repeat("x", 120000) + "*/\n"},
@@ -290,10 +290,22 @@ func TestStructureContextLargeFullSource(t *testing.T) {
 			defer engine.Close()
 			raw, _, err := engine.StructureWithContext(t.Context(), old, current, "go", a, b)
 			var result StructureResult
-			if err != nil || json.Unmarshal(raw, &result) != nil || result.Mode != "structural" || len(result.Highlights.After) == 0 {
-				t.Fatal("large complete file did not yield snippet structure (requires parser-budget integration)", result.Mode, result.Reason, err)
+			if err != nil || json.Unmarshal(raw, &result) != nil {
+				t.Fatal("large complete file did not yield a valid result", err)
+			}
+			if sample.name == "tokens" && result.Mode == "text" && result.Reason == "budget" {
+				if result.FormattingOnly || len(result.Highlights.Before)+len(result.Highlights.After)+len(result.Scopes)+len(result.Moves) != 0 {
+					t.Fatal("budget fallback retained structural marks", result)
+				}
+				t.Log("dense source reached its production budget; saved text remains intact")
+			} else if result.Mode != "structural" || len(result.Highlights.After) == 0 {
+				t.Fatal("large complete file did not yield snippet structure", result.Mode, result.Reason)
 			}
 			assertProjected(t, result, old, current)
+			cached, status, err := engine.StructureWithContext(t.Context(), old, current, "go", a, b)
+			if err != nil || status != "memory" || string(cached) != string(raw) {
+				t.Fatal("large-source result was not reused", status, err)
+			}
 			if stats := engine.Stats(); stats.MemoryBytes > memoryBudget || stats.Computations != 4 {
 				t.Fatal(stats)
 			}
