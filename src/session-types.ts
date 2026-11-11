@@ -1,4 +1,4 @@
-import type { CommentReply, CommentStatus, ReviewComment, ReviewDocument, ReviewRecord, SourceFile } from './types.ts'
+import type { CommentReply, CommentStatus, DiscussionEditability, ReviewComment, ReviewDocument, ReviewRecord, SourceFile } from './types.ts'
 
 export type SessionPhase = 'awaiting-review' | 'feedback-ready' | 'agent-working' | 'approved'
 export interface ReviewScope { context?: string; purpose: string }
@@ -64,6 +64,8 @@ export interface ReviseRequest {
 export type ReviewMutation =
   | { kind: 'add-comment'; comment: ReviewComment }
   | { kind: 'add-reply'; commentId: string; reply: CommentReply }
+  | { kind: 'edit-comment'; commentId: string; from: string; body: string }
+  | { kind: 'edit-reply'; commentId: string; replyId: string; from: string; body: string }
   | { kind: 'set-status'; commentId: string; from: CommentStatus; status: CommentStatus; reviewedRevision: string }
 
 export interface MutationBatch {
@@ -103,4 +105,5 @@ export type CurrentSession = Omit<ReviewSession, 'history' | 'snapshots'> & {
   history: RecordInfo[]
   submittedCommentIds: string[]
   commentOrigins: { commentId: string; round: number; exact: boolean }[]
+  editableDiscussion?: DiscussionEditability
 }

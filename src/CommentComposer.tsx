@@ -1,21 +1,22 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { MessageSquare, PanelRight, Plus, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageSquare, PanelRight, Plus, X } from 'lucide-react'
 import type { CommentDraft } from './types.ts'
 import { translateError, useI18n } from './i18n.ts'
 import { ariaShortcut, formatShortcut, resolvedShortcut, shortcutFromEvent } from './shortcuts.ts'
 import type { ShortcutAction } from './shortcuts.ts'
 import { useShortcutSettings } from './use-shortcuts.ts'
 
-export type InspectionTab = 'comments' | 'detail' | 'code'
-const inspectionTabs: { id: InspectionTab; label: string; action: ShortcutAction }[] = [
-  { id: 'comments', label: '讨论', action: 'showDiscussion' }, { id: 'detail', label: '详情', action: 'showDetails' }, { id: 'code', label: '代码 diff', action: 'showCode' },
+export type InspectionTab = 'comments' | 'code'
+const inspectionTabs: { id: InspectionTab; label: string; actions: ShortcutAction[] }[] = [
+  { id: 'comments', label: '详情与讨论', actions: ['showDetails', 'showDiscussion'] }, { id: 'code', label: '代码 diff', actions: ['showCode'] },
 ]
 
-export default function CommentComposer({ draft, discussion, inspection, docked, position, onChange, onSave, onClose, onToggle, onInteract }: {
+export default function CommentComposer({ draft, discussion, inspection, navigation, docked, position, onChange, onSave, onClose, onToggle, onInteract }: {
   draft: CommentDraft | null
   discussion?: { key: string; title: string; context: string; content: ReactNode; replyLabel?: string; onCollapse: () => void }
   inspection?: { key: string; title: string; context: string; tab: InspectionTab; onTabChange: (tab: InspectionTab) => void; detail: ReactNode; code: ReactNode }
+  navigation?: { index: number; total: number; busy: boolean; onPrevious: () => void; onNext: () => void }
   docked: boolean
   position: { left: number; top: number }
   onChange: (body: string) => void
@@ -35,9 +36,9 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
   useEffect(() => { if (inspection?.tab === 'code') setCodeKey(inspection.key) }, [inspection?.key, inspection?.tab])
   const open = !!(draft || discussion || inspection)
   const [present, setPresent] = useState(open)
-  const last = useRef({ draft, discussion, inspection, docked })
-  if (open) last.current = { draft, discussion, inspection, docked }
-  const shown = open ? { draft, discussion, inspection, docked } : last.current
+  const last = useRef({ draft, discussion, inspection, navigation, docked })
+  if (open) last.current = { draft, discussion, inspection, navigation, docked }
+  const shown = open ? { draft, discussion, inspection, navigation, docked } : last.current
   const surfaceDocked = shown.docked
   const animation = useRef<Animation | null>(null)
   useLayoutEffect(() => {
@@ -67,15 +68,18 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
   useEffect(() => {
     if (!open) return
     setError('')
+    if (document.activeElement?.closest('.reading-navigation')) return
     if (draft && (!inspection || inspection.tab === 'comments')) {
       if (draft.replyTo || matchMedia('(min-width: 901px) and (pointer: fine)').matches) {
         input.current?.focus({ preventScroll: true })
-        if (discussion) input.current?.scrollIntoView({ block: 'nearest' })
-      } else container.current?.scrollIntoView({ block: 'nearest' })
+      }
+      // Reveal the whole form after the parent positions the selected discussion.
+      const frame = requestAnimationFrame(() => input.current?.closest('.composer-footer')?.scrollIntoView({ block: 'nearest' }))
+      return () => cancelAnimationFrame(frame)
     } else if ((discussion || inspection) && !document.activeElement?.matches('.react-flow__node, .react-flow__edge')) container.current?.focus({ preventScroll: true })
   }, [draft?.key, discussion?.key, inspection?.key])
   useLayoutEffect(() => {
-    container.current?.querySelectorAll('.inspection-content').forEach(element => { element.scrollTop = 0 })
+    container.current?.querySelectorAll('.composer-comment-panel, .inspection-content').forEach(element => { element.scrollTop = 0 })
   }, [inspection?.key])
   useLayoutEffect(() => {
     if (selection.current && input.current) {
@@ -88,21 +92,38 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
   draft = shown.draft
   discussion = shown.discussion
   inspection = shown.inspection
+  navigation = shown.navigation
   function save() { setError(onSave() ?? '') }
   const heading = inspection ?? discussion
   const commentsShown = !inspection || inspection.tab === 'comments'
   return <section ref={container} className={`comment-composer ${surfaceDocked ? 'is-docked' : 'is-inline'}${discussion ? ' has-discussion' : ''}${inspection ? ' has-inspection' : ''}`} style={surfaceDocked ? undefined : position}
     role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} tabIndex={heading ? -1 : undefined} data-composer data-composing={!!draft && commentsShown} data-tab={inspection?.tab} data-state={open ? 'open' : 'closing'} inert={!open} aria-hidden={!open || undefined}
-    onPointerEnter={onInteract} onPointerDownCapture={onInteract} onFocusCapture={onInteract} onWheelCapture={onInteract} onScrollCapture={onInteract}>
+    onPointerEnter={onInteract} onPointerDownCapture={onInteract} onFocusCapture={onInteract} onWheelCapture={onInteract}>
     <header className="composer-header"><h3 id={`${id}-title`}><MessageSquare size={16} />{t(discussion ? '节点讨论' : draft?.replyTo ? '回复讨论' : draft?.basis === 'baseline' ? '基线 B 批注' : draft ? '流程批注' : '步骤阅读窗口')}</h3>
       <div className="tool-group"><button className="button icon-button" type="button" aria-label={t(surfaceDocked ? '返回图内编辑' : '移到侧栏编辑')} title={t(surfaceDocked ? '返回节点旁的浮窗' : '在右侧栏展开')} onPointerDown={event => event.preventDefault()} onClick={() => {
         if (input.current && document.activeElement === input.current) selection.current = { start: input.current.selectionStart, end: input.current.selectionEnd }
         onToggle()
       }}><PanelRight size={16} /></button><button className="button icon-button" type="button" aria-label={t(discussion ? '关闭讨论' : draft ? '关闭编辑器并保留草稿' : '关闭阅读窗口')} onClick={onClose}><X size={16} /></button></div>
     </header>
-    {heading && <div className="discussion-heading"><p className="discussion-target">{heading.title}</p><p className="discussion-context">{heading.context}</p></div>}
-    {inspection && <div className="inspection-tabs" role="tablist" aria-label={t('节点窗口内容')}>{inspectionTabs.map((tab, index) => <button key={tab.id} type="button" role="tab" id={`${id}-tab-${tab.id}`}
-      title={bindings[tab.action] ? `${t(tab.label)} · ${formatShortcut(bindings[tab.action])}` : t(tab.label)} aria-keyshortcuts={ariaShortcut(bindings[tab.action]) || undefined}
+    {heading && <div className={`discussion-heading${navigation ? ' has-navigation' : ''}`}><p className="discussion-target" title={heading.title}>{heading.title}</p>
+      <div className="discussion-context-row"><p className="discussion-context" title={heading.context}>{heading.context}</p>
+        {navigation && <nav className="reading-navigation" aria-label={t('评审意见导航')} aria-busy={navigation.busy || undefined}>
+          <button className="button icon-button" type="button" aria-label={t('上一条评审意见')}
+            title={bindings.previousReviewItem ? `${t('上一条评审意见')} · ${formatShortcut(bindings.previousReviewItem)}` : t('上一条评审意见')}
+            aria-keyshortcuts={ariaShortcut(bindings.previousReviewItem) || undefined} disabled={navigation.busy || navigation.index <= 0}
+            onPointerDown={event => event.preventDefault()} onClick={navigation.onPrevious}><ChevronLeft size={16} /></button>
+          <span className="reading-navigation-progress" role="status" aria-live="polite" aria-atomic="true" aria-label={t('第 {current} 条，共 {total} 条意见', { current: navigation.index + 1, total: navigation.total })}>{navigation.index + 1} / {navigation.total}</span>
+          <button className="button icon-button" type="button" aria-label={t('下一条评审意见')}
+            title={bindings.nextReviewItem ? `${t('下一条评审意见')} · ${formatShortcut(bindings.nextReviewItem)}` : t('下一条评审意见')}
+            aria-keyshortcuts={ariaShortcut(bindings.nextReviewItem) || undefined} disabled={navigation.busy || navigation.index >= navigation.total - 1}
+            onPointerDown={event => event.preventDefault()} onClick={navigation.onNext}><ChevronRight size={16} /></button>
+        </nav>}
+      </div>
+    </div>}
+    {inspection && <div className="inspection-tabs" role="tablist" aria-label={t('节点窗口内容')}>{inspectionTabs.map((tab, index) => {
+      const shortcuts = tab.actions.map(action => bindings[action]).filter(Boolean)
+      return <button key={tab.id} type="button" role="tab" id={`${id}-tab-${tab.id}`}
+      title={shortcuts.length ? `${t(tab.label)} · ${shortcuts.map(binding => formatShortcut(binding)).join(' / ')}` : t(tab.label)} aria-keyshortcuts={shortcuts.map(binding => ariaShortcut(binding)).join(' ') || undefined}
       aria-selected={inspection.tab === tab.id} aria-controls={`${id}-panel-${tab.id}`} tabIndex={inspection.tab === tab.id ? 0 : -1}
       onClick={() => inspection.onTabChange(tab.id)} onKeyDown={event => {
         const next = event.key === 'ArrowRight' ? (index + 1) % inspectionTabs.length : event.key === 'ArrowLeft' ? (index + inspectionTabs.length - 1) % inspectionTabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? inspectionTabs.length - 1 : null
@@ -110,11 +131,13 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
         event.preventDefault()
         inspection.onTabChange(inspectionTabs[next].id)
         document.getElementById(`${id}-tab-${inspectionTabs[next].id}`)?.focus({ preventScroll: true })
-      }}>{t(tab.label)}</button>)}</div>}
-    <div className="composer-comment-panel" role={inspection ? 'tabpanel' : undefined} id={`${id}-panel-comments`} aria-labelledby={inspection ? `${id}-tab-comments` : undefined} hidden={!commentsShown}>
+      }}>{t(tab.label)}</button>
+    })}</div>}
+    <div className="composer-comment-panel" role={inspection ? 'tabpanel' : undefined} id={`${id}-panel-comments`} aria-labelledby={inspection ? `${id}-tab-comments` : undefined} hidden={!commentsShown} tabIndex={inspection ? 0 : undefined}>
+    {inspection && <div className="inspection-detail">{inspection.detail}</div>}
     {!discussion && draft && <p className="composer-targets">{draft.targets.length > 1 && <strong>{t('所选 {count} 项', { count: draft.targets.length })} · </strong>}{draft.labels.join(' · ')}</p>}
-    {discussion && <div className="discussion-threads">{discussion.content}</div>}
-    {!draft && !discussion && inspection && <div className="discussion-threads"><div className="empty-state"><p>{t('此处还没有批注。')}</p></div></div>}
+    {discussion && <div className="discussion-threads">{inspection && <h3 className="panel-title discussion-section-title">{t('讨论')}</h3>}{discussion.content}</div>}
+    {!draft && !discussion && inspection && <div className="discussion-threads"><h3 className="panel-title discussion-section-title">{t('讨论')}</h3><div className="empty-state"><p>{t('此处还没有批注。')}</p></div></div>}
     <div className="composer-footer" hidden={!draft}>
     {draft && <form onSubmit={event => { event.preventDefault(); save() }}>
       {discussion?.replyLabel && <p className="discussion-reply-label">{discussion.replyLabel}</p>}
@@ -133,7 +156,6 @@ export default function CommentComposer({ draft, discussion, inspection, docked,
     </form>}
     </div>
     </div>
-    {inspection && <><div className="inspection-content" role="tabpanel" id={`${id}-panel-detail`} aria-labelledby={`${id}-tab-detail`} hidden={inspection.tab !== 'detail'} tabIndex={0}>{inspection.detail}</div>
-      <div className="inspection-content inspection-code" role="tabpanel" id={`${id}-panel-code`} aria-labelledby={`${id}-tab-code`} hidden={inspection.tab !== 'code'} tabIndex={0}>{(inspection.tab === 'code' || codeKey === inspection.key) && inspection.code}</div></>}
+    {inspection && <div className="inspection-content inspection-code" role="tabpanel" id={`${id}-panel-code`} aria-labelledby={`${id}-tab-code`} hidden={inspection.tab !== 'code'} tabIndex={0}>{(inspection.tab === 'code' || codeKey === inspection.key) && inspection.code}</div>}
   </section>
 }

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowDownToLine, ArrowRight, ChevronDown, ChevronRight, Circle, Focus, Hand, Info, Maximize2, MessageSquare, MousePointer2, PanelLeftClose, PanelLeftOpen, Scan, SlidersHorizontal, Upload, X } from 'lucide-react'
+import { ArrowDownToLine, ArrowRight, ChevronDown, ChevronRight, Circle, Focus, Hand, Info, ListChecks, Maximize2, MessageSquare, MousePointer2, PanelLeftClose, PanelLeftOpen, Scan, SlidersHorizontal, Upload, X } from 'lucide-react'
 import logoUrl from './assets/logo.svg'
 import type { CommentDraft, CommentStatus, ReviewChanges, ReviewDocument, ReviewRecord, Target } from './types.ts'
-import { addComment, addReply, getChanges, parseReview, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
-import { createApprovalRecord, createFeedbackPackage, draftKey, makeDraft, parseDrafts, parseRecordHistory, parseReviewRecord, pendingFeedback, withDraft } from './workspace.ts'
+import { addComment, addReply, editDiscussion as updateDiscussion, getChanges, parseReview, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
+import { createApprovalRecord, createFeedbackPackage, draftKey, editableLocalDiscussion, makeDraft, parseDrafts, parseRecordHistory, parseReviewRecord, pendingFeedback, withDraft } from './workspace.ts'
 import GraphCanvas from './GraphCanvas.tsx'
 import type { GraphCanvasHandle } from './GraphCanvas.tsx'
 import type { NodeAppearance } from './GraphLegend.tsx'
@@ -131,7 +131,16 @@ export default function App() {
   const [filter, setFilter] = useState<'all' | CommentStatus | null>(null)
   const [threadId, setThreadId] = useState<string | null>(null)
   const [continuous, setContinuous] = useState(false)
-  const reviewQueue = useRef<string[]>([])
+  const [reviewQueue, setReviewQueue] = useState<string[]>([])
+  const [navigationBusy, setNavigationBusy] = useState(false)
+  const navigationSequence = useRef(0)
+  const navigationRound = useRef<number | null>(null)
+  const pendingThreadScroll = useRef<string | null>(null)
+  const readerPosition = useRef<{ left: number; top: number } | null>(null)
+  const resetReviewNavigation = useCallback(() => {
+    navigationSequence.current++
+    setReviewQueue([]); setNavigationBusy(false); setContinuous(false); readerPosition.current = null; navigationRound.current = null; pendingThreadScroll.current = null
+  }, [])
   const [composer, setComposer] = useState<CommentDraft | null>(null)
   const [discussionTargets, setDiscussionTargets] = useState<Target[] | null>(null)
   const [windowTab, setWindowTab] = useState<InspectionTab>('comments')
@@ -186,6 +195,14 @@ export default function App() {
   const exampleController = useRef<AbortController | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const graph = useRef<GraphCanvasHandle>(null)
+  const canNavigateReview = useCallback(() => {
+    const input = document.querySelector<HTMLTextAreaElement>('.discussion-edit[data-unsaved="true"] textarea')
+    if (!input) return true
+    setStatus('请先保存或取消当前讨论修改，再切换意见。')
+    if (input.closest('[data-composer]')) setWindowTab('comments')
+    requestAnimationFrame(() => input.focus({ preventScroll: true }))
+    return false
+  }, [])
   const unresolved = useMemo(() => review.comments.filter(comment => comment.status !== 'resolved'), [review.comments])
   const currentDrafts = drafts.filter(draft => draft.documentId === review.id && draft.revision === review.revision && draft.fingerprint === review.snapshot.fingerprint)
   const selectedComments = useMemo(() => {
@@ -201,20 +218,21 @@ export default function App() {
   const reviewIdentity = useMemo(() => SESSION_ID ? '' : JSON.stringify(parseReview(review)), [review])
   const localApproved = useMemo(() => history.some(record => record.kind === 'logic-margin-approval' && JSON.stringify(record.review) === reviewIdentity), [history, reviewIdentity])
   const graphSelection = useCallback((targets: Target[]) => {
+    if (!canNavigateReview()) return
     setSelection(targets)
     const windowTargets = windowTargetsRef.current
     if (!windowTargets || targets.length !== 1 || targets[0].kind !== 'node' || windowTargets.length === 1 && keyOf(windowTargets[0]) === keyOf(targets[0])) return
     discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    setComposer(null); setDiscussionTargets(targets); setThreadId(null); setContinuous(false); setPoint(undefined)
-  }, [])
+    resetReviewNavigation(); setComposer(null); setDiscussionTargets(targets); setThreadId(null); setPoint(undefined)
+  }, [resetReviewNavigation, canNavigateReview])
   const receiveSession = useCallback((next: CurrentSession) => {
     if (receivedRound.current && receivedRound.current !== next.round) {
-      setViewRound(null); setViewBaseline(false); setSelection([]); setComposer(null); setDiscussionTargets(null); setSubmitting(false); setContinuous(false)
+      resetReviewNavigation(); setViewRound(null); setViewBaseline(false); setSelection([]); setComposer(null); setDiscussionTargets(null); setSubmitting(false)
     }
     receivedRound.current = next.round
     if (next.baselineReview && next.round === 1) setViewBaseline(true)
     latestReview.current = next.review; setReview(next.review)
-  }, [])
+  }, [resetReviewNavigation])
   const session = useReviewSession(SESSION_ID, receiveSession)
   useEffect(() => {
     const dialog = tasksDialog.current
@@ -255,10 +273,14 @@ export default function App() {
   const displaySaveState = SESSION_ID ? session.saveState : saveState
   const sessionBlocked = !!SESSION_ID && (!session.ready || !!session.error || session.busy || sessionAction || session.availability !== 'active' || (hasTaskBaseline && !taskBaseline))
   const reviewBlocked = sessionBlocked || historical || publicationPending || baselinePlanning
+  const reviewEntryCount = unresolved.length || review.comments.length
+  const reviewEntryLabel = unresolved.length ? reviewBlocked ? '查看意见' : '开始复核' : '查看讨论'
   const needsReviewCount = unresolved.filter(comment => comment.status === 'needs-review').length
   const activeFilter = filter ?? (!approved && needsReviewCount ? 'needs-review' : 'all')
   const commentCounts = { all: review.comments.length, open: unresolved.length - needsReviewCount, 'needs-review': needsReviewCount, resolved: review.comments.length - unresolved.length }
   const visibleComments = useMemo(() => review.comments.filter(comment => activeFilter === 'all' || comment.status === activeFilter), [review.comments, activeFilter])
+  const editableDiscussion = useMemo(() => SESSION_ID ? session.session?.editableDiscussion ?? { comments: [], replies: [] }
+    : editableLocalDiscussion(review, history), [review, history, session.session])
   useEffect(() => {
     if (filter === null && panelOpen && tab === 'comments' && (!SESSION_ID || session.ready)) setFilter(activeFilter)
   }, [filter, panelOpen, tab, session.ready, activeFilter])
@@ -362,23 +384,25 @@ export default function App() {
   const reposition = useCallback(() => {
     const targets = discussionTargets ?? composer?.targets
     if (!targets || docked) return
-    const rect = graph.current?.getTargetRect(targets)
+    const anchored = readerPosition.current
+    const rect = anchored ? undefined : graph.current?.getTargetRect(targets)
     const bounds = graph.current?.getCanvasRect()
     const x = rect?.right ?? point?.x ?? bounds?.left ?? 12
     const y = rect?.top ?? point?.y ?? bounds?.top ?? 12
     const surface = document.querySelector<HTMLElement>('[data-composer]')
     const height = Math.min(surface?.offsetHeight ?? 380, innerHeight - 24)
     const width = surface?.offsetWidth ?? 360
-    let left = Math.max(12, Math.min(x + 12, innerWidth - width - 12))
+    let left = Math.max(12, Math.min(anchored?.left ?? x + 12, innerWidth - width - 12))
     if (rect && x + width + 24 > innerWidth && rect.left - width - 12 >= 12) left = rect.left - width - 12
-    let top = Math.max(12, Math.min(y, innerHeight - height - 12))
+    let top = Math.max(12, Math.min(anchored?.top ?? y, innerHeight - height - 12))
     const warnings = document.querySelector('.workspace-notifications')?.getBoundingClientRect()
     if (warnings && warnings.height > 0 && left < warnings.right && left + width > warnings.left && top < warnings.bottom && top + height > warnings.top) {
       if (warnings.bottom + height + 24 <= innerHeight) top = warnings.bottom + 12
       else if (warnings.left >= width + 24) left = warnings.left - width - 12
     }
     setPosition(current => current.left === left && current.top === top ? current : { left, top })
-  }, [composer?.key, discussionTargets, docked, point])
+    if (reviewQueue.length && threadId) readerPosition.current = { left, top }
+  }, [composer?.key, discussionTargets, docked, point, reviewQueue.length, threadId])
   useEffect(() => {
     reposition()
     let frame = 0
@@ -414,7 +438,7 @@ export default function App() {
       if (navOpen && compactToolbar) { setNavOpen(false); return }
       const menu = document.querySelector<HTMLDetailsElement>('details.workspace-menu[open]')
       if (menu) { closeMenus(); menu.querySelector('summary')?.focus(); return }
-      if (discussionTargets) { if (docked) setPanelOpen(false); closeDiscussion(); return }
+      if (discussionTargets) { if (closeDiscussion() && docked) setPanelOpen(false); return }
       if (composer) { if (docked) setPanelOpen(false); closeComposer(); return }
       if (submitting) { setSubmitting(false); return }
       if (focusMode) { setFocusMode(false); return }
@@ -431,8 +455,16 @@ export default function App() {
     return () => { window.removeEventListener('keydown', keydown); document.removeEventListener('pointerdown', outside) }
   }, [!!composer, discussionTargets, docked, focusMode, submitting, navOpen, compactToolbar, settingsOpen, tasksOpen])
   useEffect(() => {
-    if (threadId && (discussionTargets || panelOpen)) document.getElementById(`${discussionTargets ? 'discussion-thread' : 'thread'}-${threadId}`)?.scrollIntoView({ block: 'nearest' })
+    if (!threadId || !(discussionTargets || panelOpen)) return
+    if (discussionTargets && windowTab !== 'comments') { pendingThreadScroll.current = threadId; return }
+    document.getElementById(`${discussionTargets ? 'discussion-thread' : 'thread'}-${threadId}`)?.scrollIntoView({ block: 'nearest' })
+    pendingThreadScroll.current = null
   }, [threadId, discussionTargets, panelOpen, tab])
+  useEffect(() => {
+    if (windowTab !== 'comments' || !threadId || pendingThreadScroll.current !== threadId || !discussionTargets) return
+    document.getElementById(`discussion-thread-${threadId}`)?.scrollIntoView({ block: 'nearest' })
+    pendingThreadScroll.current = null
+  }, [windowTab, threadId, discussionTargets])
   useEffect(() => {
     if (!SESSION_ID && new URLSearchParams(window.location.search).get('review') === 'task-pipeline') void openTaskPipeline(true)
     return () => { importSequence.current++; exampleController.current?.abort() }
@@ -465,6 +497,7 @@ export default function App() {
     finally { setTaskBusy(false) }
   }
   function openTasks() {
+    if (!canNavigateReview()) return
     closeMenus(); closeComposer(false)
     const context = session.session?.scope?.context ?? ''
     setTaskContext(context); setTaskPurpose(''); setTaskAutoArchive(false); setDeletingTask(null); setTasksOpen(true)
@@ -504,7 +537,7 @@ export default function App() {
     finally { setTaskBusy(false) }
   }
   async function backupAndRecoverSession() {
-    if (!session.pendingRecovery) return
+    if (!session.pendingRecovery || !canNavigateReview()) return
     download(session.pendingRecovery, 'logic-margin-unsent.json')
     try { await session.recoverRemote(); setNotice(''); closeComposer(false) }
     catch (error) { setNotice(error instanceof Error ? error.message : '恢复会话失败，未同步意见仍保留。') }
@@ -539,18 +572,23 @@ export default function App() {
     if (restore && matchMedia('(min-width: 901px) and (pointer: fine)').matches) setTimeout(() => origin.current?.focus({ preventScroll: true }), 0)
   }, [])
   const closeDiscussion = useCallback((restore = true) => {
-    setDiscussionTargets(null); closeComposer(false)
+    if (!canNavigateReview()) return false
+    resetReviewNavigation(); setDiscussionTargets(null); closeComposer(false)
     if (restore) requestAnimationFrame(() => {
       const target = discussionOrigin.current?.isConnected ? discussionOrigin.current : document.querySelector<HTMLElement>('.inspector.is-open .inspector-tabs button[aria-pressed="true"]') ?? document.querySelector<HTMLElement>('.panel-toggle')
       target?.focus({ preventScroll: true })
     })
-  }, [closeComposer])
+    return true
+  }, [closeComposer, resetReviewNavigation, canNavigateReview])
   function switchScene(id: string) {
+    if (!canNavigateReview()) return
+    resetReviewNavigation()
     setSceneId(id); setSelection([]); setDiscussionTargets(windowDocked ? [] : null); closeComposer(false)
     if (windowDocked) { setThreadId(null); setContinuous(false); setPoint(undefined) }
     if (matchMedia('(max-width: 900px)').matches) setNavOpen(false)
   }
   function openPanel(nextTab: typeof tab) {
+    if (!canNavigateReview()) return
     if (discussionTargets) closeDiscussion(false)
     setFocusMode(false); setPanelOpen(true); setTab(nextTab); setDocked(false)
     if (nextTab === 'detail') {
@@ -568,21 +606,23 @@ export default function App() {
     setFocusMode(false)
   }
   function toggleInspector() {
+    if (!canNavigateReview()) return
     if (panelOpen && !focusMode) {
       setPanelOpen(false)
       if (docked) closeDiscussion(false)
     } else openPanel(tab)
   }
-  function showInspection(nextTab: InspectionTab) {
+  function showInspection(nextTab: InspectionTab | 'detail') {
     const targets = windowTargets?.length ? windowTargets : selection
     if (!targets.length) {
       if (nextTab === 'code') return false
       openPanel(nextTab); return
     }
+    const inspectionTab = nextTab === 'detail' ? 'comments' : nextTab
     if (windowTargets?.length) {
-      setWindowTab(nextTab)
+      setWindowTab(inspectionTab)
       if (docked) { setFocusMode(false); setPanelOpen(true) }
-    } else openInspection(targets, undefined, nextTab)
+    } else openInspection(targets, undefined, inspectionTab)
   }
   function codeShortcut(action: 'nextDifference' | 'previousDifference' | 'toggleFullCode' | 'toggleCodeLayout') {
     if (windowTab !== 'code' || !windowTargets || docked && (!panelOpen || focusMode)) return false
@@ -600,8 +640,11 @@ export default function App() {
   }
   async function switchRound(round: number) {
     if (round === activeRound && !viewBaseline) return
+    if (!canNavigateReview()) return
     try {
       const document = !session.session || round === session.session.round ? review : await session.loadSnapshot(round)
+      if (!canNavigateReview()) return
+      resetReviewNavigation()
       const keepThread = panelOpen && tab === 'detail' && selectedComments.some(comment => comment.id === threadId)
       const targets = keepThread || viewBaseline || comparingBaseline ? selection.filter(target => targetExists(document, target)) : []
       if (keepThread && !targets.length) { setTab('comments'); setFilter('all') }
@@ -609,8 +652,11 @@ export default function App() {
     } catch (error) { setNotice({ source: '读取历史流程失败：{error}', error: error instanceof Error ? error.message : '请重试' }) }
   }
   async function showBaseline(targets = selection) {
+    if (!canNavigateReview()) return
     try {
       const document = taskBaseline ?? await session.loadBaseline()
+      if (!canNavigateReview()) return
+      resetReviewNavigation()
       const id = targets.map(target => targetSceneId(document, target)).find(Boolean) ?? (document.scenes.some(item => item.id === scene.id) ? scene.id : document.scenes[0].id)
       setSceneId(id); setViewBaseline(true); setComparisonSource('baseline'); setViewRound(null)
       setSelection(targets.filter(target => targetExists(document, target) && targetSceneId(document, target) === id))
@@ -618,12 +664,15 @@ export default function App() {
     } catch (error) { setComparisonError(error instanceof Error ? error.message : '基线读取失败') }
   }
   function changeComparison(source: 'baseline' | 'previous') {
+    if (!canNavigateReview()) return
     setComparisonSource(source); setViewBaseline(false); setViewRound(null)
     setSelection(current => current.filter(target => targetExists(review, target)))
   }
   const showTargets = useCallback(async (targets: Target[], round = activeRound) => {
+    if (!canNavigateReview()) return
     try {
       const document = session.session && round !== session.session.round ? await session.loadSnapshot(round) : review
+      if (!canNavigateReview()) return
       if (session.session) setViewRound(round)
       setViewBaseline(false)
       const id = targets.map(target => targetSceneId(document, target)).find(Boolean) ?? document.scenes[0].id
@@ -631,15 +680,18 @@ export default function App() {
       setSelection(targets.filter(target => (target.kind === 'node' || target.kind === 'edge') && targetExists(document, target) && targetSceneId(document, target) === id))
       requestAnimationFrame(() => graph.current?.focusTargets(targets))
     } catch (error) { setNotice({ source: '定位历史流程失败：{error}', error: error instanceof Error ? error.message : '请重试' }) }
-  }, [review, session.session, session.loadSnapshot, activeRound])
+  }, [review, session.session, session.loadSnapshot, activeRound, canNavigateReview])
   const openInspection = useCallback((targets: Target[], at?: { x: number; y: number }, tab: InspectionTab = 'comments') => {
+    if (!canNavigateReview()) return
+    resetReviewNavigation()
     discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setComposer(null); setDiscussionTargets(targets); setWindowTab(tab); setPoint(at); setThreadId(null)
     setSelection(targets); stopFlow()
     if (docked) { setFocusMode(false); setPanelOpen(true) }
-  }, [docked, stopFlow])
+  }, [docked, stopFlow, resetReviewNavigation, canNavigateReview])
   const openComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string, inDiscussion = false) => {
     if (historical) { setStatus('历史流程只读，请回到当前版本继续讨论。'); return }
+    if (!inDiscussion && !canNavigateReview()) return
     try {
       const basis = replyTo ? review.comments.find(comment => comment.id === replyTo)?.basis : viewBaseline || baselinePlanning ? 'baseline' : undefined
       const draftReview = taskBaseline ? { ...review, baseline: taskBaseline } : review
@@ -647,49 +699,99 @@ export default function App() {
       const existing = draftsRef.current.find(item => item.key === key)
       const draft = existing ?? makeDraft(draftReview, targets, '', replyTo, basis)
       origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      if (!inDiscussion) { discussionOrigin.current = origin.current; setDiscussionTargets(targets); setPoint(at) }
+      if (!inDiscussion) {
+        resetReviewNavigation(); setThreadId(replyTo ?? null)
+        if (replyTo) {
+          const queue = visibleComments.toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).map(comment => comment.id)
+          setReviewQueue(queue.includes(replyTo) ? queue : [replyTo]); navigationRound.current = session.session?.round ?? 1
+        }
+        discussionOrigin.current = origin.current; setDiscussionTargets(targets); setPoint(at)
+      }
       stopFlow(); setComposer(draft); setWindowTab('comments')
       if (replyTo && !inDiscussion) setDocked(true)
       if (docked || replyTo && !inDiscussion) { setFocusMode(false); setPanelOpen(true); setTab('comments') }
       setStatus('')
     } catch (error) { setNotice(error instanceof Error ? error.message : '无法打开编辑器') }
-  }, [review, historical, stopFlow, viewBaseline, baselinePlanning, taskBaseline, docked])
+  }, [review, historical, stopFlow, viewBaseline, baselinePlanning, taskBaseline, docked, resetReviewNavigation, visibleComments, session.session?.round, canNavigateReview])
   const openDiscussionComposer = useCallback((targets: Target[], at?: { x: number; y: number }, replyTo?: string) => {
     openComposer(targets, at, replyTo, true)
     if (replyTo) setThreadId(replyTo)
   }, [openComposer])
-  const openThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target | Target[], followOrigin = true) => {
-    const comment = review.comments.find(item => item.id === id)
+  const visitReviewItem = useCallback(async (id: string, { targets: requestedTargets, followOrigin = true, keepTab = true }: {
+    targets?: Target[]; followOrigin?: boolean; keepTab?: boolean
+  } = {}) => {
+    if (!canNavigateReview()) return
+    const comment = latestReview.current.comments.find(item => item.id === id)
     if (!comment) return
-    const baselineOrigin = comment.basis === 'baseline' && (followOrigin || viewBaseline)
-    const targetReview = baselineOrigin ? taskBaseline : followOrigin && viewBaseline ? review : displayReview
-    if (!targetReview) { setNotice('基线正在读取，请稍后重试'); return }
-    if (followOrigin) {
+    const sequence = ++navigationSequence.current
+    setNavigationBusy(true)
+    try {
+      const baselineOrigin = comment.basis === 'baseline' && (followOrigin || viewBaseline)
+      const targets = requestedTargets ?? comment.targets
+      let round = followOrigin ? navigationRound.current ?? session.session?.round ?? 1 : activeRound
+      let targetReview = baselineOrigin ? taskBaseline ?? await session.loadBaseline()
+        : !followOrigin ? displayReview : session.session && round !== session.session.round ? await session.loadSnapshot(round) : latestReview.current
+      if (!baselineOrigin && !targets.some(target => targetExists(targetReview, target))) {
+        const original = session.session?.commentOrigins.find(item => item.commentId === id)
+        if (original) { targetReview = await session.loadSnapshot(original.round); round = original.round }
+      }
+      if (sequence !== navigationSequence.current) return
+      if (!canNavigateReview()) return
+      if (keepTab && !docked && discussionTargets && !readerPosition.current) readerPosition.current = { ...position }
+      stopFlow()
       setViewBaseline(baselineOrigin)
+      setViewRound(!baselineOrigin && session.session && round !== session.session.round ? round : null)
       if (baselineOrigin) setComparisonSource('baseline')
-      if (baselineOrigin || viewBaseline) setViewRound(null)
-    }
-    stopFlow(); closeComposer(false); setThreadId(id); setWindowTab('comments')
-    if (at) {
-      const targets = target ? Array.isArray(target) ? target : [target] : comment.targets
-      discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      setDiscussionTargets(targets); setPoint(at); setContinuous(false)
-      if (docked) { setFocusMode(false); setPanelOpen(true) }
-      const targetScene = targets.map(item => targetSceneId(targetReview, item)).find(Boolean) ?? scene.id
+      const targetScene = targets.map(item => targetSceneId(targetReview, item)).find(Boolean)
+        ?? (targetReview.scenes.some(item => item.id === scene.id) ? scene.id : targetReview.scenes[0].id)
       setSceneId(targetScene)
       setSelection(targets.filter(item => (item.kind === 'node' || item.kind === 'edge') && targetExists(targetReview, item) && targetSceneId(targetReview, item) === targetScene))
-    } else {
-      setDiscussionTargets(null); setFilter('all'); setTab('comments'); setFocusMode(false); setPanelOpen(true)
-      if (baselineOrigin) void showBaseline(comment.targets)
-      else void showTargets(comment.targets)
+      setDiscussionTargets(targets); setThreadId(id)
+      if (!keepTab) setWindowTab('comments')
+      const readonly = !!session.session && round !== session.session.round
+      const source = latestReview.current
+      const matchingDrafts = readonly ? [] : draftsRef.current.filter(draft => draft.documentId === source.id && draft.revision === source.revision && draft.fingerprint === source.snapshot.fingerprint && draft.body.length)
+      const sameTargets = targets.map(keyOf).sort().join('|')
+      const restored = matchingDrafts.find(draft => draft.replyTo === id)
+        ?? matchingDrafts.find(draft => !draft.replyTo && draft.basis === comment.basis && draft.targets.map(keyOf).sort().join('|') === sameTargets)
+      setComposer(restored ?? null)
+      if (docked) { setFocusMode(false); setPanelOpen(true) }
+      requestAnimationFrame(() => {
+        if (sequence === navigationSequence.current && followOrigin) graph.current?.focusTargets(targets)
+      })
+    } catch (error) {
+      if (sequence === navigationSequence.current) setNotice({ source: '定位评审意见失败：{error}', error: error instanceof Error ? error.message : '请重试' })
+    } finally {
+      if (sequence === navigationSequence.current) setNavigationBusy(false)
     }
-  }, [review, displayReview, scene.id, closeComposer, showTargets, stopFlow, taskBaseline, viewBaseline, docked])
+  }, [canNavigateReview, viewBaseline, taskBaseline, session.loadBaseline, session.loadSnapshot, session.session, displayReview, activeRound, docked, discussionTargets, position, scene.id, stopFlow])
+  const openThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target | Target[], followOrigin = true) => {
+    if (!canNavigateReview()) return
+    const candidates = followOrigin ? visibleComments : displayReview.comments
+    const queue = candidates.toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).map(comment => comment.id)
+    resetReviewNavigation(); setReviewQueue(queue.includes(id) ? queue : [id])
+    navigationRound.current = followOrigin ? session.session?.round ?? 1 : activeRound
+    discussionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setPoint(at)
+    if (!at) { setDocked(true); setPanelOpen(true); setFocusMode(false) }
+    void visitReviewItem(id, { targets: target ? Array.isArray(target) ? target : [target] : undefined, followOrigin, keepTab: false })
+  }, [canNavigateReview, visibleComments, displayReview.comments, resetReviewNavigation, visitReviewItem, activeRound, session.session?.round])
   const openCanvasThread = useCallback((id: string, at?: { x: number; y: number }, target?: Target) => openThread(id, at, target, false), [openThread])
+  function navigateReviewItem(direction: -1 | 1) {
+    if (!threadId || !discussionTargets || navigationBusy || docked && (!panelOpen || focusMode)) return false
+    const index = reviewQueue.indexOf(threadId)
+    const next = index >= 0 ? reviewQueue[index + direction] : undefined
+    if (!next) return false
+    void visitReviewItem(next)
+  }
   function startReview() {
-    if (!unresolved.length) return
-    const ordered = [...unresolved.filter(item => item.status === 'needs-review'), ...unresolved.filter(item => item.status === 'open')]
-    reviewQueue.current = ordered.map(item => item.id)
-    setSubmitting(false); setContinuous(!reviewBlocked); openThread(ordered[0].id)
+    const candidates = unresolved.length ? unresolved : review.comments
+    if (!candidates.length || !canNavigateReview()) return
+    const ordered = candidates.toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    resetReviewNavigation(); setReviewQueue(ordered.map(item => item.id))
+    navigationRound.current = session.session?.round ?? 1
+    setSubmitting(false); setContinuous(!reviewBlocked && unresolved.length > 0); setDocked(true); setPanelOpen(true); setFocusMode(false); setPoint(undefined)
+    void visitReviewItem(ordered[0].id, { keepTab: false })
   }
   function saveComposer(): string | null {
     if (historical || sessionBlocked) return '请回到当前版本并等待同步完成后保存'
@@ -700,6 +802,16 @@ export default function App() {
       replaceReview(next); remember({ ...composer, body: '' }); setThreadId(composer.replyTo ?? next.comments.at(-1)!.id)
       if (docked) { setTab('comments'); setFilter('all') }
       closeComposer(); setStatus(composer.replyTo ? '回复已保存。' : '批注已保存。')
+      return null
+    } catch (error) { return error instanceof Error ? error.message : '批注保存失败' }
+  }
+  function editDiscussion(commentId: string, body: string, from: string, replyId?: string): string | null {
+    if (historical || sessionBlocked) return '请回到当前版本并等待同步完成后保存'
+    if (replyId ? !editableDiscussion.replies.some(reply => reply.commentId === commentId && reply.replyId === replyId)
+      : !editableDiscussion.comments.includes(commentId)) return '只能修改本轮尚未提交的讨论内容'
+    try {
+      replaceReview(updateDiscussion(latestReview.current, commentId, body, from, replyId))
+      setStatus('讨论修改已保存。')
       return null
     } catch (error) { return error instanceof Error ? error.message : '批注保存失败' }
   }
@@ -714,6 +826,7 @@ export default function App() {
       setStatus('固定版本记录已导入历史，当前流程保持原版本。'); return false
     }
     const incoming = parseReview(payload)
+    if (!canNavigateReview()) return false
     let previous: ReviewDocument | undefined = latestReview.current.id === incoming.id ? latestReview.current : undefined
     if (!previous) {
       const saved = localStorage.getItem(STORAGE_PREFIX + incoming.id)
@@ -779,15 +892,18 @@ export default function App() {
   const reviewNext = useCallback((id: string, resolved: boolean) => {
     try {
       if (reviewBlocked) throw new Error(historical ? '历史流程只读，请回到当前版本复核。' : publicationPending ? '新版尚未发布，请等待代理发布后复核。' : '请等待会话同步完成后复核，避免确认尚未看到的回复。')
+      if (!canNavigateReview()) return
+      const previous = latestReview.current.comments.find(comment => comment.id === id)
       const next = setCommentStatus(latestReview.current, id, resolved ? 'resolved' : 'open')
       replaceReview(next)
-      if (!continuous) return
-      reviewQueue.current = reviewQueue.current.filter(item => item !== id)
-      const following = reviewQueue.current.find(item => next.comments.some(comment => comment.id === item && comment.status !== 'resolved'))
-      if (following) openThread(following)
+      if (!continuous || previous?.status === 'resolved') return
+      const index = reviewQueue.indexOf(id)
+      if (index < 0) return
+      const following = reviewQueue.slice(index + 1).find(item => next.comments.some(comment => comment.id === item && comment.status !== 'resolved'))
+      if (following) void visitReviewItem(following)
       else { setContinuous(false); setStatus(next.comments.some(comment => comment.status !== 'resolved') ? '本轮意见已逐条复核，仍需处理的意见已保留。' : '本轮意见已逐条复核，可单独确认整轮通过。') }
     } catch (error) { setNotice(error instanceof Error ? error.message : '复核状态保存失败') }
-  }, [reviewBlocked, historical, publicationPending, replaceReview, continuous, openThread])
+  }, [reviewBlocked, historical, publicationPending, replaceReview, continuous, reviewQueue, visitReviewItem, canNavigateReview])
   function archiveHistory() {
     const payload = JSON.stringify(history, null, 2)
     if (new TextEncoder().encode(payload).byteLength > 10 * 1024 * 1024) {
@@ -796,7 +912,7 @@ export default function App() {
     download(payload, 'logic-margin-record-history.json'); setHistory([])
   }
   async function generateFeedback(saveDrafts: boolean) {
-    if (historical) return
+    if (historical || !canNavigateReview()) return
     setSessionAction(true)
     try {
       let next = completeReview
@@ -832,7 +948,7 @@ export default function App() {
     finally { setSessionAction(false) }
   }
   async function approve() {
-    if (reviewBlocked) return
+    if (reviewBlocked || !canNavigateReview()) return
     setSessionAction(true)
     try {
       if (SESSION_ID) await session.finish('approval')
@@ -847,6 +963,7 @@ export default function App() {
   }
   function reviewRound() {
     if (historical || approved || sessionBlocked || sessionAction || (!hasFeedback && !unresolved.length && !canApprove)) return false
+    if (!canNavigateReview()) return false
     closeComposer(false)
     if (!hasFeedback && unresolved.length) startReview()
     else setSubmitting(true)
@@ -885,6 +1002,9 @@ export default function App() {
       showDiscussion: () => showInspection('comments'),
       showDetails: () => showInspection('detail'),
       showCode: () => showInspection('code'),
+      startReview,
+      previousReviewItem: () => navigateReviewItem(-1),
+      nextReviewItem: () => navigateReviewItem(1),
       toggleCodeLayout: () => {
         if (!codeShortcut('toggleCodeLayout')) return false
         changeCodeSplit(!codeSplit)
@@ -932,6 +1052,7 @@ export default function App() {
     review: completeReview, session: session.session, snapshots: session.snapshots, changes,
     threadId, continuous, historical, reviewBlocked, sessionBlocked, viewRound: activeRound,
     setThreadId, showTargets, showBaseline, openComposer, closeComposer, reviewNext,
+    editableDiscussion, editDiscussion,
   }
   const scopeButtons = <>
     <button className="button" onClick={() => { closeMenus(); openComposer([{ kind: 'scene', id: scene.id }]) }}>{t('批注此场景')}</button>
@@ -993,6 +1114,10 @@ export default function App() {
         <div className="graph-toolbar">
           <div className="scene-context"><h2 className="scene-title" title={`${scene.title} · ${scene.description}`}>{scene.title}</h2><label className="mobile-scene-select"><select aria-label={t('场景')} value={scene.id} onChange={event => switchScene(event.target.value)}>{displayReview.scenes.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label></div>
           <button className={`button panel-toggle ${panelOpen ? 'active' : ''}`} data-keep-composer {...shortcutProps('toggleInspector', t('评审面板'))} aria-label={review.comments.length ? t('评审面板 {count}', { count: review.comments.length }) : t('评审面板')} aria-expanded={panelOpen} aria-controls="node-inspector" onClick={toggleInspector}><MessageSquare size={14} /><span className="panel-label">{t('评审面板')}</span>{review.comments.length > 0 && <span className="panel-count">{review.comments.length}</span>}</button>
+          {!historical && reviewEntryCount > 0 && <button className="button review-start" data-keep-composer
+            {...shortcutProps('startReview', t('定位首条意见并打开讨论'))} aria-label={t(unresolved.length ? reviewBlocked ? '查看 {count} 条意见' : '开始复核 {count} 条意见' : '查看 {count} 条讨论', { count: reviewEntryCount })}
+            disabled={navigationBusy} onClick={startReview}><ListChecks size={15} /><span className="review-start-label">{t(reviewEntryLabel)}</span>
+            <span className="review-start-short">{t(unresolved.length ? reviewBlocked ? '查看' : '复核' : '讨论')}</span><span className="panel-count">{reviewEntryCount}</span></button>}
           <details className={`canvas-tools${compactCanvasTools ? ' workspace-menu is-compact' : ''}`} open={!compactCanvasTools}>
             <summary className="button" aria-label={t('画布工具')}><SlidersHorizontal size={15} />{t('工具')}{mode === 'select' && <span className="badge">{t('框选中')}</span>}<ChevronDown className="menu-chevron" size={12} aria-hidden="true" /></summary>
             <div className="canvas-tool-content" onClick={event => { if (compactCanvasTools && (event.target as Element).closest('button')) closeMenus() }}>
@@ -1036,7 +1161,7 @@ export default function App() {
         <div className="canvas-caption"><span className="selection-count">{selection.length ? t('已选 {count} 项', { count: selection.length }) : t('选择步骤或连线')}</span><span className="canvas-help">{baselinePlanning ? t('基线评审 · 提出改造要求') : viewBaseline ? t('基线 B · 原版流程') : baseline && sessionChanges ? t('{before} → {after} · 新增 {added}，修改 {changed}，移除 {removed}', { before: baseline.label, after: session.session ? roundLabel(session.session.round) : t('当前'), added: changes.added.length, changed: changes.changed.length, removed: changes.removed.length }) : t('滚轮平移，Ctrl/⌘＋滚轮缩放。更多操作见图例')}</span><span>{t('{count} 条待处理意见', { count: unresolved.length })}</span></div>
       </main>
       <aside id="node-inspector" className={`inspector ${panelOpen ? 'is-open' : ''}${windowDocked ? ' node-window-docked' : ''}`} aria-label={t('步骤详情与批注')}>
-        <div className="inspector-tabs" role="group" aria-label={t('评审面板内容')} data-keep-composer><button className={tab === 'comments' ? 'active' : ''} {...shortcutProps('showDiscussion', t('讨论'))} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>{t('讨论 {count}', { count: review.comments.length })}</button><button className={tab === 'detail' ? 'active' : ''} {...shortcutProps('showDetails', t('详情'))} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>{t('详情')}</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>{t('草稿 {count}', { count: drafts.length })}</button>}<button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>{t('变化')}</button><button className="button icon-button" aria-label={t('收起侧栏')} onClick={() => { setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
+        <div className="inspector-tabs" role="group" aria-label={t('评审面板内容')} data-keep-composer><button className={tab === 'comments' ? 'active' : ''} {...shortcutProps('showDiscussion', t('讨论'))} aria-pressed={tab === 'comments'} onClick={() => openPanel('comments')}>{t('讨论 {count}', { count: review.comments.length })}</button><button className={tab === 'detail' ? 'active' : ''} {...shortcutProps('showDetails', t('详情'))} aria-pressed={tab === 'detail'} onClick={() => openPanel('detail')}>{t('详情')}</button>{(drafts.length > 0 || tab === 'drafts') && <button className={tab === 'drafts' ? 'active' : ''} aria-pressed={tab === 'drafts'} onClick={() => openPanel('drafts')}>{t('草稿 {count}', { count: drafts.length })}</button>}<button className={tab === 'changes' ? 'active' : ''} aria-pressed={tab === 'changes'} onClick={() => openPanel('changes')}>{t('变化')}</button><button className="button icon-button" aria-label={t('收起侧栏')} onClick={() => { if (!canNavigateReview()) return; setPanelOpen(false); if (docked) closeComposer() }}><X size={16} /></button></div>
         <div className="inspector-body" hidden={windowDocked}>
           {tab === 'changes' && !baseline && <div className="empty-state">
             {hasTaskBaseline || previousRound >= 1 ? <><p role={comparisonError ? 'alert' : 'status'}>{comparisonError ? translateError(comparisonError, locale) : t('正在读取修改前流程…')}</p><button className="button" onClick={() => void loadComparison()}>{t('重新读取')}</button></>
@@ -1056,11 +1181,10 @@ export default function App() {
             }} />}
           </>}
           {tab === 'detail' && <>
-            {!selection.length ? <div className="empty-state"><MousePointer2 size={24} /><h3>{t('选择一个步骤')}</h3><p>{t('点击图中步骤或连线，查看规则与源码依据。')}</p></div> : <div className="inspector-heading"><span className="project-label">{selectedNode ? t(kindLabels[selectedNode.kind]) : selectedEdge ? t('连线与条件') : t('已选 {count} 项', { count: selection.length })}</span><h3 className="panel-title">{selectedNode?.title ?? selectedEdge?.label ?? t('这一段流程')}</h3></div>}
+            {!selection.length ? <div className="empty-state"><MousePointer2 size={24} /><h3>{t('选择一个步骤')}</h3><p>{t('点击图中步骤或连线，查看规则说明。')}</p></div> : <div className="inspector-heading"><span className="project-label">{selectedNode ? t(kindLabels[selectedNode.kind]) : selectedEdge ? t('连线与条件') : t('已选 {count} 项', { count: selection.length })}</span><h3 className="panel-title">{selectedNode?.title ?? selectedEdge?.label ?? t('这一段流程')}</h3></div>}
             {selectedNode && <>
               {selectedNode.detail && selectedNode.detail !== selectedNode.summary && <section className="detail-section"><h3>{t('规则说明')}</h3><p>{selectedNode.detail}</p></section>}
               {(selectedNode.input || selectedNode.output) && <details className="detail-section data-details"><summary>{t('输入与输出')}</summary><div className="state-change"><div><span>{t('输入')}</span><strong>{selectedNode.input || t('未提供')}</strong></div><ArrowRight size={16} /><div><span>{t('输出')}</span><strong>{selectedNode.output || t('未提供')}</strong></div></div></details>}
-              {!!selectedNode.evidence.length && <details className="evidence"><summary>{t('源码依据 · {count} 处', { count: selectedNode.evidence.length })}</summary>{selectedNode.evidence.map(item => <div key={`${item.path}:${item.startLine}`} className="source-item"><code>{item.symbol}</code><small>{item.path}:{item.startLine}-{item.endLine}</small></div>)}</details>}
             </>}
             {selectedEdge && <section className="detail-section"><h3>{t('流转条件')}</h3><p>{selectedEdge.detail}</p><p>{displayTargetLabel(displayReview, { kind: 'node', id: selectedEdge.source })} → {displayTargetLabel(displayReview, { kind: 'node', id: selectedEdge.target })}</p></section>}
             {selection.length > 1 && <div className="selection-list">{selection.map(target => <div className="selection-item" key={keyOf(target)}><span>{displayTargetLabel(displayReview, target)}</span><button className="button icon-button" aria-label={t('移除选择：{label}', { label: displayTargetLabel(displayReview, target) })} onClick={() => setSelection(current => current.filter(item => keyOf(item) !== keyOf(target)))}><X size={13} /></button></div>)}</div>}
@@ -1068,7 +1192,7 @@ export default function App() {
           </>}
           {tab === 'comments' && <>
             {!!review.comments.length && <div className="review-navigation"><p>{pending.length > 0 ? t('{count} 条尚未确认 · {pending} 条可提交', { count: unresolved.length, pending: pending.length }) : t('{count} 条尚未确认', { count: unresolved.length })}</p>{!continuous && !reviewBlocked && unresolved.length > 0 && <button className="button" onClick={startReview}>{t('开始逐条复核')}</button>}{continuous && <button className="button subtle" onClick={() => setContinuous(false)}>{t('退出连续复核')}</button>}</div>}
-            {!!review.comments.length && <div className="comment-filter" aria-label={t('筛选批注')}>{(['all', 'open', 'needs-review', 'resolved'] as const).map(item => <button key={item} className={activeFilter === item ? 'active' : ''} aria-pressed={activeFilter === item} onClick={() => setFilter(item)}>{t(item === 'all' ? '全部' : statusLabels[item])} <span className="filter-count">{commentCounts[item]}</span></button>)}</div>}
+            {!!review.comments.length && <div className="comment-filter" aria-label={t('筛选批注')}>{(['all', 'open', 'needs-review', 'resolved'] as const).map(item => <button key={item} className={activeFilter === item ? 'active' : ''} aria-pressed={activeFilter === item} onClick={() => { if (canNavigateReview()) setFilter(item) }}>{t(item === 'all' ? '全部' : statusLabels[item])} <span className="filter-count">{commentCounts[item]}</span></button>)}</div>}
             {!visibleComments.length && <div className="empty-state"><MessageSquare size={24} /><h3>{review.comments.length ? t('此状态下暂无批注') : t('让意见落在具体流程上')}</h3><p>{t('在图中选择步骤、连线或一段流程，也可以批注遗漏的场景。')}</p></div>}
             <CommentThreads {...threadProps} comments={visibleComments} openThread={openThread} />
             {SESSION_ID ? !!session.session?.history.length && <details className="record-list"><summary>{t('会话评审记录 · {count}', { count: session.session.history.length })}</summary>{session.session.history.slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? t('已提交的意见包') : t('整轮通过记录')}</strong><small>{roundLabel(record.round)} · {record.revision} · {new Date(record.createdAt).toLocaleString(locale)}</small><button className="button" onClick={() => void downloadRecord(record.id)}>{t('下载固定记录')}</button></div>)}</details> : !!history.filter(record => record.review.id === review.id).length && <details className="record-list"><summary>{t('本地评审记录 · {count}', { count: history.filter(record => record.review.id === review.id).length })}</summary>{history.filter(record => record.review.id === review.id).slice().reverse().map(record => <div className="draft-entry" key={record.id}><strong>{record.kind === 'logic-margin-feedback' ? t('意见包 · 待交给代理') : t('整轮通过记录')}</strong><small>{record.review.revision} · {new Date(record.createdAt).toLocaleString(locale)}</small><button className="button" onClick={() => download(JSON.stringify(record, null, 2), `${filename(record.review.id)}-${record.id}.json`)}>{t('下载固定记录')}</button></div>)}</details>}
@@ -1076,13 +1200,17 @@ export default function App() {
           {tab === 'drafts' && <section className="draft-list"><p className="muted">{t('未保存的内容自动保留。旧版本草稿可导出核对。')}</p>{!drafts.length && <div className="empty-state"><p>{t('没有未保存的意见。')}</p></div>}{drafts.map(draft => {
             const valid = validDrafts.some(item => item.key === draft.key)
             return <article className="draft-entry" key={draft.key}><strong>{draft.replyTo ? t('讨论回复 · ') : ''}{(valid ? draft.targets.map(target => displayTargetLabel(draft.basis === 'baseline' && taskBaseline ? taskBaseline : review, target)) : draft.labels).join(' · ')}</strong><small>{draft.revision}{!valid && t(' · 旧版本或原目标不可用')}</small><p>{draft.body}</p>
-              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setDiscussionTargets(draft.targets); setWindowTab('comments'); setDocked(true); setPanelOpen(true) }}>{t('继续编辑')}</button>}
+              <div className="tool-group">{valid && <button className="button" disabled={historical} onClick={() => { if (!canNavigateReview()) return; if (draft.basis === 'baseline') void showBaseline(draft.targets); else void showTargets(draft.targets); setComposer(draft); setDiscussionTargets(draft.targets); setWindowTab('comments'); setDocked(true); setPanelOpen(true) }}>{t('继续编辑')}</button>}
                 <details className="draft-options"><summary className="button subtle">{t('更多操作')}</summary><div><button className="button" onClick={() => download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`)}>{t('导出这份草稿')}</button><button className="button subtle" onClick={() => { download(JSON.stringify(draft, null, 2), `logic-margin-draft-${filename(draft.revision)}.json`); remember({ ...draft, body: '' }) }}>{t('导出并移除草稿')}</button></div></details>
               </div>
             </article>
           })}{drafts.length > 1 && <button className="button" onClick={() => download(JSON.stringify(drafts, null, 2), 'logic-margin-drafts.json')}>{t('导出全部草稿')}</button>}</section>}
         </div>
         <CommentComposer draft={composer ? { ...composer, labels: composer.targets.map(target => displayTargetLabel(composer.basis === 'baseline' && taskBaseline ? taskBaseline : review, target)) } : null} docked={docked} position={position} onInteract={stopFlow}
+          navigation={windowTargets && threadId && reviewQueue.includes(threadId) ? {
+            index: reviewQueue.indexOf(threadId), total: reviewQueue.length, busy: navigationBusy,
+            onPrevious: () => navigateReviewItem(-1), onNext: () => navigateReviewItem(1),
+          } : undefined}
           inspection={windowTargets ? {
             key: JSON.stringify([displayReview.revision, displayReview.snapshot.fingerprint, viewBaseline, activeRound, windowTargets]),
             title: windowTargets.length > 1 ? t('所选 {count} 项 · {labels}', { count: windowTargets.length, labels: windowTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、') }) : windowTargets.map(target => displayTargetLabel(displayReview, target)).join('') || t('选择一个步骤'),
@@ -1095,12 +1223,12 @@ export default function App() {
             key: discussionTargets.map(keyOf).join('|'),
             title: discussionTargets.map(target => displayTargetLabel(displayReview, target)).join(locale === 'en' ? ' · ' : '、') || t('选择一个步骤'),
             context: `${viewBaseline ? `${t('基线 B')} · ` : session.session ? `${roundLabel(activeRound)} · ` : ''}${displayReview.revision}${historical ? t(' · 只读') : ''}`,
-            content: <>{historical && <p className="muted">{t('历史流程只读，讨论显示当前处理状态。')}</p>}{!discussionComments.length && <p className="muted">{t(discussionTargets.length ? '这个步骤还没有批注。' : '选择步骤后，可在这里继续查看讨论、详情和代码。')}</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" chronological comments={discussionComments} openComposer={openDiscussionComposer} continuous={false} />{!!discussionTargets.length && !composer && !historical && <button className="button node-window-new-comment" {...shortcutProps('addComment', t('添加新批注'))} disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>{t('添加新批注')}</button>}</>,
+            content: <>{historical && <p className="muted">{t('历史流程只读，讨论显示当前处理状态。')}</p>}{!discussionComments.length && <p className="muted">{t(discussionTargets.length ? '这个步骤还没有批注。' : '选择步骤后，可在这里继续查看讨论、详情和代码。')}</p>}<CommentThreads {...threadProps} idPrefix="discussion-thread" comments={discussionComments} openComposer={openDiscussionComposer} continuous={continuous} />{!!discussionTargets.length && !composer && !historical && <button className="button node-window-new-comment" {...shortcutProps('addComment', t('添加新批注'))} disabled={sessionBlocked} onClick={() => openDiscussionComposer(discussionTargets)}>{t('添加新批注')}</button>}</>,
             replyLabel: composer?.replyTo ? t('回复意见 #{number}', { number: review.comments.findIndex(comment => comment.id === composer.replyTo) + 1 }) : undefined,
             onCollapse: () => closeComposer(false),
           } : undefined}
           onChange={body => { if (composer) { const next = { ...composer, body, updatedAt: new Date().toISOString() }; setComposer(next); remember(next) } }} onSave={saveComposer}
-          onClose={() => { if (docked) setPanelOpen(false); if (discussionTargets) closeDiscussion(); else closeComposer() }}
+          onClose={() => { if (!canNavigateReview()) return; if (docked) setPanelOpen(false); if (discussionTargets) closeDiscussion(); else closeComposer() }}
           onToggle={() => { setDocked(current => !current); setPanelOpen(!docked); if (!docked) setFocusMode(false) }} />
       </aside>
     </div>

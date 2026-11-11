@@ -9,7 +9,8 @@ func edgeLogic(e Object) []any { return fields(e, "sceneId", "source", "target",
 func evidenceLogic(n Object) []any {
 	a := []any{}
 	for _, e := range objects(n["evidence"]) {
-		a = append(a, fields(e, "path", "symbol", "startLine", "endLine", "digest"))
+		// Line offsets may move after unrelated edits without changing the cited code.
+		a = append(a, fields(e, "path", "symbol", "digest"))
 	}
 	return a
 }
@@ -157,7 +158,8 @@ func rebaseReview(before, after Object) Object {
 		if c["basis"] == "baseline" {
 			doc = baseline
 		}
-		if revisionChanged || rev != after["revision"] || scopeChanged || newAgent || (c["status"] != "resolved" && !allTargetsExist(doc, c)) {
+		confirmed := c["status"] == "resolved" && present(c, "reviewedRevision")
+		if (!confirmed && (revisionChanged || rev != after["revision"])) || scopeChanged || newAgent || (c["status"] != "resolved" && !allTargetsExist(doc, c)) {
 			merged["status"] = "needs-review"
 		}
 		comments = append(comments, merged)
@@ -175,7 +177,8 @@ func rebaseReview(before, after Object) Object {
 		if c["basis"] == "baseline" {
 			doc = baseline
 		}
-		if rev != after["revision"] || (c["status"] != "resolved" && !allTargetsExist(doc, c)) {
+		confirmed := c["status"] == "resolved" && present(c, "reviewedRevision")
+		if !confirmed && (rev != after["revision"] || (c["status"] != "resolved" && !allTargetsExist(doc, c))) {
 			c["status"] = "needs-review"
 		}
 		comments = append(comments, c)
@@ -379,6 +382,33 @@ func commentOrigin(s, c Object) Object {
 	}
 	return nil
 }
+func discussionEditPermissions(s, review Object) (map[string]bool, map[string]bool) {
+	comments, replies := map[string]bool{}, map[string]bool{}
+	frozenComments, frozenReplies := map[string]bool{}, map[string]bool{}
+	for _, record := range objects(s["history"]) {
+		for _, c := range objects(obj(record["review"], "")["comments"]) {
+			frozenComments[str(c["id"])] = true
+			for _, reply := range optionalObjects(c["replies"]) {
+				frozenReplies[stringify([]any{c["id"], reply["id"]})] = true
+			}
+		}
+	}
+	currentRound := func(item Object, key string) bool {
+		if present(item, key) {
+			return equal(item[key], s["round"])
+		}
+		return num(s["round"]) == 1
+	}
+	for _, c := range objects(review["comments"]) {
+		id := str(c["id"])
+		comments[id] = c["revision"] == review["revision"] && currentRound(c, "originRound") && !frozenComments[id]
+		for _, reply := range optionalObjects(c["replies"]) {
+			key := stringify([]any{c["id"], reply["id"]})
+			replies[key] = reply["author"] == "reviewer" && reply["revision"] == review["revision"] && currentRound(reply, "round") && !frozenReplies[key]
+		}
+	}
+	return comments, replies
+}
 func currentSession(s Object) Object {
 	r := copyObject(obj(s["review"], ""))
 	r["comments"] = listMap(r["comments"], func(c Object) Object { p := copyObject(c); p["status"] = "open"; return p })
@@ -406,6 +436,8 @@ func currentSession(s Object) Object {
 		return Object{"id": record["id"], "kind": record["kind"], "createdAt": record["createdAt"], "round": n, "revision": r["revision"], "fingerprint": obj(r["snapshot"], "")["fingerprint"]}
 	})
 	submitted, origins := []any{}, []any{}
+	editableComments, editableReplies := []any{}, []any{}
+	commentPermissions, replyPermissions := discussionEditPermissions(s, r)
 	for _, c := range objects(r["comments"]) {
 		if !pending[str(c["id"])] {
 			submitted = append(submitted, c["id"])
@@ -414,8 +446,17 @@ func currentSession(s Object) Object {
 			origin["commentId"] = c["id"]
 			origins = append(origins, origin)
 		}
+		if commentPermissions[str(c["id"])] {
+			editableComments = append(editableComments, c["id"])
+		}
+		for _, reply := range optionalObjects(c["replies"]) {
+			if replyPermissions[stringify([]any{c["id"], reply["id"]})] {
+				editableReplies = append(editableReplies, Object{"commentId": c["id"], "replyId": reply["id"]})
+			}
+		}
 	}
 	out["submittedCommentIds"] = submitted
 	out["commentOrigins"] = origins
+	out["editableDiscussion"] = Object{"comments": editableComments, "replies": editableReplies}
 	return out
 }

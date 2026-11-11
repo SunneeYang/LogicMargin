@@ -22,6 +22,7 @@ func computeNativeLayout(ctx context.Context, input LayoutInput) (LayoutResult, 
 	visibleSizes := sizes
 	nodes, edges := input.Nodes, input.Edges
 	var routeIDs map[string]string
+	independent := false
 	if input.Reference != nil {
 		combined := make(map[string]PlanNode)
 		joint := make(map[string]Size)
@@ -40,6 +41,7 @@ func computeNativeLayout(ctx context.Context, input LayoutInput) (LayoutResult, 
 					Height: math.Max(nativeEstimatedHeight(node), math.Max(measured.Height, priorSize.Height))}
 			}
 		}
+		independent = len(input.Nodes) > 0 && len(input.Reference.Nodes) > 0 && len(combined) == len(input.Nodes)+len(input.Reference.Nodes)
 		nodes = make([]PlanNode, 0, len(combined))
 		for _, node := range combined {
 			nodes = append(nodes, node)
@@ -74,9 +76,16 @@ func computeNativeLayout(ctx context.Context, input LayoutInput) (LayoutResult, 
 		}
 		sizes = joint
 	}
-	placed, handled, err := nativeAlignedComparisonPositions(ctx, input, nodes, edges, sizes)
-	if err == nil && !handled {
-		placed, handled, err = nativeAuthoredPositions(ctx, nodes, edges, sizes)
+	var placed []nativeNode
+	var handled bool
+	var err error
+	if independent {
+		placed, handled, err = nativeAuthoredPositions(ctx, input.Nodes, input.Edges, visibleSizes)
+	} else {
+		placed, handled, err = nativeAlignedComparisonPositions(ctx, input, nodes, edges, sizes)
+		if err == nil && !handled {
+			placed, handled, err = nativeAuthoredPositions(ctx, nodes, edges, sizes)
+		}
 	}
 	if err != nil || !handled {
 		return LayoutResult{}, handled, err
@@ -390,8 +399,22 @@ func nativeAlignedComparisonPositions(ctx context.Context, input LayoutInput, no
 
 func nativeGridPositions(ctx context.Context, nodes []PlanNode, edges []PlanEdge, sizes map[string]Size) ([]nativeNode, bool, error) {
 	columns, rows := make(map[float64]float64), make(map[float64]float64)
+	byID := make(map[string]PlanNode, len(nodes))
+	linkedColumns := make(map[float64]map[float64]bool)
+	returningColumns := make(map[float64]map[float64]bool)
+	verticalTargets := make(map[string]bool)
+	spines, exits := make(map[float64]bool), make(map[float64]bool)
+	outgoing := make(map[string]bool)
+	var vertical []PlanEdge
 	dimensions := make([]Size, len(nodes))
 	for i, node := range nodes {
+		byID[node.ID] = node
+		linkedColumns[node.Position.X] = make(map[float64]bool)
+		returningColumns[node.Position.X] = make(map[float64]bool)
+		if _, ok := exits[node.Position.X]; !ok {
+			exits[node.Position.X] = true
+		}
+		exits[node.Position.X] = exits[node.Position.X] && node.Kind == "failure"
 		size := sizes[node.ID]
 		if size.Width == 0 {
 			size.Width = 248
@@ -413,6 +436,28 @@ func nativeGridPositions(ctx context.Context, nodes []PlanNode, edges []PlanEdge
 			return nil, true, err
 		}
 		largest = math.Max(largest, nativeMeasureLabel(edge.Label).height+16)
+		source, target := byID[edge.Source], byID[edge.Target]
+		linkedColumns[source.Position.X][target.Position.X] = true
+		linkedColumns[target.Position.X][source.Position.X] = true
+		outgoing[edge.Source] = true
+		if source.Position.Y >= target.Position.Y {
+			returningColumns[source.Position.X][target.Position.X] = true
+			returningColumns[target.Position.X][source.Position.X] = true
+		}
+		if source.Kind != "failure" && target.Kind != "failure" && source.Position.X == target.Position.X && source.Position.Y < target.Position.Y {
+			vertical = append(vertical, edge)
+			verticalTargets[edge.Target] = true
+		}
+	}
+	for _, edge := range vertical {
+		if verticalTargets[edge.Source] {
+			spines[byID[edge.Source].Position.X] = true
+		}
+	}
+	for _, node := range nodes {
+		if outgoing[node.ID] {
+			exits[node.Position.X] = false
+		}
 	}
 	rowGap := math.Max(120, largest*2+32)
 	place := func(values map[float64]float64, gap float64) {
@@ -428,7 +473,53 @@ func nativeGridPositions(ctx context.Context, nodes []PlanNode, edges []PlanEdge
 			x += dimension + gap
 		}
 	}
-	place(columns, 264)
+	keys := make([]float64, 0, len(columns))
+	for column := range columns {
+		keys = append(keys, column)
+	}
+	sort.Float64s(keys)
+	x, laneWidth := 24.0, 0.0
+	var laneColumns []float64
+	laneRows := make(map[float64]bool)
+	for _, column := range keys {
+		if err := ctx.Err(); err != nil {
+			return nil, true, err
+		}
+		conflict := false
+		laneHasSpine, laneHasExit := false, false
+		for _, prior := range laneColumns {
+			laneHasSpine = laneHasSpine || spines[prior]
+			laneHasExit = laneHasExit || exits[prior]
+		}
+		conflict = laneHasSpine && exits[column] || spines[column] && laneHasExit
+		for _, node := range nodes {
+			if node.Position.X == column && laneRows[node.Position.Y] {
+				conflict = true
+			}
+		}
+		for _, prior := range laneColumns {
+			if linkedColumns[column][prior] {
+				continuesSpine := spines[column] && spines[prior]
+				extendsExit := !laneHasSpine && !spines[column] && (exits[column] || exits[prior])
+				conflict = conflict || returningColumns[column][prior] || !continuesSpine && !extendsExit
+			}
+		}
+		if conflict {
+			x += laneWidth + 264
+			laneWidth = 0
+			laneColumns = nil
+			clear(laneRows)
+		}
+		width := columns[column]
+		columns[column] = x
+		laneWidth = math.Max(laneWidth, width)
+		laneColumns = append(laneColumns, column)
+		for _, node := range nodes {
+			if node.Position.X == column {
+				laneRows[node.Position.Y] = true
+			}
+		}
+	}
 	place(rows, rowGap)
 	placed := make([]nativeNode, len(nodes))
 	for i, node := range nodes {
@@ -492,9 +583,9 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 	}
 	endpoints := make([]endpoint, len(edges))
 	widest, rowHeight := 120.0, 24.0
-	outgoing := make(map[string]bool, len(edges))
+	outgoing := make(map[string]int, len(edges))
 	for _, edge := range edges {
-		outgoing[edge.Source] = true
+		outgoing[edge.Source]++
 	}
 	for i, edge := range edges {
 		if err := ctx.Err(); err != nil {
@@ -507,16 +598,18 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 		}
 		source, target := &placed[si], &placed[ti]
 		returning := target.Position.Y < source.Position.Y || si == ti
-		sideExit := target.kind == "failure" || target.kind == "result" && target.Position.X != source.Position.X && !outgoing[target.id]
-		skipForward := false
-		if !returning && source.Position.X == target.Position.X {
+		sideExit := target.kind == "failure" || target.kind == "result" && target.Position.X != source.Position.X && outgoing[target.id] == 0
+		skipsStage := false
+		if !returning {
 			for _, node := range placed {
 				if node.Position.X == source.Position.X && node.Position.Y > source.Position.Y && node.Position.Y < target.Position.Y {
-					skipForward = true
+					skipsStage = true
 					break
 				}
 			}
 		}
+		skipForward := source.Position.X == target.Position.X && skipsStage
+		sideBypass := source.Position.X != target.Position.X && skipsStage && outgoing[source.id] == 1
 		kind := "flow"
 		if sideExit {
 			kind = "exception"
@@ -525,6 +618,11 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 		}
 		ss, ts := "right", "left"
 		switch {
+		case sideBypass:
+			ss, ts = "right", "right"
+			if source.Position.X < target.Position.X {
+				ss, ts = "left", "left"
+			}
 		case skipForward:
 			ss, ts = "right", "right"
 		case kind == "return" && source.Position.X == target.Position.X:
@@ -581,11 +679,17 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 					ports = append(ports, i)
 				}
 			}
+			hasFeedback := false
+			for _, index := range ports {
+				port := node.ports[index]
+				hasFeedback = hasFeedback || port.Type == "target" && placed[port.partner].Position.Y >= node.Position.Y
+			}
 			sort.SliceStable(ports, func(i, j int) bool {
 				a, b := node.ports[ports[i]], node.ports[ports[j]]
 				one, two := placed[a.partner].Position, placed[b.partner].Position
 				horizontalSide := side == "left" || side == "right"
-				oneReturns, twoReturns := horizontalSide && a.Type == "target", horizontalSide && b.Type == "target"
+				oneReturns := horizontalSide && a.Type == "target" && (hasFeedback || one.X == node.Position.X)
+				twoReturns := horizontalSide && b.Type == "target" && (hasFeedback || two.X == node.Position.X)
 				if oneReturns != twoReturns {
 					return !oneReturns
 				}
@@ -623,6 +727,20 @@ func nativeRouteGraphEdges(ctx context.Context, placed []nativeNode, edges []Pla
 			}
 			for i, index := range ports {
 				node.ports[index].Offset = 16 + (span-32)*float64(i+1)/float64(len(ports)+1)
+			}
+			if (side == "left" || side == "right") && len(ports) == 1 && !hasFeedback {
+				port := &node.ports[ports[0]]
+				point := placed[port.partner].Position
+				if point.X != node.Position.X && point.Y != node.Position.Y {
+					fraction := 0.5
+					if port.Type == "source" && point.Y > node.Position.Y {
+						fraction = 2.0 / 3.0
+					} else if port.Type == "target" && point.Y < node.Position.Y {
+						fraction = 1.0 / 3.0
+					}
+					// Explicit rounding preserves JavaScript's separate multiplication and addition.
+					port.Offset = 16 + float64((span-32)*fraction)
+				}
 			}
 			gutterOrder := make([]int, 0, len(ports))
 			fromBelow := func(index int) bool {

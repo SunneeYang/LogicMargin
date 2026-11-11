@@ -96,6 +96,8 @@ export function comparisonLayout(
       height: Math.max(estimatedHeight(node), measured?.height ?? 0, priorSize?.height ?? 0),
     })
   }
+  const independent = nodes.length > 0 && referenceNodes.length > 0
+    && combinedNodes.size === nodes.length + referenceNodes.length
   const combinedEdges = new Map<string, ReviewEdge>()
   for (const edge of [...edges, ...referenceEdges]) {
     const key = edgeIdentity(edge)
@@ -111,7 +113,10 @@ export function comparisonLayout(
   const unionNodes = [...combinedNodes.values()].sort((a, b) => compareGraphIds(a.id, b.id))
   // The comparison needs union slots, but only the visible side needs line routes.
   const aligned = alignedComparisonPositions(nodes, edges, referenceNodes, referenceEdges, unionNodes, unionEdges, jointSizes)
-  const { nodes: union, usesAuthoredPositions: authored } = aligned
+  // Without common anchors, the other version must not rearrange the visible flow.
+  const { nodes: union, usesAuthoredPositions: authored } = independent
+    ? layoutNodePositions(nodes, edges, sizes)
+    : aligned
     ? { nodes: aligned, usesAuthoredPositions: true }
     : layoutNodePositions(unionNodes, unionEdges, jointSizes)
   const placed = new Map<string, LayoutNode>()

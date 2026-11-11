@@ -34,7 +34,7 @@ export interface GraphCanvasProps {
   nodeAppearance: NodeAppearance
   onNodeAppearanceChange: (appearance: NodeAppearance) => void
   onOpenComposer: (targets: Target[], point?: Point) => void
-  onOpenInspection: (targets: Target[], point?: Point, tab?: 'comments' | 'detail') => void
+  onOpenInspection: (targets: Target[], point?: Point) => void
   onOpenThread: (commentId: string, point?: Point, target?: Target) => void
   onViewportChange?: () => void
   readOnly?: boolean
@@ -456,11 +456,14 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     onOpenComposer(targets, point)
   }, [readOnly, setSelection, onOpenComposer])
 
+  // Window changes must not rebuild nodes during React Flow's selection update.
+  const commentActions = useRef({ onOpenThread, onOpenInspection })
+  commentActions.current = { onOpenThread, onOpenInspection }
   const openNodeComment = useCallback((target: Target, point: Point) => {
     const latest = commentIndex.latest.get(keyOf(target))
-    if (latest) onOpenThread(latest, point, target)
-    else onOpenInspection([target], point)
-  }, [commentIndex, onOpenThread, onOpenInspection])
+    if (latest) commentActions.current.onOpenThread(latest, point, target)
+    else commentActions.current.onOpenInspection([target], point)
+  }, [commentIndex])
 
   const openContextComment = useCallback((target: Target, point: Point) => {
     if (readOnly) openNodeComment(target, point)
@@ -528,7 +531,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection, t, locale])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, t, locale])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
@@ -624,7 +627,8 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       const canvas = canvasRef.current?.getBoundingClientRect()
       const flow = flowRef.current
       if (!rect || !canvas || !flow || !layoutReady.current) return
-      const top = canvas.top + 12
+      const actions = canvasRef.current?.querySelector('.canvas-selection-actions')?.getBoundingClientRect()
+      const top = Math.max(canvas.top, actions?.height ? actions.bottom : canvas.top) + 12
       const dy = rect.top < top ? top - rect.top : rect.bottom > bottom - 12 ? Math.max(top - rect.top, bottom - 12 - rect.bottom) : 0
       if (dy) { const viewport = flow.getViewport(); void flow.setViewport({ ...viewport, y: viewport.y + dy }, { duration: 0 }).then(saveViewport) }
     },
@@ -732,7 +736,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     {!!selection.length && <div className={`canvas-selection-actions${selection.length === 1 && selection[0].kind === 'node' ? ' is-single-node' : ''}`}>
       {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer {...shortcutProps('showDetails', t('查看详情'))} onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
-        onOpenInspection(selection, { x: rect.left, y: rect.bottom }, 'detail')
+        onOpenInspection(selection, { x: rect.left, y: rect.bottom })
       }}><Info size={14} />{t('查看详情')}</button>}
       {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />{t('聚焦关联流程')}</button>}
       {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" {...shortcutProps('addComment', t('批注所选（{count}）', { count: selection.length }))} onClick={event => {

@@ -15,7 +15,7 @@ test('one node entry opens chronological discussions with new comments at the en
   await expect(node.getByRole('button')).toHaveCount(1)
   await node.getByRole('button').click()
   const window = page.locator('[data-composer][data-state="open"]')
-  await expect(window.getByRole('tab', { name: '讨论', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(window.getByRole('tab', { name: '详情与讨论', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(window.locator('.comment-body')).toHaveText(['最初的批注', '后来的批注'])
   await expect(window.getByLabel('问题与预期行为')).toHaveCount(0)
   await window.getByRole('button', { name: '添加新批注', exact: true }).click()
@@ -49,7 +49,7 @@ for (const mode of ['light', 'dark']) test(`glass ${mode} reading window shields
     context.fillRect(0, 0, 1, 1)
     return context.getImageData(0, 0, 1, 1).data[3] / 255
   })
-  for (const tab of ['讨论', '详情']) {
+  for (const tab of ['详情与讨论', '代码 diff']) {
     await window.getByRole('tab', { name: tab, exact: true }).click()
     expect(await opacity()).toBeGreaterThanOrEqual(.9)
   }

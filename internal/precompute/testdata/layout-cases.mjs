@@ -18,6 +18,26 @@ export function layoutCases() {
   const afterLanes = [node('a', 0, 0), node('b', 600, 360), node('c', 0, 360)]
   const laneEdges = [edge('ab', 'a', 'b'), edge('ac', 'a', 'c')]
   cases.push({ name: 'comparison-swapped-lanes', input: input(beforeLanes, laneEdges, [], { nodes: afterLanes, edges: laneEdges }), authored: false })
+  const placeholder = [node('previous-placeholder')]
+  const independentFlow = [node('entry'), node('gate', 0, 210, 'decision'), node('work', 0, 420), node('done', 0, 630, 'result'), node('rejected', 480, 420, 'failure')]
+  const independentEdges = [edge('entry-gate', 'entry', 'gate'), edge('gate-work', 'gate', 'work'), edge('work-done', 'work', 'done'), edge('reject', 'gate', 'rejected'), edge('retry', 'work', 'gate')]
+  cases.push({ name: 'comparison-disjoint-current', input: input(independentFlow, independentEdges, [], { nodes: placeholder, edges: [] }), authored: true })
+  cases.push({ name: 'comparison-disjoint-placeholder', input: input(placeholder, [], [], { nodes: independentFlow, edges: independentEdges }), authored: false })
+  const compactNodes = [[0, 0], [0, 210], [-450, 420], [0, 420], [450, 630], [0, 630],
+    [0, 840], [-400, 1050], [400, 1050], [0, 1260]].map(([x, y], i) => node(`step-${i}`, x, y))
+  const compactEdges = [[0, 1], [1, 2], [1, 3], [3, 4], [3, 5], [5, 6], [6, 7], [6, 8], [7, 6], [7, 9], [8, 9]]
+    .map(([a, b], i) => edge(`link-${i}`, `step-${a}`, `step-${b}`))
+  cases.push({ name: 'compact-branch-lanes', input: input(compactNodes, compactEdges), authored: true })
+  cases.push({ name: 'compact-comparison-branch-lanes', input: input(compactNodes, compactEdges, [], { nodes: compactNodes.toReversed(), edges: compactEdges.toReversed() }), authored: true })
+  const joinedNodes = [[0, 0], [-650, 210], [0, 210], [-600, 420], [0, 420], [-150, 630],
+    [600, 420], [900, 630], [300, 840], [850, 1050], [300, 1050], [-200, 1260],
+    [300, 1260], [300, 1470], [900, 1680], [300, 1680]]
+    .map(([x, y], i) => node(`stage-${i}`, x, y, [1, 5, 7, 9, 11, 14].includes(i) ? 'failure' : i === 15 ? 'result' : 'action'))
+  const joinedEdges = [[0, 1], [0, 2], [2, 3], [2, 4], [2, 6], [3, 13], [4, 5], [4, 8],
+    [6, 7], [6, 8], [8, 9], [8, 10], [10, 11], [10, 12], [12, 13], [13, 14], [13, 15]]
+    .map(([a, b]) => edge(`${a}-${b}`, `stage-${a}`, `stage-${b}`))
+  cases.push({ name: 'joined-forward-runs', input: input(joinedNodes, joinedEdges), authored: true })
+  cases.push({ name: 'joined-forward-runs-comparison', input: input(joinedNodes, joinedEdges, [], { nodes: joinedNodes.toReversed(), edges: joinedEdges.toReversed() }), authored: true })
   cases.push({ name: 'authored-bypass-and-same-row-branch', input: input(
     [node('a', 0, 0), node('b', 0, 300), node('c', 0, 600), node('branch', 600, 300)],
     [edge('ab', 'a', 'b'), edge('bc', 'b', 'c'), edge('skip', 'a', 'c'), edge('branch', 'b', 'branch'), edge('return', 'c', 'b'), edge('self', 'branch', 'branch')],

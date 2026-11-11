@@ -1,8 +1,19 @@
 import { parseReview, targetLabel } from './model.ts'
 import { newId } from './id.ts'
-import type { CommentDraft, ReviewComment, ReviewDocument, ReviewRecord, Target } from './types.ts'
+import type { CommentDraft, DiscussionEditability, ReviewComment, ReviewDocument, ReviewRecord, Target } from './types.ts'
 
 export type { CommentDraft, ReviewRecord } from './types.ts'
+
+export function editableLocalDiscussion(review: ReviewDocument, history: ReviewRecord[]): DiscussionEditability {
+  const submitted = history.filter(record => record.review.id === review.id).flatMap(record => record.review.comments)
+  const comments = new Set(submitted.map(comment => comment.id))
+  const replies = new Set(submitted.flatMap(comment => (comment.replies ?? []).map(reply => JSON.stringify([comment.id, reply.id]))))
+  return {
+    comments: review.comments.filter(comment => comment.revision === review.revision && !comments.has(comment.id)).map(comment => comment.id),
+    replies: review.comments.flatMap(comment => (comment.replies ?? []).filter(reply => reply.author === 'reviewer' && reply.revision === review.revision
+      && !replies.has(JSON.stringify([comment.id, reply.id]))).map(reply => ({ commentId: comment.id, replyId: reply.id }))),
+  }
+}
 
 function object(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label}必须是对象`)

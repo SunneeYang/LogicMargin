@@ -59,6 +59,119 @@ async function canvasLayout(page: Page) {
   })
 }
 
+test('an unrelated baseline placeholder preserves the rendered current flow', async ({ page, request }) => {
+  const review = structuredClone(sampleReview)
+  review.id = 'independent-placeholder-layout'
+  review.comments = []
+  review.scenes = [review.scenes[0]]
+  const makeNode = (id: string, x: number, y: number) => ({ ...review.nodes[0], id, title: id,
+    summary: '', evidence: [], sceneId: review.scenes[0].id, position: { x, y } })
+  const spine = ['entry', 'check', 'work', 'done']
+  review.nodes = spine.map((id, index) => makeNode(id, 0, index * 210))
+  review.nodes.push({ ...makeNode('rejected', 480, 420), kind: 'failure' })
+  review.edges = [['entry', 'check'], ['check', 'work'], ['work', 'done'], ['check', 'rejected']].map(([source, target]) => ({
+    id: `${source}-${target}`, source, target, sceneId: review.scenes[0].id, label: '条件', detail: '',
+  }))
+  review.baseline = structuredClone(review)
+  review.baseline.nodes = [makeNode('previous-placeholder', 0, 0)]
+  review.baseline.edges = []
+  const created = await request.post('/api/review-sessions', { data: { review } })
+  expect(created.ok()).toBeTruthy()
+  const session: ReviewSession = await created.json()
+  await page.goto(`/?session=${session.id}`)
+  const canvas = page.getByLabel('业务流程画布', { exact: true })
+  const positions = () => page.locator('.react-flow__node').evaluateAll(elements => Object.fromEntries(elements.map(element => {
+    const matrix = new DOMMatrixReadOnly((element as HTMLElement).style.transform)
+    return [element.getAttribute('data-id')!, { x: matrix.m41, y: matrix.m42 }]
+  })))
+  const expectSpine = async () => {
+    await expect(canvas).toHaveAttribute('data-viewport-ready', 'true')
+    await expect(page.locator('.react-flow__node')).toHaveCount(5)
+    await expect.poll(async () => {
+      const placed = await positions()
+      return new Set(spine.map(id => placed[id].x)).size
+    }).toBe(1)
+    const placed = await positions()
+    for (let i = 1; i < spine.length; i++) expect(placed[spine[i]].y).toBeGreaterThan(placed[spine[i - 1]].y)
+    return placed
+  }
+  const current = await expectSpine()
+  await page.getByRole('button', { name: '基线 B', exact: true }).click()
+  await expect(page.locator('.react-flow__node[data-id="previous-placeholder"]')).toBeVisible()
+  await page.getByRole('button', { name: '当前 R1', exact: true }).click()
+  expect(await expectSpine()).toEqual(current)
+})
+
+test('independent side branches share compact lanes across comparison switches', async ({ page, request }) => {
+  const review = structuredClone(sampleReview)
+  review.id = 'compact-branch-lanes'
+  review.comments = []
+  review.scenes = [review.scenes[0]]
+  const positions = [[0, 0], [0, 210], [-450, 420], [0, 420], [450, 630], [0, 630],
+    [0, 840], [-400, 1050], [400, 1050], [0, 1260]]
+  review.nodes = positions.map(([x, y], i) => ({ ...review.nodes[0], id: `n${i}`, title: `step ${i}`, summary: '',
+    evidence: [], sceneId: review.scenes[0].id, position: { x, y } }))
+  review.edges = [[0, 1], [1, 2], [1, 3], [3, 4], [3, 5], [5, 6], [6, 7], [6, 8], [7, 6], [7, 9], [8, 9]]
+    .map(([a, b], i) => ({ id: `link-${i}`, source: `n${a}`, target: `n${b}`, sceneId: review.scenes[0].id, label: '条件', detail: '' }))
+  review.baseline = structuredClone(review)
+  const created = await request.post('/api/review-sessions', { data: { review } })
+  expect(created.ok()).toBeTruthy()
+  const session: ReviewSession = await created.json()
+  await page.goto(`/?session=${session.id}`)
+  const nodes = page.locator('.react-flow__node')
+  const positionsNow = () => nodes.evaluateAll(elements => Object.fromEntries(elements.map(element => {
+    const matrix = new DOMMatrixReadOnly((element as HTMLElement).style.transform)
+    return [element.getAttribute('data-id')!, matrix.m41]
+  })))
+  for (const baseline of [false, true]) {
+    if (baseline) await page.getByRole('button', { name: '基线 B', exact: true }).click()
+    await expect(nodes).toHaveCount(10)
+    await expect.poll(async () => {
+      const x = await positionsNow()
+      return x.n2 === x.n7 && x.n4 === x.n8 && [1, 3, 5, 6, 9].every(i => x[`n${i}`] === x.n0)
+    }).toBe(true)
+  }
+})
+
+test('joined forward runs retain one compact spine across comparison switches', async ({ page, request }) => {
+  const review = structuredClone(sampleReview)
+  review.id = 'joined-spine-layout'
+  review.comments = []
+  review.scenes = [review.scenes[0]]
+  const positions = [[0, 0], [-650, 210], [0, 210], [-600, 420], [0, 420], [-150, 630],
+    [600, 420], [900, 630], [300, 840], [850, 1050], [300, 1050], [-200, 1260],
+    [300, 1260], [300, 1470], [900, 1680], [300, 1680]]
+  review.nodes = positions.map(([x, y], i) => ({ ...review.nodes[0], id: `n${i}`, title: `stage ${i}`, summary: i === 3 ? '用于核对不同卡片高度时，邻列侧边端口依然保持清楚的进出顺序。' : '', evidence: [],
+    kind: [1, 5, 7, 9, 11, 14].includes(i) ? 'failure' : i === 15 ? 'result' : 'action', sceneId: review.scenes[0].id, position: { x, y } }))
+  review.edges = [[0, 1], [0, 2], [2, 3], [2, 4], [2, 6], [3, 13], [4, 5], [4, 8],
+    [6, 7], [6, 8], [8, 9], [8, 10], [10, 11], [10, 12], [12, 13], [13, 14], [13, 15]]
+    .map(([a, b]) => ({ id: `${a}-${b}`, source: `n${a}`, target: `n${b}`, sceneId: review.scenes[0].id, label: '条件', detail: '' }))
+  review.baseline = structuredClone(review)
+  const created = await request.post('/api/review-sessions', { data: { review } })
+  expect(created.ok()).toBeTruthy()
+  const session: ReviewSession = await created.json()
+  await page.goto(`/?session=${session.id}`)
+  const nodes = page.locator('.react-flow__node')
+  const positionsNow = () => nodes.evaluateAll(elements => Object.fromEntries(elements.map(element => {
+    const matrix = new DOMMatrixReadOnly((element as HTMLElement).style.transform)
+    return [element.getAttribute('data-id')!, { x: matrix.m41, y: matrix.m42 }]
+  })))
+  await expect(nodes).toHaveCount(16)
+  await expect.poll(async () => {
+    const p = await positionsNow()
+    return new Set(Object.values(p).map(n => n.x)).size === 3 && [2, 4, 8, 10, 12, 13, 15].every(i => p[`n${i}`].x === p.n0.x)
+  }).toBe(true)
+  await expect.poll(async () => {
+    const query = await page.locator('.react-flow__edge[data-id="2-3"] .react-flow__edge-path').getAttribute('d')
+    const exit = await page.locator('.react-flow__edge[data-id="4-5"] .react-flow__edge-path').getAttribute('d')
+    const values = (path: string | null) => path?.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi)?.map(Number) ?? []
+    return values(exit)[1] > (values(query).at(-1) ?? Infinity)
+  }).toBe(true)
+  const current = await positionsNow()
+  await page.getByRole('button', { name: '基线 B', exact: true }).click()
+  await expect.poll(positionsNow).toEqual(current)
+})
+
 test('a saved branch return keeps only its two required corners after measurement and node lift', async ({ page, request }) => {
   const review = structuredClone(sampleReview)
   review.id = 'simple-return-corner'

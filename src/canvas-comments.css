@@ -32,20 +32,20 @@
 .comment-composer.is-docked.has-inspection { max-height: 100%; margin: 0; border: 0; border-radius: 0; }
 .comment-composer[data-state="closing"] { pointer-events: none; }
 .comment-composer [hidden] { display: none; }
-.composer-comment-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.composer-comment-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .inspection-tabs { display: flex; flex: 0 0 auto; gap: var(--space-lg); padding-inline: var(--space-lg); border-bottom: 1px solid var(--color-rule); }
 .inspection-tabs button { min-height: 44px; padding: var(--space-sm) 0; border: 0; border-bottom: 2px solid var(--color-clear); background: var(--color-clear); color: var(--color-muted); font-size: var(--text-sm); }
 .inspection-tabs button:hover { color: var(--color-ink); }
 .inspection-tabs button[aria-selected="true"] { border-bottom-color: var(--color-accent); color: var(--color-accent); font-weight: 600; }
 .inspection-content { flex: 1 1 auto; min-height: 0; padding: var(--space-lg); overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.inspection-content:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+.inspection-content:focus-visible, .composer-comment-panel:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -3px; }
+.inspection-detail { flex: 0 0 auto; padding: var(--space-lg); border-bottom: 1px solid var(--color-rule); }
 .target-details { max-width: 75ch; }
 .target-detail + .target-detail { margin-top: var(--space-xl); padding-top: var(--space-xl); border-top: 1px solid var(--color-rule); }
 .target-detail > h3 { margin-bottom: var(--space-md); }
 .target-detail .target-summary { margin-bottom: var(--space-lg); color: var(--color-muted); }
 .target-detail p { white-space: pre-wrap; }
 .target-detail .detail-section:last-child { margin-bottom: 0; }
-.target-detail .source-item small { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .composer-header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--color-rule); }
 .composer-header h3 { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--text-md); }
 .composer-header > div { display: flex; align-items: center; gap: var(--space-xs); }
@@ -53,9 +53,17 @@
 .discussion-heading { flex: 0 0 auto; padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--color-rule); }
 .discussion-target { font-weight: 600; color: var(--color-ink); }
 .discussion-context { margin-top: var(--space-xs); font-size: var(--text-xs); color: var(--color-muted); overflow-wrap: anywhere; }
-.discussion-threads { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-lg); scrollbar-gutter: stable; }
+.discussion-context-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); min-width: 0; }
+.discussion-context-row .discussion-context { min-width: 0; flex: 1 1 auto; }
+.has-navigation .discussion-context { margin-top: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.has-navigation .discussion-target { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.reading-navigation { display: flex; flex: 0 0 auto; align-items: center; gap: var(--space-xs); }
+.reading-navigation .icon-button { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; flex: 0 0 44px; }
+.reading-navigation-progress { min-width: 40px; text-align: center; font-size: var(--text-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.discussion-threads { flex: 0 0 auto; min-height: 0; padding: var(--space-lg); }
+.discussion-section-title { margin-bottom: var(--space-lg); }
 .discussion-threads .comment-card { padding-block: var(--space-lg); }
-.discussion-threads .comment-card:first-child { padding-top: 0; border-top: 0; }
+.discussion-threads .comment-card:first-of-type { padding-top: 0; border-top: 0; }
 .discussion-threads .comment-card:last-child { padding-bottom: 0; }
 .discussion-threads .comment-card.is-active, .discussion-threads .comment-card:focus-within { margin-inline: 0; padding-inline: 0; border-radius: 0; background: var(--color-clear); }
 .discussion-threads .comment-body { font-size: var(--text-md); line-height: 1.8; }
@@ -77,14 +85,14 @@
   .comment-composer.has-inspection[data-tab="code"] { max-height: calc(var(--app-height, 100dvh) * .74); }
   .comment-composer[data-composing="true"], .comment-composer.has-inspection[data-composing="true"], .comment-composer.has-discussion[data-composing="true"] { max-height: calc(var(--app-height, 100dvh) * .78); }
   .comment-composer textarea { min-height: 72px; max-height: 100px; font-size: 16px; }
-  .composer-header, .discussion-heading, .composer-footer, .discussion-threads, .inspection-content { padding: var(--space-sm) var(--space-md); }
+  .composer-header, .discussion-heading, .composer-footer, .discussion-threads, .inspection-content, .inspection-detail { padding: var(--space-sm) var(--space-md); }
   .inspection-tabs { padding-inline: var(--space-md); }
   .composer-targets { padding-inline: var(--space-md); }
   .composer-actions { margin-top: var(--space-sm); }
 }
 @media (max-height: 600px) and (max-width: 900px) {
   .comment-composer[data-composing="true"], .comment-composer.has-inspection[data-composing="true"], .comment-composer.has-discussion[data-composing="true"] { max-height: calc(var(--app-height, 100dvh) - 16px); }
-  .comment-composer[data-composing="true"] .discussion-heading, .comment-composer[data-composing="true"] .composer-hint { display: none; }
+  .comment-composer[data-composing="true"] .discussion-heading:not(.has-navigation), .comment-composer[data-composing="true"] .composer-hint { display: none; }
 }
 @media (pointer: coarse), (max-width: 900px) {
   .comment-composer .button { min-height: 44px; }

@@ -186,6 +186,12 @@ textarea:disabled { background: var(--color-surface-muted); cursor: not-allowed;
 @media (pointer: coarse), (max-width: 900px) { .comment-history > summary { min-height: 44px; padding-block: var(--space-md); } }
 .comment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-md); }
 .comment-actions .button { min-height: 32px; padding: var(--space-sm); font-size: var(--text-xs); }
+.edit-discussion { min-height: 32px; padding: var(--space-xs) var(--space-sm); font-size: var(--text-xs); }
+.discussion-edit { margin-block: var(--space-md); }
+.discussion-edit label { display: block; margin-bottom: var(--space-sm); font-weight: 600; }
+.discussion-edit textarea { min-height: 88px; max-height: 240px; }
+.discussion-edit [role="alert"] { margin-top: var(--space-sm); color: var(--color-error); }
+@media (pointer: coarse), (max-width: 900px) { .edit-discussion { min-height: 44px; } .discussion-edit textarea { font-size: 16px; } }
 .comment-card.is-active, .comment-card:focus-within { margin-inline: calc(-1 * var(--space-md)); padding-inline: var(--space-md); border-radius: var(--radius-md); background: var(--color-accent-paper); }
 .comment-card.is-active { border-top-color: var(--color-accent); }
 .thread-replies { display: flex; flex-direction: column; gap: var(--space-md); margin-top: var(--space-lg); padding-left: var(--space-md); border-left: 2px solid var(--color-rule); }
@@ -330,6 +336,8 @@ textarea:disabled { background: var(--color-surface-muted); cursor: not-allowed;
 .scene-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); line-height: 1.4; }
 .app-shell .graph-toolbar .button { min-height: 36px; padding: var(--space-sm); font-size: var(--text-xs); }
 .panel-count { font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.review-start { flex: 0 0 auto; white-space: nowrap; }
+.review-start-short { display: none; }
 .canvas-tools { flex: 0 1 auto; min-width: 0; }
 .canvas-tools > summary { display: none; }
 .canvas-tool-content { display: flex; align-items: center; gap: var(--space-sm); }
@@ -403,6 +411,8 @@ textarea:disabled { background: var(--color-surface-muted); cursor: not-allowed;
 }
 @media (max-width: 900px) {
   .app-shell { --app-topbar-height: 56px; --app-toolbar-height: 54px; }
+  .review-start-label { display: none; }
+  .review-start-short { display: inline; }
   .app-shell .workspace, .app-shell .workspace.panel-closed, .app-shell .workspace.panel-open { --navigation-width: 0px; --details-width: 0px; grid-template-columns: 0 minmax(0, 1fr) 0; }
   .app-shell .sidebar { position: fixed; z-index: 80; top: var(--app-topbar-height); bottom: 0; left: 0; display: none; grid-column: auto; grid-row: auto; width: min(260px, 80vw); padding: var(--space-lg) var(--space-md); border-right: var(--rule-width) solid var(--color-rule-strong); box-shadow: 6px 0 24px var(--color-selection); }
   .app-shell .nav-open .sidebar { display: flex; }

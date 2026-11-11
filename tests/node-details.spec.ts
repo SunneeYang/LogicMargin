@@ -7,7 +7,7 @@ const second = sampleReview.nodes.find(node => node.id === 'upgrade-toggle')!
 const firstNode = '.react-flow__node[data-id="upgrade-start"]'
 const secondNode = '.react-flow__node[data-id="upgrade-toggle"]'
 
-test('one review panel keeps selected rules and reveals data and source evidence on demand', async ({ page }) => {
+test('one review panel keeps selected rules and data without duplicating source evidence', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.canvas')).toHaveAttribute('data-viewport-ready', 'true')
   await expect(page.locator('.node-footer')).toHaveCount(0)
@@ -26,10 +26,8 @@ test('one review panel keeps selected rules and reveals data and source evidence
   await data.locator('summary').click()
   await expect(data.locator('.state-change')).toContainText(first.input)
   await expect(data.locator('.state-change')).toContainText(first.output)
-  const evidence = details.locator('.evidence')
-  await evidence.locator('summary').click()
-  await expect(evidence).toContainText(first.evidence[0].symbol)
-  await expect(evidence).toContainText(`${first.evidence[0].path}:${first.evidence[0].startLine}`)
+  await expect(details.locator('.evidence')).toHaveCount(0)
+  await expect(details).not.toContainText(first.evidence[0].path)
 })
 
 test('the panel opens with Enter and Space and remembers the last content tab', async ({ page }) => {
@@ -62,19 +60,20 @@ test('switching nodes updates every docked tab while retaining the original draf
   const body = '查看其他步骤时保留这条未完成的意见。'
   await input.fill(body)
   await input.evaluate(element => { element.dataset.editorIdentity = 'original' })
-  await editor.getByRole('tab', { name: '详情', exact: true }).click()
-  await expect(editor.getByRole('tabpanel', { name: '详情', exact: true })).toContainText(first.detail)
-  await editor.getByRole('tab', { name: '讨论', exact: true }).click()
+  await editor.getByRole('tab', { name: '详情与讨论', exact: true }).click()
+  await expect(editor.getByRole('tabpanel', { name: '详情与讨论', exact: true })).toContainText(first.detail)
+  await editor.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await editor.getByRole('tab', { name: '详情与讨论', exact: true }).click()
   await expect(input).toHaveValue(body)
   await editor.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
   await expect(editor).toHaveClass(/is-docked/)
   await page.locator(secondNode).locator('.node-title').click()
-  for (const tab of ['详情', '代码 diff', '讨论'] as const) {
+  for (const tab of ['详情与讨论', '代码 diff'] as const) {
     await editor.getByRole('tab', { name: tab, exact: true }).click()
     await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toBeVisible()
     await expect(input).toHaveCount(0)
     await expect(editor.locator('.discussion-target')).toHaveText(second.title)
-    if (tab === '详情') await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toContainText(second.detail)
+    if (tab === '详情与讨论') await expect(editor.getByRole('tabpanel', { name: tab, exact: true })).toContainText(second.detail)
   }
   await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
   await openInspector(page, 'detail')

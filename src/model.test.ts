@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addComment, addReply, getChanges, parseReview, parseReviewBaseline, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
+import { addComment, addReply, editDiscussion, getChanges, parseReview, parseReviewBaseline, rebaseReview, serializeReview, setCommentStatus, targetExists, targetLabel, targetSceneId } from './model.ts'
 import type { ReviewDocument } from './types.ts'
 import { sampleReview } from './sample.ts'
 
@@ -124,20 +124,66 @@ test('new comments require current unique anchors and nonempty bounded text with
   assert.equal(next.comments[0].status, 'open')
 })
 
-test('version and snapshot changes reopen resolved comments for manual review', () => {
+test('human resolutions survive unrelated versions and snapshots without rewriting their confirmation', () => {
   const r = addComment(fixture(), [{ kind: 'node', id: 'check' }], '检查')
   const resolved = setCommentStatus(r, r.comments[0].id, 'resolved')
-  for (const next of [{ ...fixture(), revision: 'v2' }, { ...fixture(), snapshot: { ...fixture().snapshot, fingerprint: 'hash2' } }]) {
+  resolved.comments[0].reviewedRound = 1
+  const confirmation = structuredClone(resolved.comments[0])
+  const other = fixture()
+  other.nodes[1].detail = '其他步骤的新规则'
+  for (const next of [{ ...fixture(), revision: 'v2' }, { ...fixture(), snapshot: { ...fixture().snapshot, fingerprint: 'hash2' } },
+    { ...other, revision: 'v2', snapshot: { ...other.snapshot, fingerprint: 'hash2' } }]) {
     const rebased = rebaseReview(resolved, next)
-    assert.equal(rebased.comments[0].status, 'needs-review')
-    assert.equal(rebased.comments[0].revision, 'v1')
-    const confirmed = setCommentStatus(rebased, rebased.comments[0].id, 'resolved')
-    assert.equal(confirmed.comments[0].revision, 'v1')
-    assert.equal(confirmed.comments[0].reviewedRevision, next.revision)
-    assert.equal(parseReview(confirmed).comments[0].status, 'resolved')
-    assert.equal(rebaseReview(confirmed, next).comments[0].status, 'resolved')
+    assert.deepEqual(rebased.comments[0], confirmation)
+    assert.deepEqual(parseReview(JSON.parse(serializeReview(rebased))), rebased)
+    const imported = { ...next, comments: [confirmation] }
+    assert.deepEqual(rebaseReview(next, imported).comments[0], confirmation)
+    assert.deepEqual(rebaseReview(rebased, { ...next, revision: 'v3' }).comments[0], confirmation)
+    assert.equal(rebaseReview(r, next).comments[0].status, 'needs-review')
   }
-  assert.equal(resolved.comments[0].status, 'resolved')
+  assert.deepEqual(resolved.comments[0], confirmation)
+})
+
+test('source line moves preserve confirmed scopes while the ordinary diff still records reference locations', () => {
+  let review = fixture()
+  for (const target of [{ kind: 'node', id: 'check' }, { kind: 'edge', id: 'pass' }, { kind: 'scene', id: 'level' }, { kind: 'review', id: 'review' }] as const) {
+    review = addComment(review, [target], '已核对')
+    review = setCommentStatus(review, review.comments.at(-1)!.id, 'resolved')
+  }
+  const shifted = fixture()
+  shifted.revision = 'v2'
+  shifted.snapshot.fingerprint = 'hash2'
+  shifted.nodes[0].evidence[0].startLine += 20
+  shifted.nodes[0].evidence[0].endLine += 20
+  assert.deepEqual(getChanges(review, shifted).changed, [{ kind: 'node', id: 'check' }])
+  assert.deepEqual(rebaseReview(review, shifted).comments, review.comments)
+  const changedCode = structuredClone(shifted)
+  changedCode.nodes[0].evidence[0].digest = 'changed-code'
+  assert.deepEqual(rebaseReview(review, changedCode).comments.map(comment => comment.status), ['needs-review', 'resolved', 'needs-review', 'needs-review'])
+  const changedRule = structuredClone(shifted)
+  changedRule.nodes[0].detail = '已确认步骤的新规则'
+  assert.deepEqual(rebaseReview(review, changedRule).comments.map(comment => comment.status), ['needs-review', 'resolved', 'needs-review', 'needs-review'])
+  const changedEdge = structuredClone(shifted)
+  changedEdge.edges[0].detail = '新的流转条件'
+  assert.deepEqual(rebaseReview(review, changedEdge).comments.map(comment => comment.status), ['resolved', 'needs-review', 'needs-review', 'needs-review'])
+})
+
+test('confirmed baseline and removed-target resolutions survive later unrelated rounds', () => {
+  const baseline = fixture()
+  let current = addComment({ ...fixture(), nodes: fixture().nodes.slice(1), edges: [], baseline }, [{ kind: 'node', id: 'check' }], '基线要求', 'baseline')
+  current = setCommentStatus(current, current.comments[0].id, 'resolved')
+  const next = { ...structuredClone(current), revision: 'v2', comments: [] }
+  assert.deepEqual(rebaseReview(current, next).comments, current.comments)
+  assert.deepEqual(parseReview({ ...next, comments: current.comments }).comments, current.comments)
+
+  const ordinary = addComment(fixture(), [{ kind: 'node', id: 'check' }], '原位置')
+  const resolved = setCommentStatus(ordinary, ordinary.comments[0].id, 'resolved')
+  const removed = { ...fixture(), nodes: fixture().nodes.slice(1), edges: [], revision: 'v2' }
+  const rebased = rebaseReview(resolved, removed)
+  assert.equal(rebased.comments[0].status, 'needs-review')
+  const confirmed = setCommentStatus(rebased, rebased.comments[0].id, 'resolved')
+  assert.deepEqual(rebaseReview(confirmed, { ...removed, revision: 'v3' }).comments, confirmed.comments)
+  assert.deepEqual(parseReview({ ...removed, revision: 'v3', comments: confirmed.comments }).comments, confirmed.comments)
 })
 
 test('semantic changes flag affected comments while layout changes preserve status', () => {
@@ -301,6 +347,22 @@ test('reply creation stays attached to its original comment and never resolves i
   assert.throws(() => addReply(review, 'missing', '回复'), /找不到/)
   assert.throws(() => addReply(review, review.comments[0].id, '  '))
   assert.throws(() => addReply(review, review.comments[0].id, 'a'.repeat(10001)))
+})
+
+test('editing a discussion preserves its identity, order and timestamps and rejects stale text', () => {
+  const commented = addComment(fixture(), [{ kind: 'node', id: 'check' }], '原意见')
+  const before = addReply(commented, commented.comments[0].id, '原补充')
+  const c = before.comments[0], reply = c.replies![0]
+  const edited = editDiscussion(before, c.id, '  修改意见  ', c.body)
+  assert.deepEqual(edited.comments[0], { ...c, body: '修改意见' })
+  assert.equal(before.comments[0].body, '原意见')
+  assert.deepEqual(editDiscussion(edited, c.id, '修改补充', reply.body, reply.id).comments[0],
+    { ...c, body: '修改意见', replies: [{ ...reply, body: '修改补充' }] })
+  assert.throws(() => editDiscussion(edited, c.id, '覆盖', c.body), /已有更新/)
+  assert.throws(() => editDiscussion(before, c.id, ' ', c.body), /批注内容/)
+  assert.throws(() => editDiscussion(before, c.id, 'a'.repeat(10001), c.body), /批注内容/)
+  const agent = addReply(before, c.id, '代理说明', 'agent').comments[0].replies!.at(-1)!
+  assert.throws(() => editDiscussion({ ...before, comments: [{ ...c, replies: [agent] }] }, c.id, '覆盖', agent.body, agent.id), /代理回复/)
 })
 
 test('validates reply identities and preserves absence in legacy files', () => {

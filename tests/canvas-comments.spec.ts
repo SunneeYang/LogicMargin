@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { appendFileSync } from 'node:fs'
 import { sampleReview } from '../src/sample.ts'
 import type { CommentDraft, ReviewDocument } from '../src/types.ts'
+
+// Trace snapshots can mask the Escape selection race covered in this file.
+test.use({ trace: 'off' })
 
 const firstNode = '.react-flow__node[data-id="upgrade-start"]'
 const secondNode = '.react-flow__node[data-id="upgrade-toggle"]'
@@ -52,50 +56,73 @@ test('save on the diagram, read the marker in a discussion dialog, and restore a
   expect(errors).toEqual([])
 })
 
-test('one editor keeps its DOM across docking and retains the original draft when following another node', async ({ page }) => {
-  await page.goto('/')
-  await openFirstComposer(page)
-  const editor = composer(page)
-  const input = editor.getByLabel('问题与预期行为')
-  const body = '先保留这段尚未完成的评审意见。'
-  await input.fill(body)
-  await input.evaluate((element: HTMLTextAreaElement) => {
-    element.dataset.editorIdentity = 'original'
-    element.setSelectionRange(2, 6)
-  })
-  await editor.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
-  await expect(editor).toHaveClass(/is-docked/)
-  await expect(input).toHaveAttribute('data-editor-identity', 'original')
-  await expect(input).toBeFocused()
-  expect(await input.evaluate((element: HTMLTextAreaElement) => [element.selectionStart, element.selectionEnd])).toEqual([2, 6])
-  await page.locator(secondNode).locator('.node-title').click()
-  await expect(page.locator(secondNode)).toHaveClass(/selected/)
-  await expect(editor.locator('.discussion-target')).toHaveText('订阅服务是否可用？')
-  await expect(input).toHaveCount(0)
-  expect((await savedDrafts(page))[0].targets).toEqual([{ kind: 'node', id: 'upgrade-start' }])
-  await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
-  await expect(editor).toHaveClass(/is-inline/)
-  await expect(input).toHaveCount(0)
-  await page.keyboard.press('Escape')
-  await expect(editor).not.toBeVisible()
-  await openFirstComposer(page)
-  await expect(input).toHaveValue(body)
-  await page.getByRole('button', { name: '浏览', exact: true }).click()
-  await expect(input).toHaveValue(body)
-  await editor.getByRole('button', { name: '关闭讨论', exact: true }).click()
-  await page.reload()
-  await openFirstComposer(page)
-  await expect(input).toHaveValue(body)
-  await input.dispatchEvent('keydown', { key: 'Enter', ctrlKey: process.platform !== 'darwin', metaKey: process.platform === 'darwin', isComposing: true })
-  await expect(editor).toBeVisible()
-  expect((await savedReview(page)).comments).toHaveLength(0)
-  await input.press('ControlOrMeta+Enter')
-  await expect(input).toHaveCount(0)
-  await expect(editor.locator('.comment-body')).toHaveText(body)
-  const saved = await savedReview(page)
-  expect(saved.comments).toHaveLength(1)
-  expect(saved.comments[0]).toMatchObject({ body, targets: [{ kind: 'node', id: 'upgrade-start' }] })
-  expect(await savedDrafts(page)).toEqual([])
+test('one editor keeps its DOM across docking and retains the original draft when following another node', async ({ page }, info) => {
+  const errors: string[] = []
+  const record = (event: string, detail?: string) => appendFileSync(info.outputPath('close-reopen-events.jsonl'), JSON.stringify({ at: Date.now(), event, detail }) + '\n')
+  page.on('pageerror', error => { errors.push(error.stack ?? error.message); record('pageerror', error.stack ?? error.message) })
+  page.on('crash', () => record('crash'))
+  page.on('console', message => { if (['error', 'warning'].includes(message.type())) record(message.type(), message.text()) })
+  page.on('framenavigated', frame => { if (frame === page.mainFrame()) record('navigation', frame.url()) })
+  try {
+    await page.goto('/')
+    await openFirstComposer(page)
+    const editor = composer(page)
+    const input = editor.getByLabel('问题与预期行为')
+    const body = '先保留这段尚未完成的评审意见。'
+    await input.fill(body)
+    await input.evaluate((element: HTMLTextAreaElement) => {
+      element.dataset.editorIdentity = 'original'
+      element.setSelectionRange(2, 6)
+    })
+    await editor.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
+    await expect(editor).toHaveClass(/is-docked/)
+    await expect(input).toHaveAttribute('data-editor-identity', 'original')
+    await expect(input).toBeFocused()
+    expect(await input.evaluate((element: HTMLTextAreaElement) => [element.selectionStart, element.selectionEnd])).toEqual([2, 6])
+    await page.locator(secondNode).locator('.node-title').click()
+    await expect(page.locator(secondNode)).toHaveClass(/selected/)
+    await expect(editor.locator('.discussion-target')).toHaveText('订阅服务是否可用？')
+    await expect(input).toHaveCount(0)
+    expect((await savedDrafts(page))[0].targets).toEqual([{ kind: 'node', id: 'upgrade-start' }])
+    await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
+    await expect(editor).toHaveClass(/is-inline/)
+    await expect(input).toHaveCount(0)
+    await page.locator(secondNode).focus()
+    await expect(page.locator(secondNode)).toBeFocused()
+    record('before-escape')
+    await page.keyboard.press('Escape')
+    record('after-escape')
+    await expect(editor).not.toBeVisible()
+    record('after-hidden')
+    expect(errors).toEqual([])
+    await openFirstComposer(page)
+    record('reopened')
+    await expect(input).toHaveValue(body)
+    await page.getByRole('button', { name: '浏览', exact: true }).click()
+    await expect(input).toHaveValue(body)
+    await editor.getByRole('button', { name: '关闭讨论', exact: true }).click()
+    await page.reload()
+    await openFirstComposer(page)
+    await expect(input).toHaveValue(body)
+    await input.dispatchEvent('keydown', { key: 'Enter', ctrlKey: process.platform !== 'darwin', metaKey: process.platform === 'darwin', isComposing: true })
+    await expect(editor).toBeVisible()
+    expect((await savedReview(page)).comments).toHaveLength(0)
+    await input.press('ControlOrMeta+Enter')
+    await expect(input).toHaveCount(0)
+    await expect(editor.locator('.comment-body')).toHaveText(body)
+    const saved = await savedReview(page)
+    expect(saved.comments).toHaveLength(1)
+    expect(saved.comments[0]).toMatchObject({ body, targets: [{ kind: 'node', id: 'upgrade-start' }] })
+    expect(await savedDrafts(page)).toEqual([])
+    expect(errors).toEqual([])
+  } finally {
+    const state = await page.evaluate(() => ({
+      canvas: !!document.querySelector('.canvas'),
+      nodes: [...document.querySelectorAll('.react-flow__node')].map(node => node.getAttribute('data-id')),
+      body: document.body.innerText,
+    })).catch(error => ({ captureError: String(error) }))
+    await info.attach('close-reopen-state', { body: JSON.stringify({ ...state, errors }, null, 2), contentType: 'application/json' })
+  }
 })
 
 test('marquee selects only nodes, an explicit edge joins the selection, and the group gets one marker', async ({ page }) => {

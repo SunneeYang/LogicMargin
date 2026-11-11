@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { addComment, addReply, setCommentStatus } from './model.ts'
-import { createApprovalRecord, createFeedbackPackage, draftKey, makeDraft, parseDrafts, parseRecordHistory, parseReviewRecord, pendingFeedback, withDraft } from './workspace.ts'
+import { createApprovalRecord, createFeedbackPackage, draftKey, editableLocalDiscussion, makeDraft, parseDrafts, parseRecordHistory, parseReviewRecord, pendingFeedback, withDraft } from './workspace.ts'
 import type { ReviewDocument } from './types.ts'
 
 function fixture(): ReviewDocument {
@@ -91,6 +91,24 @@ test('draft and anchor collections can grow past previous limits and retain othe
   assert.equal(full.length, 201)
 })
 
+test('local edit permissions freeze submitted text and scope duplicate reply IDs to their thread', () => {
+  let review = addComment(fixture(), [{ kind: 'node', id: 'check' }], '原意见')
+  const first = review.comments[0].id
+  review = addReply(review, first, '已提交补充')
+  const record = createFeedbackPackage(review)
+  review = addComment(review, [{ kind: 'node', id: 'check' }], '新意见')
+  const second = review.comments[1].id
+  review = addReply(review, second, '新补充')
+  review.comments[1].replies![0].id = review.comments[0].replies![0].id
+  review = addReply(review, first, '旧线程的新补充')
+  review = addReply(review, first, '代理说明', 'agent')
+  const editable = editableLocalDiscussion(review, [record])
+  assert.deepEqual(editable.comments, [second])
+  assert.deepEqual(editable.replies, [{ commentId: first, replyId: review.comments[0].replies![1].id },
+    { commentId: second, replyId: review.comments[1].replies![0].id }])
+  assert.equal(record.review.comments[0].replies!.length, 1)
+})
+
 test('feedback packages capture only open comments and clone all review context', () => {
   let review = addComment(fixture(), [{ kind: 'node', id: 'check' }], '待处理')
   review = addReply(review, review.comments[0].id, '补充')
@@ -137,6 +155,18 @@ test('record parsing validates envelopes and contained review states without lim
   assert.deepEqual(parseRecordHistory([feedback]), [feedback])
   assert.throws(() => parseRecordHistory([feedback, { ...feedback, createdAt: '2026-11-02T01:00:00Z' }]), /冲突/)
   assert.equal(parseRecordHistory(Array.from({ length: 51 }, (_, index) => ({ ...feedback, id: `${index}` }))).length, 51)
+})
+
+test('approval creation and history reload preserve earlier human confirmation in a later revision', () => {
+  const annotated = addComment(fixture(), [{ kind: 'node', id: 'check' }], '已核对')
+  const confirmed = setCommentStatus(annotated, annotated.comments[0].id, 'resolved')
+  confirmed.comments[0].reviewedRound = 1
+  const next = { ...confirmed, revision: 'v2', snapshot: { ...confirmed.snapshot, fingerprint: 'hash2' } }
+  const record = createApprovalRecord(next)
+  assert.deepEqual(record.review.comments, confirmed.comments)
+  assert.deepEqual(parseReviewRecord(JSON.parse(JSON.stringify(record))), record)
+  assert.deepEqual(parseRecordHistory(JSON.parse(JSON.stringify([record]))), [record])
+  assert.deepEqual(pendingFeedback(next, []), [])
 })
 
 test('reimporting a growing fixed history is idempotent and conflicting records still fail', () => {

@@ -49,6 +49,11 @@ test('native HTTP replays the frozen legacy lifecycle contract including exact e
     assert.equal(response.status, step.status ?? (op === 'create' ? 201 : 200), op)
     if (step.error) { assert.equal(value.error, step.error, op); continue }
     if (op === 'create') id = value.id
+    if (value.view === 'current') {
+      // The frozen lifecycle predates edit permissions; its submitted discussions stay read-only.
+      assert.deepEqual(value.editableDiscussion, { comments: [], replies: [] }, `${op}: frozen discussion permissions`)
+      delete value.editableDiscussion
+    }
     if (value.schemaVersion === 1 && value.phase) {
       value.id = '<session>'; value.createdAt = '<created>'; value.updatedAt = '<updated>'
       for (const record of value.history ?? []) record.createdAt = '<record>'

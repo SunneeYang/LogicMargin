@@ -227,7 +227,8 @@ func parseReview(value any) Object {
 		if present(c, "reviewedRevision") {
 			rev = c["reviewedRevision"]
 		}
-		if rev != revision || (c["status"] != "resolved" && !allTargetsExist(doc, c)) {
+		confirmed := c["status"] == "resolved" && present(c, "reviewedRevision")
+		if !confirmed && (rev != revision || (c["status"] != "resolved" && !allTargetsExist(doc, c))) {
 			c["status"] = "needs-review"
 		}
 	}

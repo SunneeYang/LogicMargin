@@ -71,6 +71,8 @@ for (let sample = 0; sample < 30; sample++) {
   add(`generated-${sample}`, nodes, edges, nodes.map(item => ({ id: item.id, width: 248.125 + random() * 2, height: 160.75 + random() * 2 })))
 }
 const output = []
+const { layoutCases } = await import(pathToFileURL(join(root, 'internal/precompute/testdata/layout-cases.mjs')).href)
+cases.push(...layoutCases().filter(fixture => fixture.name.startsWith('comparison-disjoint-') || fixture.name.startsWith('compact-') || fixture.name.startsWith('joined-')))
 for (const fixture of cases) {
   const { name, input, authored } = fixture
   const measured = new Map(input.sizes.map(({ id, width, height }) => [id, { width, height }]))

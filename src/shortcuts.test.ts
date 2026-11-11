@@ -6,9 +6,9 @@ const event = (key: string, extra = {}) => ({ key, ctrlKey: false, metaKey: fals
 
 for (const apple of [false, true]) {
   test(`defaults are unique and configurable on ${apple ? 'Apple' : 'other'} platforms`, () => {
-    assert.equal(SHORTCUT_ACTIONS.length, 24)
-    assert.equal(new Set(SHORTCUT_ACTIONS.map(action => action.id)).size, 24)
-    assert.equal(new Set(Object.values(DEFAULT_SHORTCUTS).map(binding => resolvedShortcut(binding, apple))).size, 24)
+    assert.equal(SHORTCUT_ACTIONS.length, 27)
+    assert.equal(new Set(SHORTCUT_ACTIONS.map(action => action.id)).size, 27)
+    assert.equal(new Set(Object.values(DEFAULT_SHORTCUTS).map(binding => resolvedShortcut(binding, apple))).size, 27)
     for (const action of SHORTCUT_ACTIONS) assert.equal(validateShortcut(action.defaultBinding, DEFAULT_SHORTCUTS, action.id, apple), null, action.id)
   })
   test(`primary modifiers, shifts and physical punctuation resolve consistently (${apple})`, () => {

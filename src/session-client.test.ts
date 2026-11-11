@@ -68,6 +68,30 @@ test('current session validates catalogs without fabricating historical document
   assert.equal('review' in current.snapshots[0], false)
 })
 
+test('current, full and pending sessions preserve prior human resolutions after a new source revision', () => {
+  const annotated = addComment(review(), [{ kind: 'node', id: sampleReview.nodes[0].id }], '已确认的意见')
+  const confirmed = setCommentStatus(annotated, annotated.comments[0].id, 'resolved')
+  confirmed.comments[0].reviewedRound = 1
+  const next = { ...confirmed, revision: 'new-revision', snapshot: { ...confirmed.snapshot, fingerprint: 'new-fingerprint' } }
+  const current = currentSession()
+  current.round = 2
+  current.review = next
+  current.snapshots.push({ round: 2, openedAt: current.updatedAt })
+  current.commentOrigins = [{ commentId: confirmed.comments[0].id, round: 1, exact: true }]
+  assert.deepEqual(parseCurrentSession(JSON.parse(JSON.stringify(current))), current)
+  const full = { ...session(), round: 2, review: next, snapshots: [
+    { round: 1, openedAt: current.createdAt, review: confirmed },
+    { round: 2, openedAt: current.updatedAt, review: next },
+  ] }
+  assert.deepEqual(parseSession(JSON.parse(JSON.stringify(full))), full)
+  assert.equal(sameVisibleReview(next, parseCurrentSession(current).review), true)
+  const supplement = addReply(next, confirmed.comments[0].id, '新的人工作补充')
+  const pending = { schemaVersion: 1, review: supplement, batches: [{ round: 2, expectedVersion: 4,
+    revision: next.revision, fingerprint: next.snapshot.fingerprint, mutations: reviewMutations(next, supplement) }] }
+  assert.deepEqual(parsePendingSession(JSON.stringify(pending)), pending)
+  assert.deepEqual(next.comments, confirmed.comments)
+})
+
 test('current baseline summaries validate identity metadata while full baseline documents load on demand', async t => {
   const current = currentSession()
   const baseline = { ...review(), revision: 'baseline-code' }
@@ -126,6 +150,37 @@ test('session deltas preserve comment and reply identity for safe retries', () =
   const withReply = addReply(withComment, withComment.comments[0].id, '补充边界条件')
   assert.deepEqual(reviewMutations(withComment, withReply), [{ kind: 'add-reply', commentId: withComment.comments[0].id, reply: withReply.comments[0].replies![0] }])
   assert.deepEqual(reviewMutations(withReply, withReply), [])
+})
+
+test('discussion body edits become guarded mutations and survive durable recovery', () => {
+  const commented = addComment(review(), [{ kind: 'review', id: sampleReview.id }], '原意见')
+  const before = addReply(commented, commented.comments[0].id, '原补充')
+  const after = structuredClone(before)
+  after.comments[0].body = '修改后的意见'
+  after.comments[0].replies![0].body = '修改后的补充'
+  const mutations = reviewMutations(before, after)
+  assert.deepEqual(mutations, [
+    { kind: 'edit-comment', commentId: before.comments[0].id, from: '原意见', body: '修改后的意见' },
+    { kind: 'edit-reply', commentId: before.comments[0].id, replyId: before.comments[0].replies![0].id, from: '原补充', body: '修改后的补充' },
+  ])
+  const pending = { schemaVersion: 1, review: after, batches: [{ round: 1, expectedVersion: 3,
+    revision: before.revision, fingerprint: before.snapshot.fingerprint, mutations }] }
+  assert.deepEqual(parsePendingSession(JSON.stringify(pending)), pending)
+  assert.throws(() => parsePendingSession(JSON.stringify({ ...pending, batches: [{ ...pending.batches[0],
+    mutations: [{ ...mutations[0], from: null }] }] })), /修改/)
+})
+
+test('current sessions preserve scoped edit permissions and remain compatible with older services', () => {
+  const current = currentSession()
+  const comment = addComment(current.review, [{ kind: 'review', id: current.review.id }], '可修改')
+  current.review = addReply(comment, comment.comments[0].id, '可修改补充')
+  const c = current.review.comments[0]
+  current.editableDiscussion = { comments: [c.id], replies: [{ commentId: c.id, replyId: c.replies![0].id }] }
+  assert.deepEqual(parseCurrentSession(current), current)
+  assert.throws(() => parseCurrentSession({ ...current, editableDiscussion: { comments: [], replies: [{ commentId: 'missing', replyId: c.replies![0].id }] } }), /编辑权限/)
+  assert.throws(() => parseCurrentSession({ ...current, editableDiscussion: { comments: [c.id, c.id], replies: [] } }), /编辑权限/)
+  delete current.editableDiscussion
+  assert.deepEqual(parseCurrentSession(current), current)
 })
 
 test('status deltas include prior status and reviewed source revision', () => {
