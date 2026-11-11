@@ -60,16 +60,38 @@ jobs:
       - run: npm run test:go:compat
       - run: npm run test:dev
       - run: go vet ./...
-      - name: Install browser for Go UI regression tests
-        if: runner.os == 'Linux'
-        run: npx playwright install --with-deps chromium
-      - name: Verify the packaged Go review UI
-        if: runner.os == 'Linux'
-        run: npm run test:e2e -- --workers=1
       - uses: actions/upload-artifact@v4
         with:
           name: logic-margin-native-${{ runner.os }}
           path: artifacts/go/
+          if-no-files-found: error
+
+  ui:
+    runs-on: ubuntu-latest
+    container:
+      # Preinstalled browsers and fonts avoid a runtime dependency on Ubuntu APT mirrors.
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --init --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci
+      - name: Verify Playwright matches the browser image
+        run: node -e "require('node:assert/strict').equal(require('@playwright/test/package.json').version, '1.64.1', 'Update the pinned Playwright image with the dependency')"
+      - name: Verify the packaged Go review UI
+        run: npm run test:e2e -- --workers=1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logic-margin-ui-results
+          path: test-results/
           if-no-files-found: error
 
   cross-build:
