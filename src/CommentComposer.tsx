@@ -72,8 +72,10 @@ export default function CommentComposer({ draft, discussion, inspection, navigat
     if (draft && (!inspection || inspection.tab === 'comments')) {
       if (draft.replyTo || matchMedia('(min-width: 901px) and (pointer: fine)').matches) {
         input.current?.focus({ preventScroll: true })
-        if (discussion) input.current?.scrollIntoView({ block: 'nearest' })
-      } else container.current?.scrollIntoView({ block: 'nearest' })
+      }
+      // Reveal the whole form after the parent positions the selected discussion.
+      const frame = requestAnimationFrame(() => input.current?.closest('.composer-footer')?.scrollIntoView({ block: 'nearest' }))
+      return () => cancelAnimationFrame(frame)
     } else if ((discussion || inspection) && !document.activeElement?.matches('.react-flow__node, .react-flow__edge')) container.current?.focus({ preventScroll: true })
   }, [draft?.key, discussion?.key, inspection?.key])
   useLayoutEffect(() => {

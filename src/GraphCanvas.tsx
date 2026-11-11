@@ -624,7 +624,8 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
       const canvas = canvasRef.current?.getBoundingClientRect()
       const flow = flowRef.current
       if (!rect || !canvas || !flow || !layoutReady.current) return
-      const top = canvas.top + 12
+      const actions = canvasRef.current?.querySelector('.canvas-selection-actions')?.getBoundingClientRect()
+      const top = Math.max(canvas.top, actions?.height ? actions.bottom : canvas.top) + 12
       const dy = rect.top < top ? top - rect.top : rect.bottom > bottom - 12 ? Math.max(top - rect.top, bottom - 12 - rect.bottom) : 0
       if (dy) { const viewport = flow.getViewport(); void flow.setViewport({ ...viewport, y: viewport.y + dy }, { duration: 0 }).then(saveViewport) }
     },

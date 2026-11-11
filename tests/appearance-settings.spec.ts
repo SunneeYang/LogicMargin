@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { closeSettings, openSettings } from './ui.ts'
+import { SHORTCUT_ACTIONS } from '../src/shortcuts.ts'
 
 for (const view of [
   { width: 320, height: 500, locale: 'zh-CN', theme: 'glass', mode: 'dark' },
@@ -46,7 +47,7 @@ for (const view of [
       }
       await openSettings(page, 'shortcuts')
       const rows = dialog.locator('[data-shortcut-action]')
-      await expect(rows).toHaveCount(24)
+      await expect(rows).toHaveCount(SHORTCUT_ACTIONS.length)
       await rows.last().scrollIntoViewIfNeeded()
       await expect(rows.last()).toBeInViewport({ ratio: 1 })
       if (view.width === 390 || view.width === 1440) {

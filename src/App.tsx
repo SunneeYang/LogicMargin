@@ -757,7 +757,7 @@ export default function App() {
       setComposer(restored ?? null)
       if (docked) { setFocusMode(false); setPanelOpen(true) }
       requestAnimationFrame(() => {
-        if (sequence === navigationSequence.current) graph.current?.focusTargets(targets)
+        if (sequence === navigationSequence.current && followOrigin) graph.current?.focusTargets(targets)
       })
     } catch (error) {
       if (sequence === navigationSequence.current) setNotice({ source: '定位评审意见失败：{error}', error: error instanceof Error ? error.message : '请重试' })
