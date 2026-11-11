@@ -74,6 +74,11 @@ jobs:
       options: --init --ipc=host
     steps:
       - uses: actions/checkout@v4
+      - name: Trust the checkout for container build steps
+        run: |
+          # checkout scopes its trust configuration to a temporary HOME.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git status --porcelain
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
