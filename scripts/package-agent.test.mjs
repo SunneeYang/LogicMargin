@@ -67,13 +67,15 @@ before(async () => {
   }
 }, { timeout: 240000 })
 
-after(async () => { if (packageDirectory) await rm(packageDirectory, { recursive: true, force: true }) })
+// Retry only executable leaves: recursive directory retries multiply on persistent Windows sharing failures.
+after(async () => {
+  if (packagedCli) await rm(packagedCli, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+  if (packageDirectory) await rm(packageDirectory, { recursive: true, force: true })
+})
 
 test('native launchers use the sibling or versioned cache and reject a mismatched runner', async t => {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-launcher-package-'))
-  t.after(() => rm(directory, { recursive: true, force: true }))
   const pluginRoot = join(directory, 'marketplace plugin with spaces')
-  await cp(join(packagedRoot, 'plugins/logic-margin'), pluginRoot, { recursive: true })
   const windows = process.platform === 'win32'
   const scripts = join(pluginRoot, 'skills/logic-margin/scripts')
   const executable = windows ? 'logic-margin.exe' : 'logic-margin'
@@ -81,15 +83,22 @@ test('native launchers use the sibling or versioned cache and reject a mismatche
   const command = windows ? 'powershell.exe' : '/bin/sh'
   const args = windows ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', launcher, '--version'] : [launcher, '--version']
   const cacheRoot = join(directory, 'cache with spaces')
+  const otherVersion = '0.0.0'
+  const cacheBinary = cachedVersion => join(cacheRoot, 'logic-margin/native', cachedVersion, `${process.platform}-${process.arch}`, executable)
+  t.after(async () => {
+    for (const path of [join(scripts, executable), cacheBinary(version), cacheBinary(otherVersion)]) {
+      await rm(path, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+    }
+    await rm(directory, { recursive: true, force: true })
+  })
+  await cp(join(packagedRoot, 'plugins/logic-margin'), pluginRoot, { recursive: true })
   const env = { ...process.env, XDG_CACHE_HOME: cacheRoot, LOCALAPPDATA: cacheRoot }
   const run = () => execute(command, args, { cwd: directory, env, timeout: 10000 })
   assert.equal((await run()).stdout.trim(), version)
-  await rm(join(scripts, executable))
-  const cacheBinary = cachedVersion => join(cacheRoot, 'logic-margin/native', cachedVersion, `${process.platform}-${process.arch}`, executable)
+  await rm(join(scripts, executable), { recursive: true, maxRetries: 10, retryDelay: 100 })
   await mkdir(dirname(cacheBinary(version)), { recursive: true })
   await cp(packagedCli, cacheBinary(version))
   assert.equal((await run()).stdout.trim(), version)
-  const otherVersion = '0.0.0'
   const manifest = JSON.parse(await readFile(join(pluginRoot, 'plugin.json'), 'utf8'))
   await writeFile(join(pluginRoot, 'plugin.json'), JSON.stringify({ ...manifest, version: otherVersion }))
   await mkdir(dirname(cacheBinary(otherVersion)), { recursive: true })
@@ -286,7 +295,8 @@ test('complete package auto-starts embedded UI and restores opinions after a ser
     catch (error) { return { code: error.code, stdout: error.stdout, stderr: error.stderr } }
   }
   t.after(async () => {
-    await run(['server', 'stop'])
+    const stopped = await run(['server', 'stop'])
+    assert.equal(stopped.code, 0, stopped.stderr)
     await rm(directory, { recursive: true, force: true })
   })
   const review = await sourceReview(cwd)
@@ -391,7 +401,7 @@ test('one packaged daemon serves UI, API and multiple MCP clients and restores a
   })
   t.after(async () => {
     await Promise.allSettled(clients.map(client => client.close()))
-    await run(['server', 'stop']).catch(() => {})
+    await run(['server', 'stop'])
     await rm(directory, { recursive: true, force: true })
   })
   const connect = async url => {
