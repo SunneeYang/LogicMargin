@@ -101,15 +101,18 @@ func TestBackgroundParserLimits(t *testing.T) {
 					t.Fatalf("legal dense source rejected or truncated: tokens=%d, err=%v", len(doc.Tokens), err)
 				}
 				checkCoverage(t, dense, doc)
+				if _, err := parseSyntax(t, strings.Repeat("x;", maxNodes/2+1), language); !errors.Is(err, ErrBudget) {
+					t.Fatalf("scanner token budget: %v", err)
+				}
 			}
 			for _, over := range []string{source + " ", strings.Repeat("😀", maxSourceUnits/2+1), strings.Repeat("x", 4*maxSourceUnits+1)} {
 				if _, err := Parse(t.Context(), over, language); !errors.Is(err, ErrBudget) {
 					t.Fatalf("public source budget: %v", err)
 				}
 			}
-			// Stay below source/line/depth limits to exercise the scanner/tree node budget.
-			if _, err := parseSyntax(t, strings.Repeat("x;", maxNodes/2+1), language); !errors.Is(err, ErrBudget) {
-				t.Fatalf("token/node budget: %v", err)
+			// Dense input may exhaust time before tree construction finishes; the bundle test isolates the exact node limit.
+			if _, err := Parse(t.Context(), strings.Repeat("x;", maxNodes/2+1), language); !errors.Is(err, ErrBudget) {
+				t.Fatalf("public dense-input budget: %v", err)
 			}
 			if language == "ts" {
 				for _, over := range []string{source + " ", strings.Repeat("\r\n", maxSourceLines)} {
