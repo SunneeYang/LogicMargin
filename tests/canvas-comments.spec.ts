@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { appendFileSync } from 'node:fs'
 import { sampleReview } from '../src/sample.ts'
 import type { CommentDraft, ReviewDocument } from '../src/types.ts'
+
+// Trace snapshots can mask the Escape selection race covered in this file.
+test.use({ trace: 'off' })
 
 const firstNode = '.react-flow__node[data-id="upgrade-start"]'
 const secondNode = '.react-flow__node[data-id="upgrade-toggle"]'
@@ -54,7 +58,11 @@ test('save on the diagram, read the marker in a discussion dialog, and restore a
 
 test('one editor keeps its DOM across docking and retains the original draft when following another node', async ({ page }, info) => {
   const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.stack ?? error.message))
+  const record = (event: string, detail?: string) => appendFileSync(info.outputPath('close-reopen-events.jsonl'), JSON.stringify({ at: Date.now(), event, detail }) + '\n')
+  page.on('pageerror', error => { errors.push(error.stack ?? error.message); record('pageerror', error.stack ?? error.message) })
+  page.on('crash', () => record('crash'))
+  page.on('console', message => { if (['error', 'warning'].includes(message.type())) record(message.type(), message.text()) })
+  page.on('framenavigated', frame => { if (frame === page.mainFrame()) record('navigation', frame.url()) })
   try {
     await page.goto('/')
     await openFirstComposer(page)
@@ -79,9 +87,16 @@ test('one editor keeps its DOM across docking and retains the original draft whe
     await editor.getByRole('button', { name: '返回图内编辑', exact: true }).click()
     await expect(editor).toHaveClass(/is-inline/)
     await expect(input).toHaveCount(0)
+    await page.locator(secondNode).focus()
+    await expect(page.locator(secondNode)).toBeFocused()
+    record('before-escape')
     await page.keyboard.press('Escape')
+    record('after-escape')
     await expect(editor).not.toBeVisible()
+    record('after-hidden')
+    expect(errors).toEqual([])
     await openFirstComposer(page)
+    record('reopened')
     await expect(input).toHaveValue(body)
     await page.getByRole('button', { name: '浏览', exact: true }).click()
     await expect(input).toHaveValue(body)

@@ -456,11 +456,14 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     onOpenComposer(targets, point)
   }, [readOnly, setSelection, onOpenComposer])
 
+  // Window changes must not rebuild nodes during React Flow's selection update.
+  const commentActions = useRef({ onOpenThread, onOpenInspection })
+  commentActions.current = { onOpenThread, onOpenInspection }
   const openNodeComment = useCallback((target: Target, point: Point) => {
     const latest = commentIndex.latest.get(keyOf(target))
-    if (latest) onOpenThread(latest, point, target)
-    else onOpenInspection([target], point)
-  }, [commentIndex, onOpenThread, onOpenInspection])
+    if (latest) commentActions.current.onOpenThread(latest, point, target)
+    else commentActions.current.onOpenInspection([target], point)
+  }, [commentIndex])
 
   const openContextComment = useCallback((target: Target, point: Point) => {
     if (readOnly) openNodeComment(target, point)
@@ -528,7 +531,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
         markerEnd: { type: MarkerType.ArrowClosed, ...(change ? { color: changeColors[change] } : {}) }, interactionWidth: 28,
       }
     }))
-  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, onOpenInspection, t, locale])
+  }, [displayedNodes, displayedEdges, layout, graphIndex, commentIndex, targetChanges, readOnly, setNodes, setEdges, openNodeComment, t, locale])
 
   useEffect(() => {
     const selected = new Set(selection.map(keyOf))
