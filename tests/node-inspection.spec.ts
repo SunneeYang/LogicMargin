@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { sampleReview } from '../src/sample.ts'
+import { addComment, addReply } from '../src/model.ts'
 import type { ReviewDocument } from '../src/types.ts'
 import { openInspector, openMenu } from './ui.ts'
 
@@ -52,7 +53,7 @@ function sceneFixture() {
   return review
 }
 
-for (const tab of ['讨论', '详情', '代码 diff']) test(`docked ${tab} stays a node reader across scene changes and preserves drafts`, async ({ page }) => {
+for (const tab of ['详情与讨论', '代码 diff']) test(`docked ${tab} stays a node reader across scene changes and preserves drafts`, async ({ page }) => {
   await openFixture(page, sceneFixture())
   await openInspector(page, 'changes')
   await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
@@ -72,7 +73,7 @@ for (const tab of ['讨论', '详情', '代码 diff']) test(`docked ${tab} stays
   await expect(window.getByRole('tab', { name: tab, exact: true })).toHaveAttribute('aria-selected', 'true')
   await page.locator('.scene-button').first().click()
   await page.locator(`${target} .node-title`).click()
-  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await window.getByRole('tab', { name: '详情与讨论', exact: true }).click()
   await window.getByRole('button', { name: '添加新批注', exact: true }).click()
   await expect(window.getByLabel('问题与预期行为')).toHaveValue('跨场景仍应保留的草稿')
 })
@@ -110,33 +111,49 @@ test('code layout defaults to side by side and persists with settings across sce
   await expect(window.locator('.cm-editor')).toHaveCount(2)
 })
 
-test('node details, discussions and code share one window and preserve drafts and reading position', async ({ page }) => {
-  await openFixture(page)
+test('details lead all discussions in one scroll pane while code, drafts and reading position stay intact', async ({ page }) => {
+  const targets = [{ kind: 'node' as const, id: 'upgrade-start' }]
+  let review = addComment(fixture(), targets, '第一条讨论')
+  review = addComment(review, targets, '第二条讨论')
+  review = addReply(review, review.comments[0].id, '第一条讨论的回复')
+  await openFixture(page, review)
   await page.locator(`${target} .node-title`).click()
   await expect(surface(page)).toHaveCount(0)
-  await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
+  await page.getByRole('button', { name: `讨论：${title}（2 条）`, exact: true }).click()
   const window = surface(page)
-  await window.getByRole('tab', { name: '详情', exact: true }).click()
-  await expect(window.getByRole('tab', { name: '详情', exact: true })).toHaveAttribute('aria-selected', 'true')
-  const details = window.getByRole('tabpanel', { name: '详情', exact: true })
+  await expect(window.getByRole('tab')).toHaveText(['详情与讨论', '代码 diff'])
+  await expect(window.getByRole('tab', { name: '详情与讨论', exact: true })).toHaveAttribute('aria-selected', 'true')
+  const details = window.getByRole('tabpanel', { name: '详情与讨论', exact: true })
   await expect(details).toContainText('规则 24')
+  await expect(details.locator('.comment-body')).toHaveText(['第一条讨论', '第二条讨论'])
+  await expect(details.locator('.comment-card').first()).toContainText('第一条讨论的回复')
+  await expect(details.locator('.evidence, .code-editor, .code-source-location')).toHaveCount(0)
+  await expect(details).not.toContainText('server/upgrade.ts')
+  expect(await details.evaluate(element => {
+    const rules = element.querySelector('.target-details')!
+    const discussions = element.querySelector('.discussion-threads')!
+    return !!(rules.compareDocumentPosition(discussions) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && getComputedStyle(discussions).overflowY !== 'auto'
+      && getComputedStyle(discussions).overflowY !== 'scroll'
+  })).toBe(true)
   await details.evaluate(element => { element.scrollTop = 300 })
   await expect.poll(() => details.evaluate(element => element.scrollTop)).toBeGreaterThan(100)
   const reading = await details.evaluate(element => element.scrollTop)
-  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
+  await expect(window).toContainText('server/upgrade.ts')
+  await expect(window.locator('.cm-deletedChunk')).toContainText('const cost = 10;')
+  await expect(window.locator('.cm-line.cm-changedLine')).toHaveCount(2)
+  await window.getByRole('tab', { name: '详情与讨论', exact: true }).click()
+  expect(await details.evaluate(element => element.scrollTop)).toBe(reading)
   await window.getByRole('button', { name: '添加新批注', exact: true }).click()
   const input = window.getByLabel('问题与预期行为')
   await input.fill('请核对资源不足时能否保持原状态。')
   await input.evaluate(element => { element.dataset.identity = 'retained' })
-  await window.getByRole('tab', { name: '详情', exact: true }).click()
-  expect(await details.evaluate(element => element.scrollTop)).toBe(reading)
   await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
-  await expect(window.locator('.cm-deletedChunk')).toContainText('const cost = 10;')
-  await expect(window.locator('.cm-line.cm-changedLine')).toHaveCount(2)
   await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
   await expect(window).toHaveClass(/is-docked/)
   await expect(page.locator('.inspector-tabs')).not.toBeVisible()
-  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await window.getByRole('tab', { name: '详情与讨论', exact: true }).click()
   await expect(input).toHaveAttribute('data-identity', 'retained')
   await expect(input).toHaveValue('请核对资源不足时能否保持原状态。')
   await window.getByRole('button', { name: '返回图内编辑', exact: true }).click()
@@ -153,13 +170,24 @@ test('node details, discussions and code share one window and preserve drafts an
   await expect(input).toHaveValue(drafts[0].body)
 })
 
-test('code comparison has real line numbers, split layout and a baseline-only view', async ({ page }, info) => {
+test('two inspection tabs support keyboard navigation and keep real code lines and baseline reading', async ({ page }, info) => {
   await openFixture(page)
   await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
   const window = surface(page)
-  const detail = window.getByRole('tab', { name: '详情', exact: true })
+  const detail = window.getByRole('tab', { name: '详情与讨论', exact: true })
+  await expect(window.getByRole('tab')).toHaveCount(2)
   await detail.focus(); await page.keyboard.press('ArrowRight')
-  await expect(window.getByRole('tab', { name: '代码 diff', exact: true })).toBeFocused()
+  const code = window.getByRole('tab', { name: '代码 diff', exact: true })
+  await expect(code).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(detail).toBeFocused()
+  await expect(detail).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowLeft')
+  await expect(code).toBeFocused()
+  await page.keyboard.press('Home')
+  await expect(detail).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(code).toBeFocused()
   await expect(window.locator('.cm-originalLineNumbers .code-original-number').filter({ hasText: /^11$/ })).toHaveText('11')
   await expect(window.locator('.cm-line.cm-changedLine').first()).toContainText('20')
   await window.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {}))) })
@@ -282,20 +310,20 @@ for (const docked of [false, true]) test(`open node window follows selection whi
   const window = surface(page)
   await window.getByRole('button', { name: '添加新批注', exact: true }).click()
   await window.getByLabel('问题与预期行为').fill('第一个节点的草稿')
-  await window.getByRole('tab', { name: '详情', exact: true }).click()
+  await window.getByRole('tab', { name: '详情与讨论', exact: true }).click()
   if (docked) await window.getByRole('button', { name: '移到侧栏编辑', exact: true }).click()
   await page.locator(`.react-flow__node[data-id="${other.id}"] .node-title`).click()
   await expect(window.locator('.discussion-target')).toHaveText(other.title)
   await expect(page.locator(`.react-flow__node[data-id="${other.id}"]`)).toBeFocused()
-  await expect(window.getByRole('tab', { name: '详情', exact: true })).toHaveAttribute('aria-selected', 'true')
-  await expect(window.getByRole('tabpanel', { name: '详情', exact: true })).toContainText(other.detail || other.summary)
+  await expect(window.getByRole('tab', { name: '详情与讨论', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(window.getByRole('tabpanel', { name: '详情与讨论', exact: true })).toContainText(other.detail || other.summary)
   await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
   await expect(window.locator('.cm-editor')).toHaveCount(0)
   await page.locator(`${target} .node-title`).click()
   await expect(window.locator('.discussion-target')).toHaveText(title)
   await expect(window.getByRole('tab', { name: '代码 diff', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(window.locator('.cm-editor')).toHaveCount(1)
-  await window.getByRole('tab', { name: '讨论', exact: true }).click()
+  await window.getByRole('tab', { name: '详情与讨论', exact: true }).click()
   await window.getByRole('button', { name: '添加新批注', exact: true }).click()
   await expect(window.getByLabel('问题与预期行为')).toHaveValue('第一个节点的草稿')
 })
@@ -363,6 +391,12 @@ test('mobile dark details and diff stay in the bottom sheet with the graph visib
   await openFixture(page)
   await page.getByRole('button', { name: `讨论：${title}`, exact: true }).click()
   const window = surface(page)
+  await expect(window.getByRole('tab')).toHaveText(['详情与讨论', '代码 diff'])
+  const combined = window.getByRole('tabpanel', { name: '详情与讨论', exact: true })
+  await expect(combined.locator('.target-details')).toContainText('规则 24')
+  await expect(combined.locator('.evidence')).toHaveCount(0)
+  await combined.evaluate(element => { element.scrollTop = element.scrollHeight })
+  await expect(combined.getByRole('button', { name: '添加新批注', exact: true })).toBeInViewport()
   await window.getByRole('tab', { name: '代码 diff', exact: true }).click()
   await expect(window.locator('.cm-line.cm-changedLine')).toHaveCount(2)
   await expect(page.getByRole('separator')).toHaveCount(0)

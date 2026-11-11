@@ -151,8 +151,9 @@ export function parseReview(value: unknown, options: { allowBaselineReferences?:
     if (comment.basis === 'baseline' && (!document && !options.allowBaselineReferences || document && comment.targets.some(target => !targetExists(document, target)))) {
       throw new Error('基线批注必须引用固定基线 B 的现有目标')
     }
+    const confirmed = comment.status === 'resolved' && comment.reviewedRevision !== undefined
     return { ...comment,
-      status: (comment.reviewedRevision ?? comment.revision) !== revision || (document && comment.status !== 'resolved' && comment.targets.some(target => !targetExists(document, target)))
+      status: (!confirmed && (comment.reviewedRevision ?? comment.revision) !== revision) || (document && comment.status !== 'resolved' && comment.targets.some(target => !targetExists(document, target)))
         ? 'needs-review' : comment.status,
     }
   })
@@ -244,16 +245,30 @@ export function setCommentStatus(review: ReviewDocument, commentId: string, stat
   return result
 }
 
-function elements(review: ReviewDocument) {
+export function editDiscussion(review: ReviewDocument, commentId: string, body: string, from: string, replyId?: string): ReviewDocument {
+  const comment = review.comments.find(item => item.id === commentId)
+  if (!comment) throw new Error('找不到此批注')
+  const original = replyId ? comment.replies?.find(reply => reply.id === replyId) : comment
+  if (!original) throw new Error('找不到此回复')
+  if (original.body !== from) throw new Error('讨论内容已有更新，请核对最新内容后重试')
+  if (original.revision !== review.revision) throw new Error('只能修改本轮尚未提交的讨论内容')
+  if (replyId && 'author' in original && original.author !== 'reviewer') throw new Error('不能修改代理回复')
+  const content = text(body.trim(), replyId ? '回复内容' : '批注内容', 10000, true)
+  return { ...review, comments: review.comments.map(item => item.id !== commentId ? item : replyId
+    ? { ...item, replies: item.replies!.map(reply => reply.id === replyId ? { ...reply, body: content } : reply) }
+    : { ...item, body: content }) }
+}
+
+function elements(review: ReviewDocument, includeEvidenceLines = true) {
   return [
-    ...review.nodes.map(node => ({ target: { kind: 'node', id: node.id } as Target, content: nodeContent(node) })),
+    ...review.nodes.map(node => ({ target: { kind: 'node', id: node.id } as Target, content: nodeContent(node, includeEvidenceLines) })),
     ...review.edges.map(edge => ({ target: { kind: 'edge', id: edge.id } as Target, content: edgeContent(edge) })),
   ]
 }
 
-function nodeContent(node: ReviewNode) {
+function nodeContent(node: ReviewNode, includeEvidenceLines = true) {
   return JSON.stringify([node.sceneId, node.title, node.kind, node.summary, node.detail, node.input, node.output,
-    node.evidence.map(item => [item.path, item.symbol, item.startLine, item.endLine, item.digest])])
+    node.evidence.map(item => includeEvidenceLines ? [item.path, item.symbol, item.startLine, item.endLine, item.digest] : [item.path, item.symbol, item.digest])])
 }
 
 function edgeContent(edge: ReviewEdge) {
@@ -262,7 +277,7 @@ function edgeContent(edge: ReviewEdge) {
 
 function sceneContent(review: ReviewDocument, sceneId: string) {
   const scene = review.scenes.find(scene => scene.id === sceneId)
-  return JSON.stringify([scene ? [scene.title, scene.description] : null, review.nodes.filter(node => node.sceneId === sceneId).map(node => [node.id, nodeContent(node)]).sort(),
+  return JSON.stringify([scene ? [scene.title, scene.description] : null, review.nodes.filter(node => node.sceneId === sceneId).map(node => [node.id, nodeContent(node, false)]).sort(),
     review.edges.filter(edge => edge.sceneId === sceneId).map(edge => [edge.id, edgeContent(edge)]).sort()])
 }
 
@@ -305,8 +320,8 @@ export function getChanges(previous: ReviewDocument, next: ReviewDocument): Revi
 export function rebaseReview(previous: ReviewDocument, next: ReviewDocument): ReviewDocument {
   if (previous.id !== next.id) throw new Error('只能合并相同评审 ID 的版本')
   if (previous.baseline && next.baseline && JSON.stringify(previous.baseline) !== JSON.stringify(next.baseline)) throw new Error('固定基线已存在，不能随新版替换')
-  const changes = getChanges(previous, next)
-  const affected = new Set([...changes.changed, ...changes.removed].map(targetKey))
+  const current = new Map(elements(next, false).map(item => [targetKey(item.target), item.content]))
+  const affected = new Set(elements(previous, false).filter(item => current.get(targetKey(item.target)) !== item.content).map(item => targetKey(item.target)))
   const revisionChanged = previous.revision !== next.revision || previous.snapshot.fingerprint !== next.snapshot.fingerprint
   const incoming = new Map(next.comments.map(comment => [comment.id, comment]))
   const baseline = previous.baseline ?? next.baseline
@@ -323,17 +338,21 @@ export function rebaseReview(previous: ReviewDocument, next: ReviewDocument): Re
   const reviewChanged = reviewContent(previous) !== reviewContent(next)
   const carried = previous.comments.map(comment => {
     const { replies, hasNewAgentReply } = mergeReplies(comment, incoming.get(comment.id))
+    const confirmed = comment.status === 'resolved' && comment.reviewedRevision !== undefined
     const scopeChanged = comment.targets.some(target => affected.has(targetKey(target)) ||
       (target.kind === 'scene' && changedScenes.has(target.id)) || (target.kind === 'review' && reviewChanged))
     return { ...comment, ...(replies === undefined ? {} : { replies }),
-      status: revisionChanged || (comment.reviewedRevision ?? comment.revision) !== next.revision || scopeChanged || hasNewAgentReply ||
+      status: (!confirmed && (revisionChanged || (comment.reviewedRevision ?? comment.revision) !== next.revision)) || scopeChanged || hasNewAgentReply ||
         (comment.status !== 'resolved' && comment.targets.some(target => !targetExists(comment.basis === 'baseline' ? baseline! : next, target)))
         ? 'needs-review' as const : comment.status,
     }
   })
-  const imported = next.comments.filter(comment => !localIds.has(comment.id)).map(comment => ({ ...comment,
-    status: (comment.reviewedRevision ?? comment.revision) !== next.revision || (comment.status !== 'resolved' && comment.targets.some(target => !targetExists(comment.basis === 'baseline' ? baseline! : next, target))) ? 'needs-review' as const : comment.status,
-  }))
+  const imported = next.comments.filter(comment => !localIds.has(comment.id)).map(comment => {
+    const confirmed = comment.status === 'resolved' && comment.reviewedRevision !== undefined
+    return { ...comment,
+      status: (!confirmed && (comment.reviewedRevision ?? comment.revision) !== next.revision) || (comment.status !== 'resolved' && comment.targets.some(target => !targetExists(comment.basis === 'baseline' ? baseline! : next, target))) ? 'needs-review' as const : comment.status,
+    }
+  })
   const result = { ...next, ...(baseline ? { baseline } : {}), comments: [...carried, ...imported] }
   return result
 }

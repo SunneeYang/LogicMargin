@@ -9,6 +9,44 @@ const node = (id: string, summary = ''): ReviewNode => ({
 })
 const edge = (id: string, source: string, target: string): ReviewEdge => ({ id, sceneId: 'scene', source, target, label: id, detail: '' })
 
+test('a disjoint placeholder baseline cannot rearrange the visible flow', () => {
+  const flow: ReviewNode[] = ['start', 'check', 'work', 'done'].map((id, index) => ({
+    ...node(id, 'Current flow details. '.repeat(8)), position: { x: 0, y: index * 210 },
+  }))
+  flow.push({ ...node('rejected'), kind: 'failure', position: { x: 480, y: 420 } })
+  const edges = [edge('start-check', 'start', 'check'), edge('check-work', 'check', 'work'),
+    edge('work-done', 'work', 'done'), edge('rejected', 'check', 'rejected'), edge('retry', 'work', 'check')]
+  const placeholder = [node('previous-placeholder')]
+  const original = structuredClone({ flow, edges, placeholder })
+  for (const collapsed of [false, true]) for (const measured of [false, true]) {
+    const current = collapsed ? flow.map(item => ({ ...item, position: { x: 0, y: 0 } })) : flow
+    const sizes = new Map(measured ? [...current, ...placeholder].map((item, i) =>
+      [item.id, { width: 248 + i * 4, height: 128 + i * 12 }] as const) : [])
+    for (const [visible, visibleEdges, reference, referenceEdges] of [
+      [current, edges, placeholder, []], [placeholder, [], current, edges],
+    ] as const) {
+      const standalone = layoutGraph(visible, visibleEdges, sizes)
+      const compared = comparisonLayout(visible, visibleEdges, reference, referenceEdges, sizes)
+      assert.equal(compared.usesAuthoredPositions, standalone.usesAuthoredPositions)
+      for (const [id, placed] of standalone.nodes) {
+        const actual = compared.nodes.get(id)!
+        assert.deepEqual({ position: actual.position, width: actual.width, height: actual.height },
+          { position: placed.position, width: placed.width, height: placed.height })
+      }
+      assert.deepEqual([...compared.nodes.keys()], visible.map(item => item.id))
+      assert.deepEqual([...compared.edges.keys()], visibleEdges.map(item => item.id))
+      for (const item of visibleEdges) {
+        const route = compared.edges.get(item.id)!
+        assert.ok(route.sourceHandle.startsWith('source:comparison:'))
+        assert.ok(route.targetHandle.startsWith('target:comparison:'))
+        assert.ok(compared.nodes.get(item.source)!.ports.some(port => port.id === route.sourceHandle))
+        assert.ok(compared.nodes.get(item.target)!.ports.some(port => port.id === route.targetHandle))
+      }
+    }
+  }
+  assert.deepEqual({ flow, edges, placeholder }, original)
+})
+
 test('comparison preserves authored topology when exclusive steps share slots and shared steps translate together', () => {
   const positioned = (id: string, x: number, y: number) => ({ ...node(id), position: { x, y } })
   for (const offset of [0, 420, 0.125]) {

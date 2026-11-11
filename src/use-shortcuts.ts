@@ -54,7 +54,7 @@ export function useShortcuts(handlers: Partial<Record<ShortcutAction, () => bool
       const target = event.target instanceof Element ? event.target : null
       if (target?.closest('input, textarea, select')) return
       const editor = target?.closest('.cm-editor')
-      if (editor ? !CODE_SHORTCUTS.has(action) || !!target?.closest('[contenteditable="true"]') : target?.closest('[contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return
+      if (editor ? !(CODE_SHORTCUTS.has(action) || action === 'previousReviewItem' || action === 'nextReviewItem') || !!target?.closest('[contenteditable="true"]') : target?.closest('[contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return
       if (handler() !== false) event.preventDefault()
     }
     window.addEventListener('keydown', keydown)

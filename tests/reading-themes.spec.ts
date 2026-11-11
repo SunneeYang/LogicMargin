@@ -62,7 +62,16 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
     await page.getByRole('button', { name: '收起回复', exact: true }).click()
     await page.screenshot({ path: info.outputPath(`${theme}-${mode}-desktop.png`) })
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect(page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true })).toBeInViewport({ ratio: 1 })
+    const combined = page.locator('[data-composer]').getByRole('tabpanel', { name: '详情与讨论', exact: true })
+    const reply = combined.locator('.comment-card').last().getByRole('button', { name: '回复讨论', exact: true })
+    await combined.evaluate(element => { element.scrollTop = 0 })
+    await reply.scrollIntoViewIfNeeded()
+    await expect.poll(() => combined.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+    expect(await combined.locator('.discussion-threads').evaluate(element => ({
+      scrollTop: element.scrollTop,
+      independentlyScrollable: ['auto', 'scroll'].includes(getComputedStyle(element).overflowY),
+    }))).toEqual({ scrollTop: 0, independentlyScrollable: false })
+    await expect(reply).toBeInViewport({ ratio: 1 })
     await expect.poll(() => page.evaluate(() => {
       const target = document.querySelector('.react-flow__node[data-id="upgrade-toggle"] .review-node')!.getBoundingClientRect()
       const canvas = document.querySelector('.canvas')!.getBoundingClientRect()
@@ -70,10 +79,12 @@ for (const theme of ['paper', 'soft', 'glass']) for (const mode of ['light', 'da
       return target.top >= canvas.top && target.bottom <= discussion.top - 4
     })).toBe(true)
     await page.screenshot({ path: info.outputPath(`${theme}-${mode}-phone.png`) })
-    await page.locator('[data-composer] .comment-card').last().getByRole('button', { name: '回复讨论', exact: true }).click()
+    await reply.click()
     await expect(input).toHaveValue('主题切换时保留这份回复草稿。')
     await page.setViewportSize({ width: 320, height: 500 })
-    await expect(page.getByRole('button', { name: '保存回复', exact: true })).toBeInViewport({ ratio: 1 })
+    const save = combined.getByRole('button', { name: '保存回复', exact: true })
+    await save.scrollIntoViewIfNeeded()
+    await expect(save).toBeInViewport({ ratio: 1 })
     await expect(page.getByRole('button', { name: '关闭讨论', exact: true })).toBeInViewport({ ratio: 1 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
     await page.reload()

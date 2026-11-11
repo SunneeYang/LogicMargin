@@ -159,7 +159,7 @@ test('already-submitted open opinions remain directly reachable without creating
   await expect(card).toHaveClass(/is-active/)
   await expect(page.locator('.feedback-summary')).toHaveCount(0)
   expect((await get()).history).toHaveLength(1)
-  await page.getByRole('button', { name: '收起侧栏', exact: true }).click()
+  await page.getByRole('button', { name: '关闭讨论', exact: true }).click()
   await entry.click()
   await expect(card).toBeVisible()
   expect((await get()).history).toHaveLength(1)

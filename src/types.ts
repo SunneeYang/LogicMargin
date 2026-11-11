@@ -55,6 +55,11 @@ export interface ReviewComment {
   basis?: 'baseline'
 }
 
+export interface DiscussionEditability {
+  comments: string[]
+  replies: { commentId: string; replyId: string }[]
+}
+
 export interface ReviewDocument {
   schemaVersion: 1
   id: string

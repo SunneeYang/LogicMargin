@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 )
 
 func (s *Store) Create(value any, view string, options Object) (Object, error) {
@@ -185,6 +186,72 @@ func (s *Store) Mutate(id string, value any, view string) (Object, error) {
 						p["replies"] = append(replies, candidate)
 						if candidate["author"] == "agent" {
 							p["status"] = "needs-review"
+						}
+						return p
+					})
+					review = checkedReview(r)
+					changed = true
+				case "edit-comment", "edit-reply":
+					replyEdit := m["kind"] == "edit-reply"
+					for key := range m {
+						if key != "kind" && key != "commentId" && key != "from" && key != "body" && !(replyEdit && key == "replyId") {
+							fail("编辑讨论只能修改正文")
+						}
+					}
+					commentID := requestID(m["commentId"])
+					comment := find(review["comments"], "id", commentID)
+					if comment == nil {
+						fail("找不到此批注", 404)
+					}
+					item, label := comment, "批注内容"
+					replyID := ""
+					editableComments, editableReplies := discussionEditPermissions(state, review)
+					allowed := editableComments[commentID]
+					if replyEdit {
+						replyID = requestID(m["replyId"])
+						item = findOrNil(comment["replies"], "id", replyID)
+						if item == nil {
+							fail("找不到此回复", 404)
+						}
+						label = "回复内容"
+						allowed = editableReplies[stringify([]any{commentID, replyID})]
+					}
+					if !allowed {
+						fail("只能修改本轮尚未提交的讨论", 409)
+					}
+					integer(batch["expectedVersion"], "版本")
+					from := text(m["from"], label, 10000, true)
+					body := trim(text(m["body"], label, 10000, true))
+					if !utf8.ValidString(from) || !utf8.ValidString(body) {
+						fail("JSON 必须是有效 UTF-8 文本")
+					}
+					// An edit can commit before its response reaches the client's pending queue.
+					if body == item["body"] {
+						continue
+					}
+					if !equal(batch["expectedVersion"], state["version"]) {
+						fail("讨论已有更新，请读取最新内容后重试", 409)
+					}
+					if from != item["body"] {
+						fail("讨论内容已有变化，请核对最新内容", 409)
+					}
+					r := copyObject(review)
+					r["comments"] = listMap(review["comments"], func(c Object) Object {
+						if c["id"] != commentID {
+							return c
+						}
+						p := copyObject(c)
+						if replyEdit {
+							p["replies"] = listMap(c["replies"], func(reply Object) Object {
+								if reply["id"] != replyID {
+									return reply
+								}
+								next := copyObject(reply)
+								next["body"] = body
+								return next
+							})
+						} else {
+							p["body"] = body
 						}
 						return p
 					})

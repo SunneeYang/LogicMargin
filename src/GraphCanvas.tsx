@@ -34,7 +34,7 @@ export interface GraphCanvasProps {
   nodeAppearance: NodeAppearance
   onNodeAppearanceChange: (appearance: NodeAppearance) => void
   onOpenComposer: (targets: Target[], point?: Point) => void
-  onOpenInspection: (targets: Target[], point?: Point, tab?: 'comments' | 'detail') => void
+  onOpenInspection: (targets: Target[], point?: Point) => void
   onOpenThread: (commentId: string, point?: Point, target?: Target) => void
   onViewportChange?: () => void
   readOnly?: boolean
@@ -732,7 +732,7 @@ const GraphCanvas = memo(forwardRef<GraphCanvasHandle, GraphCanvasProps>(functio
     {!!selection.length && <div className={`canvas-selection-actions${selection.length === 1 && selection[0].kind === 'node' ? ' is-single-node' : ''}`}>
       {(selection.length > 1 || selection[0].kind === 'edge') && <button className="button" data-keep-composer {...shortcutProps('showDetails', t('查看详情'))} onClick={event => {
         const rect = event.currentTarget.getBoundingClientRect()
-        onOpenInspection(selection, { x: rect.left, y: rect.bottom }, 'detail')
+        onOpenInspection(selection, { x: rect.left, y: rect.bottom })
       }}><Info size={14} />{t('查看详情')}</button>}
       {!readingNodeIds && <button className="button focus-related" data-keep-composer onClick={() => focusRelated(selection)}><Focus size={14} />{t('聚焦关联流程')}</button>}
       {!readOnly && (selection.length > 1 || selection.some(target => target.kind === 'edge')) && <button className="button primary" {...shortcutProps('addComment', t('批注所选（{count}）', { count: selection.length }))} onClick={event => {

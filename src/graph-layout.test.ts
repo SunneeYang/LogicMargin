@@ -105,6 +105,87 @@ test('cross-stage bypasses leave the main line straight and same-row branches re
   assert.equal(result.edges.get('self')!.kind, 'return')
 })
 
+test('side branches at separate stages reuse lanes without moving the vertical spine', () => {
+  const positions = [[0, 0], [0, 210], [-450, 420], [0, 420], [450, 630], [0, 630],
+    [0, 840], [-400, 1050], [400, 1050], [0, 1260]]
+  const nodes = positions.map(([x, y], i) => ({ ...node(`n${i}`), position: { x, y } }))
+  const pairs = [[0, 1], [1, 2], [1, 3], [3, 4], [3, 5], [5, 6], [6, 7], [6, 8], [7, 6], [7, 9], [8, 9]]
+  const edges = pairs.map(([a, b], i) => edge(`e${i}`, `n${a}`, `n${b}`))
+  const original = structuredClone({ nodes, edges })
+  for (const measured of [false, true]) {
+    const sizes = new Map(measured ? nodes.map((n, i) => [n.id, { width: 248 + i * 8, height: 160 + i * 12 }]) : [])
+    const result = layoutGraph(nodes, edges, sizes)
+    const x = (i: number) => result.nodes.get(`n${i}`)!.position.x
+    assert.equal(x(2), x(7), 'unrelated left branches must share one lane')
+    assert.equal(x(4), x(8), 'unrelated right branches must share one lane')
+    for (const i of [0, 1, 3, 5, 6, 9]) assert.equal(x(i), x(0), 'main line must stay vertical')
+    assert.ok(x(2) < x(0) && x(0) < x(4), 'branches must retain their side')
+    const placed = [...result.nodes.values()]
+    for (let i = 0; i < placed.length; i++) for (const other of placed.slice(i + 1)) assert.equal(overlaps(placed[i], other), false)
+    for (const [id, route] of result.edges) for (let i = 1; i < route.points.length; i++) {
+      const a = route.points[i - 1], b = route.points[i]
+      assert.ok(a.x === b.x || a.y === b.y, `${id}: route must stay orthogonal`)
+      for (const n of placed) assert.equal(crossesInterior(a, b, n), false, `${id}: route enters a card`)
+    }
+    const reversed = layoutGraph(nodes.toReversed(), edges.toReversed(), sizes)
+    for (const n of nodes) assert.deepEqual(reversed.nodes.get(n.id)!.position, result.nodes.get(n.id)!.position)
+  }
+  assert.deepEqual({ nodes, edges }, original)
+})
+
+test('lane reuse keeps connected columns and same-stage siblings apart', () => {
+  const nodes = [[0, 0], [300, 420], [600, 210], [900, 210]].map(([x, y], i) => ({ ...node(`n${i}`), position: { x, y } }))
+  const result = layoutGraph(nodes, [edge('connected', 'n0', 'n1')], new Map([['n1', { width: 420, height: 160 }]]))
+  const [a, b, c, d] = nodes.map(n => result.nodes.get(n.id)!)
+  assert.ok(a.position.x + a.width < b.position.x, 'connected columns must retain their direction')
+  assert.ok(c.position.x + c.width < d.position.x, 'same-stage siblings must remain separated')
+})
+
+test('joined vertical runs form one spine with compact exits and an outside bypass', () => {
+  const positions = [[0, 0], [-650, 210], [0, 210], [-600, 420], [0, 420], [-150, 630],
+    [600, 420], [900, 630], [300, 840], [850, 1050], [300, 1050], [-200, 1260],
+    [300, 1260], [300, 1470], [900, 1680], [300, 1680]]
+  const nodes = positions.map(([x, y], i) => ({ ...node(`n${i}`), position: { x, y },
+    kind: [1, 5, 7, 9, 11, 14].includes(i) ? 'failure' as const : i === 15 ? 'result' as const : 'action' as const }))
+  const pairs = [[0, 1], [0, 2], [2, 3], [2, 4], [2, 6], [3, 13], [4, 5], [4, 8],
+    [6, 7], [6, 8], [8, 9], [8, 10], [10, 11], [10, 12], [12, 13], [13, 14], [13, 15]]
+  const edges = pairs.map(([a, b]) => edge(`${a}-${b}`, `n${a}`, `n${b}`))
+  const original = structuredClone({ nodes, edges })
+  for (const measured of [false, true]) {
+    const sizes = new Map(measured ? nodes.map((n, i) => [n.id, { width: 248 + i * 2, height: 128 + i * 8 }]) : [])
+    const result = layoutGraph(nodes, edges, sizes)
+    const x = (i: number) => result.nodes.get(`n${i}`)!.position.x
+    for (const i of [2, 4, 8, 10, 12, 13, 15]) assert.equal(x(i), x(0), 'joined main stages must align')
+    assert.equal(new Set([...result.nodes.values()].map(n => n.position.x)).size, 3, 'terminal exits must stay outside the spine')
+    const bypass = result.edges.get('3-13')!
+    assert.equal(result.nodes.get('n3')!.ports.find(p => p.id === bypass.sourceHandle)!.side, 'left')
+    assert.equal(result.nodes.get('n13')!.ports.find(p => p.id === bypass.targetHandle)!.side, 'left')
+    const join = result.nodes.get('n8')!
+    const incoming = join.ports.find(p => p.id === 'target:6-8')!
+    const exit = join.ports.find(p => p.id === 'source:8-9')!
+    assert.ok(incoming.offset < exit.offset, 'forward merge must enter above a later exit')
+    const query = result.nodes.get('n3')!, check = result.nodes.get('n4')!
+    const queryEntry = query.ports.find(p => p.id === 'target:2-3')!
+    const rejectionExit = check.ports.find(p => p.id === 'source:4-5')!
+    assert.ok(check.position.y + rejectionExit.offset > query.position.y + queryEntry.offset,
+      'a lower side exit must not cross a neighboring forward entrance')
+    for (const [id, route] of result.edges) for (let i = 1; i < route.points.length; i++) {
+      const a = route.points[i - 1], b = route.points[i]
+      assert.ok(a.x === b.x || a.y === b.y, `${id}: route must stay orthogonal`)
+      for (const n of result.nodes.values()) assert.equal(crossesInterior(a, b, n), false, `${id}: route enters a card`)
+    }
+  }
+  assert.deepEqual({ nodes, edges }, original)
+})
+
+test('an exit from another branch cannot fill an empty stage in a sustained spine', () => {
+  const nodes = [[0, 0], [0, 210], [0, 420], [600, 420], [300, 630]].map(([x, y], i) => ({
+    ...node(`n${i}`), position: { x, y }, kind: i === 4 ? 'failure' as const : 'action' as const,
+  }))
+  const result = layoutGraph(nodes, [edge('a', 'n0', 'n1'), edge('b', 'n1', 'n2'), edge('c', 'n1', 'n3'), edge('d', 'n3', 'n4')])
+  assert.notEqual(result.nodes.get('n4')!.position.x, result.nodes.get('n0')!.position.x)
+})
+
 test('a main spine with side branches, returns and early exits avoids unnecessary wire crossings', () => {
   const positions = [[0, 0], [0, 210], [0, 420], [0, 630], [0, 840], [520, 840], [-520, 840], [0, 1050], [0, 1260]]
   const nodes = positions.map(([x, y], index) => ({ ...node(`n${index}`), position: { x, y },

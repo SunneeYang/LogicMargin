@@ -137,11 +137,12 @@ export function useReviewSession(sessionId: string | null, onSession: (session: 
     const mutations = reviewMutations(before, after)
     if (!mutations.length) return
     const hasStatus = mutations.some(item => item.kind === 'set-status')
-    if (hasStatus && (pending.current || task.current)) throw new Error('上一条批注正在保存，请稍后再确认状态')
+    const needsVersion = hasStatus || mutations.some(item => item.kind === 'edit-comment' || item.kind === 'edit-reply')
+    if (needsVersion && (pending.current || task.current)) throw new Error('上一条批注正在保存，请稍后再修改或确认状态')
     store({ schemaVersion: 1, review: after, batches: [...(pending.current?.batches ?? []), {
       revision: before.revision, fingerprint: before.snapshot.fingerprint,
       round: displayed.current.round,
-      ...(hasStatus ? { expectedVersion: displayed.current.version } : {}), mutations,
+      ...(needsVersion ? { expectedVersion: displayed.current.version } : {}), mutations,
     }] })
     void flush().catch(() => {})
   }, [sessionId, store, flush])

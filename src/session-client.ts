@@ -42,8 +42,11 @@ export function reviewMutations(before: ReviewDocument, after: ReviewDocument): 
     const previous = before.comments.find(item => item.id === comment.id)
     if (!previous) { mutations.push({ kind: 'add-comment', comment }); continue }
     if (previous.basis !== comment.basis) throw new Error('已有批注的流程图依据不能修改')
+    if (previous.body !== comment.body) mutations.push({ kind: 'edit-comment', commentId: comment.id, from: previous.body, body: comment.body })
     for (const reply of comment.replies ?? []) {
-      if (!previous.replies?.some(item => item.id === reply.id)) mutations.push({ kind: 'add-reply', commentId: comment.id, reply })
+      const prior = previous.replies?.find(item => item.id === reply.id)
+      if (!prior) mutations.push({ kind: 'add-reply', commentId: comment.id, reply })
+      else if (prior.body !== reply.body) mutations.push({ kind: 'edit-reply', commentId: comment.id, replyId: reply.id, from: prior.body, body: reply.body })
     }
     if (previous.status !== comment.status || previous.reviewedRevision !== comment.reviewedRevision) {
       mutations.push({ kind: 'set-status', commentId: comment.id, from: previous.status, status: comment.status, reviewedRevision: after.revision })
@@ -107,6 +110,16 @@ export function parsePendingSession(raw: string): PendingSession {
       } else if (mutation.kind === 'set-status') {
         if (typeof mutation.commentId !== 'string' || !['open', 'resolved', 'needs-review'].includes(String(mutation.from)) ||
           !['open', 'resolved', 'needs-review'].includes(String(mutation.status)) || typeof mutation.reviewedRevision !== 'string') throw new Error('待同步批注状态错误')
+      } else if (mutation.kind === 'edit-comment' || mutation.kind === 'edit-reply') {
+        const comment = review.comments.find(item => item.id === mutation.commentId)
+        if (!comment || typeof mutation.from !== 'string' || !mutation.from.trim() || mutation.from.length > 10000 ||
+          !Number.isSafeInteger(batch.expectedVersion)) throw new Error('待同步讨论修改格式错误')
+        if (mutation.kind === 'edit-comment') parseReview({ ...review, comments: [{ ...comment, body: mutation.body }] }, { allowBaselineReferences: true })
+        else {
+          const reply = comment.replies?.find(item => item.id === mutation.replyId)
+          if (!reply) throw new Error('待同步讨论修改格式错误')
+          parseReview({ ...review, comments: [{ ...comment, replies: [{ ...reply, body: mutation.body }] }] }, { allowBaselineReferences: true })
+        }
       } else throw new Error('待同步操作类型错误')
     }
   }
@@ -170,6 +183,21 @@ export function parseCurrentSession(value: unknown): CurrentSession {
     review.comments.some(comment => (comment.originRound ?? 1) > Number(source.round) || (comment.reviewedRound ?? 1) > Number(source.round) || comment.replies?.some(reply => (reply.round ?? 1) > Number(source.round)))) throw new Error('会话轮次引用错误')
   if (source.acknowledgedSubmission !== undefined && (!validId(source.acknowledgedSubmission) || !history.some(item => item.id === source.acknowledgedSubmission && item.kind === 'logic-margin-feedback'))) throw new Error('会话接收记录错误')
   let baseline: BaselineInfo | undefined
+  let editableDiscussion: CurrentSession['editableDiscussion']
+  if (source.editableDiscussion !== undefined) {
+    const value = object(source.editableDiscussion)
+    if (!Array.isArray(value.comments) || !value.comments.every(validId) || new Set(value.comments).size !== value.comments.length ||
+      !Array.isArray(value.replies)) throw new Error('讨论编辑权限格式错误')
+    const replies = value.replies.map(entry => {
+      const item = object(entry)
+      if (!validId(item.commentId) || !validId(item.replyId)) throw new Error('讨论编辑权限格式错误')
+      return { commentId: item.commentId, replyId: item.replyId }
+    })
+    if (new Set(replies.map(item => JSON.stringify([item.commentId, item.replyId]))).size !== replies.length ||
+      value.comments.some(id => !review.comments.some(comment => comment.id === id)) ||
+      replies.some(item => !review.comments.some(comment => comment.id === item.commentId && comment.replies?.some(reply => reply.id === item.replyId && reply.author === 'reviewer')))) throw new Error('讨论编辑权限格式错误')
+    editableDiscussion = { comments: value.comments as string[], replies }
+  }
   if (source.baseline !== undefined) {
     const item = object(source.baseline)
     const snapshot = object(item.snapshot)
@@ -181,6 +209,7 @@ export function parseCurrentSession(value: unknown): CurrentSession {
   return { schemaVersion: 1, view: 'current', id: source.id, version: Number(source.version), round: source.round, phase: source.phase as CurrentSession['phase'],
     createdAt: source.createdAt, updatedAt: source.updatedAt, review, history, snapshots, submittedCommentIds, commentOrigins, ...parseSessionOptions(source),
     ...(baseline ? { baseline } : {}),
+    ...(editableDiscussion ? { editableDiscussion } : {}),
     ...(source.acknowledgedSubmission === undefined ? {} : { acknowledgedSubmission: source.acknowledgedSubmission as string }) }
 }
 

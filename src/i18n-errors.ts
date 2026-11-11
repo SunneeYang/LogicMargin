@@ -1,5 +1,16 @@
 // Keep server and file-format errors unchanged; translate them only at the UI boundary.
 export const errorMessages: Record<string, string> = {
+  '讨论内容已有更新，请核对最新内容后重试': 'This discussion has changed. Check the latest content before trying again.',
+  '只能修改本轮尚未提交的讨论内容': 'Only unsubmitted discussions from the current round can be edited.',
+  '只能修改本轮尚未提交的讨论': 'Only unsubmitted discussions from the current round can be edited.',
+  '不能修改代理回复': 'Agent replies cannot be edited.',
+  '找不到此回复': 'This reply could not be found.',
+  '待同步讨论修改格式错误': 'Invalid pending discussion edit. The saved data has been preserved.',
+  '讨论编辑权限格式错误': 'Invalid discussion edit permissions.',
+  '上一条批注正在保存，请稍后再修改或确认状态': 'The previous comment is being saved. Wait before editing or confirming its status.',
+  '讨论已有更新，请读取最新内容后重试': 'This discussion has changed. Reload the latest content before trying again.',
+  '讨论内容已有变化，请核对最新内容': 'This discussion has changed. Check the latest content.',
+  '编辑讨论只能修改正文': 'A discussion edit can only change its text.',
   '批注至少需要一个目标': 'A comment needs at least one target.',
   '批注目标重复': 'Comment targets must be unique.',
   '不支持此评审文件版本；目前只支持 schemaVersion: 1': 'Unsupported review format. Only schemaVersion: 1 is supported.',

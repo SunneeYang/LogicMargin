@@ -26,6 +26,11 @@ TypeScript store. It is read, restored and archived again by the Go tests.
 
 The fixed fixtures are test inputs, never runtime dependencies.
 
+`TestNodeOracle` explicitly checks one intentional policy change against the
+frozen `rebase revision` vector: an already confirmed resolved comment stays
+resolved when only the overall version changes. The fixture bytes are preserved;
+related changes and new agent replies still require review in separate regressions.
+
 Remaining boundaries: the legacy free-text forms accepted by V8 `Date.parse`
 are not exhaustive here; normal persisted ISO timestamps and the listed legacy
 forms have fixed coverage. HTTP, CLI and persisted JSON reject isolated UTF-16

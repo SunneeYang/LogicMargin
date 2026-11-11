@@ -64,10 +64,53 @@ export function gridPositions(
   const largestLabel = Math.max(24, ...edges.map(edge => measureEdgeLabel(edge.label).height + 16))
   const rowGap = Math.max(120, largestLabel * 2 + 32)
   const xPositions = new Map<number, number>(), yPositions = new Map<number, number>()
+  const byId = new Map(nodes.map(node => [node.id, node]))
+  const linkedColumns = new Map(columns.map(column => [column, new Set<number>()]))
+  const returningColumns = new Map(columns.map(column => [column, new Set<number>()]))
+  const outgoing = new Set(edges.map(edge => edge.source))
+  const vertical = edges.filter(edge => {
+    const source = byId.get(edge.source)!, target = byId.get(edge.target)!
+    return source.kind !== 'failure' && target.kind !== 'failure'
+      && source.position.x === target.position.x && source.position.y < target.position.y
+  })
+  const verticalTargets = new Set(vertical.map(edge => edge.target))
+  const spines = new Set(vertical.filter(edge => verticalTargets.has(edge.source)).map(edge => byId.get(edge.source)!.position.x))
+  const exits = new Set(columns.filter(column => nodes.filter(node => node.position.x === column)
+    .every(node => node.kind === 'failure' && !outgoing.has(node.id))))
+  for (const edge of edges) {
+    const source = byId.get(edge.source)!, target = byId.get(edge.target)!
+    linkedColumns.get(source.position.x)!.add(target.position.x)
+    linkedColumns.get(target.position.x)!.add(source.position.x)
+    if (source.position.y >= target.position.y) {
+      returningColumns.get(source.position.x)!.add(target.position.x)
+      returningColumns.get(target.position.x)!.add(source.position.x)
+    }
+  }
   let x = 24, y = 24
+  let laneWidth = 0
+  let laneColumns: number[] = []
+  const laneRows = new Set<number>()
   for (const column of columns) {
+    const members = nodes.filter(node => node.position.x === column)
+    const laneHasSpine = laneColumns.some(prior => spines.has(prior))
+    // Align sustained forward runs; keep terminal branches outside their spine.
+    if (members.some(node => laneRows.has(node.position.y))
+      || laneHasSpine && exits.has(column) || spines.has(column) && laneColumns.some(prior => exits.has(prior))
+      || laneColumns.some(prior => {
+        if (!linkedColumns.get(column)!.has(prior)) return false
+        const continuesSpine = spines.has(column) && spines.has(prior)
+        const extendsExit = !laneHasSpine && !spines.has(column) && (exits.has(column) || exits.has(prior))
+        return returningColumns.get(column)!.has(prior) || !continuesSpine && !extendsExit
+      })) {
+      x += laneWidth + 264
+      laneWidth = 0
+      laneColumns = []
+      laneRows.clear()
+    }
     xPositions.set(column, x)
-    x += Math.max(...nodes.filter(node => node.position.x === column).map(node => dimension(node).width)) + 264
+    laneWidth = Math.max(laneWidth, ...members.map(node => dimension(node).width))
+    laneColumns.push(column)
+    for (const node of members) laneRows.add(node.position.y)
   }
   for (const row of rows) {
     yPositions.set(row, y)
@@ -117,13 +160,16 @@ export function routeGraphEdges(
     const source = byId.get(edge.source)!, target = byId.get(edge.target)!
     const returning = target.position.y < source.position.y || edge.source === edge.target
     const sideExit = target.kind === 'failure' || target.kind === 'result' && target.position.x !== source.position.x && !edges.some(item => item.source === target.id)
-    const skipForward = !returning && source.position.x === target.position.x && nodes.some(node =>
+    const skipsStage = !returning && nodes.some(node =>
       node.position.x === source.position.x && node.position.y > source.position.y && node.position.y < target.position.y)
+    const skipForward = source.position.x === target.position.x && skipsStage
+    const sideBypass = source.position.x !== target.position.x && skipsStage && edges.every(item => item.source !== edge.source || item.id === edge.id)
     const kind = sideExit ? 'exception' : returning ? 'return' : 'flow'
     kinds.set(edge.id, kind)
     let sourceSide: LayoutPort['side'], targetSide: LayoutPort['side']
     // Bypasses leave the adjacent main stages' bottom/top ports free for a straight spine.
-    if (skipForward) sourceSide = targetSide = 'right'
+    if (sideBypass) sourceSide = targetSide = source.position.x < target.position.x ? 'left' : 'right'
+    else if (skipForward) sourceSide = targetSide = 'right'
     else if (kind === 'return' && source.position.x === target.position.x) sourceSide = targetSide = edge.source === edge.target ? 'right' : 'left'
     else if (returning && source.position.x === target.position.x) sourceSide = targetSide = 'right'
     else if (source.position.x === target.position.x) { sourceSide = 'bottom'; targetSide = 'top' }
@@ -135,14 +181,18 @@ export function routeGraphEdges(
   }
   for (const node of placed.values()) {
     for (const side of ['top', 'right', 'bottom', 'left'] as const) {
-      const ports = node.ports.filter(port => port.side === side).sort((a, b) => {
-        const partner = (port: LayoutPort) => {
-          const edge = edges.find(edge => `${port.type}:${edge.id}` === port.id)!
-          return placed.get(port.type === 'source' ? edge.target : edge.source)!.position
-        }
+      const partner = (port: LayoutPort) => {
+        const edge = edges.find(edge => `${port.type}:${edge.id}` === port.id)!
+        return placed.get(port.type === 'source' ? edge.target : edge.source)!.position
+      }
+      const ports = node.ports.filter(port => port.side === side)
+      const hasFeedback = ports.some(port => port.type === 'target' && partner(port).y >= node.position.y)
+      ports.sort((a, b) => {
         const one = partner(a), two = partner(b)
-        const feedbackTarget = (port: LayoutPort) => (side === 'left' || side === 'right') && port.type === 'target'
-        const oneReturns = feedbackTarget(a), twoReturns = feedbackTarget(b)
+        // Mixed feedback groups retain their nested track order.
+        const feedbackTarget = (port: LayoutPort, point: LayoutPoint) => (side === 'left' || side === 'right') && port.type === 'target'
+          && (hasFeedback || point.x === node.position.x)
+        const oneReturns = feedbackTarget(a, one), twoReturns = feedbackTarget(b, two)
         if (oneReturns !== twoReturns) return Number(oneReturns) - Number(twoReturns)
         if (oneReturns) {
           const approach = (point: LayoutPoint) => Math.sign(point.y - node.position.y)
@@ -152,6 +202,14 @@ export function routeGraphEdges(
       })
       const span = side === 'top' || side === 'bottom' ? node.width : node.height
       ports.forEach((port, index) => { port.offset = 16 + (span - 32) * (index + 1) / (ports.length + 1) })
+      if ((side === 'left' || side === 'right') && ports.length === 1 && !hasFeedback) {
+        const port = ports[0], point = partner(port)
+        // Forward side entrances and exits need distinct levels even on unequal-height cards.
+        if (point.x !== node.position.x && point.y !== node.position.y) {
+          const fraction = port.type === 'source' && point.y > node.position.y ? 2 / 3 : port.type === 'target' && point.y < node.position.y ? 1 / 3 : .5
+          port.offset = 16 + (span - 32) * fraction
+        }
+      }
       const fromBelow = (port: LayoutPort) => {
         if (port.type !== 'target') return false
         const edge = edges.find(edge => `target:${edge.id}` === port.id)!
