@@ -2,7 +2,7 @@
 
 插件包含审查技能、HTTP MCP、评审 API、网页和 CLI。一个常驻后台进程同时提供 `/mcp`、`/api` 与内嵌网页；CLI 只在启动、配置和恢复时短暂运行。安装后可在其他工程使用，无需在业务工程安装 npm 依赖或启动 Vite。
 
-0.9.18 默认使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。用户无需安装 Node.js、Go、Bun 或 npm；Node.js 和 Go 只用于源码开发与构建。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
+0.9.18 默认使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。原生程序运行时不依赖 Node.js、Go、Bun 或 npm；源码开发与构建需要 Node.js 和 Go。DSH 宿主仍需其支持的 Node.js 环境和 pnpm，见 [DSH 安装说明](deepseek-harness.md)。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
 
 网页“设置”使用居中窗口，分为“界面”“快捷键”和“版本与更新”。常用审查键位可录制、停用或恢复默认，保存范围与输入边界见[快捷键说明](keyboard-shortcuts.md)。版本页可读取运行中原生服务版本，手动检查官方稳定版，并在服务本机一键更新已有 Codex 插件与 Go 服务。远程页面只能检查；详细信任、备份与失败恢复边界见 [网页本机更新](local-updates.md)。
 
@@ -192,7 +192,7 @@ npm run release:agent -- v0.9.18
 npm run test:release
 ```
 
-发行目标是 GitHub tag `v0.9.18`，附件为五平台各一份 `logic-margin-agent-0.9.18-TARGET.zip`、一个 `dsh-plugin-logicmargin-0.9.18.tgz`、各自的 `.sha256` 和统一 `SHA256SUMS`。Git marketplace 的启动器按插件版本定位这些官方附件，校验后执行本平台程序；不将 Node 通用 ZIP 或开发 oracle 当成默认发布。DSH 使用生成的 tgz 安装，npm 与市场收录另行发布，见 [DSH 分发说明](deepseek-harness.md#市场与账号)。
+发行目标是 GitHub tag `v0.9.18`，附件为五平台各一份 `logic-margin-agent-0.9.18-TARGET.zip`、一个 `dsh-plugin-logicmargin-0.9.18.tgz`、各自的 `.sha256` 和统一 `SHA256SUMS`。Git marketplace 的启动器按插件版本定位这些官方附件，校验后执行本平台程序；不将 Node 通用 ZIP 或开发 oracle 当成默认发布。DSH 可直接安装已发布的 npm 包 `dsh-plugin-logicmargin@0.9.18`，也可使用 GitHub tgz。发行流水线不自动发布 npm，社区目录与 Discover 收录仍分别核对，见 [DSH 分发说明](deepseek-harness.md#市场与账号)。
 
 推送 tag 与创建 GitHub Release 分别按用户授权执行。跨平台构建、原生运行、CI 完成和附件实际可下载是不同结果；以实际检查和 Release 附件为准，本地打包不代表已发布。维护时同时检查仓库启动器与 ZIP 内的技能说明，确保两条入口描述一致。
 

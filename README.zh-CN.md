@@ -101,11 +101,17 @@ Agent 从实际代码或文档整理流程图，你在具体节点、连线或�
 
 ## 快速开始
 
-**0.9.18 默认使用内嵌网页的 Go 原生程序，用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包；Node.js 和 Go 仅用于源码开发与构建。
+**0.9.18 默认使用内嵌网页的 Go 原生程序，Codex 和原生 ZIP 用户无需安装 Node.js、Go、Bun 或 npm。** Codex 在线安装需要 Git，首次启动需要联网下载匹配平台的发行包。DSH 仍需其支持的 Node.js 环境和 pnpm；源码开发与构建需要 Node.js 和 Go。
 
 ### 交给 Agent 使用
 
-**DeepSeek Harness 0.2.2-rc.1** 使用独立 tgz，见 [DSH 适配与安装](docs/deepseek-harness.md)。插件通过官方 MCP Client 连接同一原生服务并注册技能；以下命令专用于 Codex。
+**DeepSeek Harness 0.2.2-rc.1** 可直接从 [npm](https://www.npmjs.com/package/dsh-plugin-logicmargin/v/0.9.18) 安装到实际使用的 profile：
+
+```sh
+dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@0.9.18 --save-exact --registry=https://registry.npmjs.org
+```
+
+重载插件/profile，核对 `logic-margin` 技能和 MCP 工具。插件通过官方 MCP Client 连接同一原生服务；更新和 GitHub tgz 备用安装方式见 [DSH 适配与安装](docs/deepseek-harness.md)。以下命令专用于 Codex。
 
 注册 Git marketplace，安装插件：
 
