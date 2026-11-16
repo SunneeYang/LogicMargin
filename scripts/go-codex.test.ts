@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { execFile, spawn, spawnSync } from 'node:child_process'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, chmod, cp, mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
 import type { TestContext } from 'node:test'
-import { startGo, goBinary } from './go-process.mjs'
+import { goBinary } from './go-process.mjs'
 import { sampleReview } from '../src/sample.ts'
 
 const execute = promisify(execFile)
@@ -61,9 +61,9 @@ function object(value: unknown): Record<string, unknown> {
 
 async function setup(t: TestContext) {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-real-codex-mcp-'))
-  const codexHome = join(directory, 'codex')
-  await mkdir(codexHome)
-  let service
+  const codexHome = join(directory, 'codex home with spaces')
+  const home = join(directory, 'daemon home'), data = join(directory, 'sessions')
+  const env = { ...process.env, CODEX_HOME: codexHome, LOGIC_MARGIN_HOME: home, LOGIC_MARGIN_DATA_DIR: data }
   const children: ChildProcessWithoutNullStreams[] = []
   t.after(async () => {
     for (const child of children.reverse()) {
@@ -74,16 +74,45 @@ async function setup(t: TestContext) {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
       await closed
     }
-    await service?.stop()
+    await execute(goBinary, ['server', 'stop'], { env, timeout: 15000 })
     await rm(directory, { recursive: true, force: true })
   })
-  service = await startGo({ dataDir: join(directory, 'sessions'), cwd: directory })
-  const daemon = service.child
-  const url = service.url
-  const configured = await execute(goBinary, ['server', 'setup'], { cwd: directory,
-    env: { ...process.env, LOGIC_MARGIN_HOME: service.home, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions'), CODEX_HOME: codexHome }, timeout: 15000 })
-  assert.equal(object(object(JSON.parse(configured.stdout)).mcp).toolTimeoutSec, 86400)
-  const codex = spawn('codex', ['app-server'], { cwd: directory, env: { ...process.env, CODEX_HOME: codexHome }, stdio: ['pipe', 'pipe', 'pipe'] })
+  await mkdir(codexHome)
+  await writeFile(join(codexHome, 'config.toml'), '# Preserve this comment\n')
+  const original = join(directory, 'original marketplace')
+  const moved = join(directory, 'moved marketplace with spaces')
+  const plugin = join(original, 'plugins/logic-margin')
+  await cp(new URL('../plugins/logic-margin/', import.meta.url), plugin, { recursive: true })
+  await mkdir(join(original, '.agents/plugins'), { recursive: true })
+  await cp(new URL('../.agents/plugins/marketplace.json', import.meta.url), join(original, '.agents/plugins/marketplace.json'))
+  const executable = process.platform === 'win32' ? 'logic-margin.exe' : 'logic-margin'
+  await cp(goBinary, join(plugin, 'skills/logic-margin/scripts', executable))
+  await chmod(join(plugin, 'skills/logic-margin/scripts', executable), 0o755)
+  // Windows platform ZIPs use their native entry instead of the Unix Git launcher.
+  if (process.platform === 'win32') {
+    const file = join(plugin, 'mcp.json')
+    const config = JSON.parse(await readFile(file, 'utf8'))
+    config.mcpServers.logic_margin.command = './skills/logic-margin/scripts/logic-margin.exe'
+    config.mcpServers.logic_margin.args = ['mcp']
+    await writeFile(file, JSON.stringify(config))
+  }
+  await rename(original, moved)
+  await assert.rejects(access(original), { code: 'ENOENT' })
+  const add = await execute('codex', ['plugin', 'marketplace', 'add', moved, '--json'], { cwd: directory, env, timeout: 15000 })
+  assert.equal(object(JSON.parse(add.stdout)).marketplaceName, 'logic-margin-local')
+  const installed = object(JSON.parse((await execute('codex', ['plugin', 'add', 'logic-margin@logic-margin-local', '--json'], { cwd: directory, env, timeout: 15000 })).stdout))
+  assert.equal(installed.name, 'logic-margin')
+  const installedPath = String(installed.installedPath)
+  const bundled = object(object(JSON.parse(await readFile(join(installedPath, 'mcp.json'), 'utf8'))).mcpServers)
+  const entry = object(bundled.logic_margin)
+  assert.equal(entry.cwd, '.')
+  assert.equal(entry.tool_timeout_sec, 86400)
+  assert.ok(!String(entry.command).includes(original) && !String(entry.command).includes(moved))
+  const configured = await readFile(join(codexHome, 'config.toml'), 'utf8')
+  assert.ok(configured.includes('# Preserve this comment'))
+  assert.doesNotMatch(configured, /\[mcp_servers\.logic_margin\]/)
+  assert.doesNotMatch(configured, /^\s*(?:command|url)\s*=/m)
+  const codex = spawn('codex', ['app-server'], { cwd: directory, env, stdio: ['pipe', 'pipe', 'pipe'] })
   children.push(codex)
   const connection = rpc(codex)
   await connection.call('initialize', { clientInfo: { name: 'logic_margin_transport_test', version: '1.0.0' }, capabilities: { experimentalApi: true } })
@@ -92,16 +121,15 @@ async function setup(t: TestContext) {
   const threadId = String(object(started.thread).id)
   let tools: unknown[] = []
   let inspected: unknown
-  const deadline = Date.now() + 8000
+  const deadline = Date.now() + 12000
   while (Date.now() < deadline) {
     const status = object(await connection.call('mcpServerStatus/list', { threadId, detail: 'toolsAndAuthOnly' }))
-    const data = status.data
-    assert.ok(Array.isArray(data))
-    const server = data.map(object).find(value => value.name === 'logic_margin')
-    inspected = data.map(value => {
-      const entry = object(value)
-      return { name: entry.name, keys: Object.keys(entry), toolType: typeof entry.tools,
-        toolKeys: entry.tools && typeof entry.tools === 'object' ? Object.keys(entry.tools).slice(0, 12) : null }
+    const servers = status.data
+    assert.ok(Array.isArray(servers))
+    const server = servers.map(object).find(value => value.name === 'logic_margin')
+    inspected = servers.map(value => {
+      const item = object(value)
+      return { name: item.name, keys: Object.keys(item), toolKeys: item.tools && typeof item.tools === 'object' ? Object.keys(item.tools) : null }
     })
     if (server?.tools && typeof server.tools === 'object') {
       tools = Array.isArray(server.tools) ? server.tools : Object.values(server.tools)
@@ -109,40 +137,51 @@ async function setup(t: TestContext) {
     }
     await delay(100)
   }
-  assert.ok(tools.some(value => object(value).name === 'wait_review'), `real Codex must discover wait_review before calling it: ${JSON.stringify(inspected)}`)
+  assert.equal(tools.length, 11, `real Codex must discover the bundled tools: ${JSON.stringify(inspected)}`)
+  assert.ok(tools.some(value => object(value).name === 'wait_review'))
+  await assert.rejects(access(join(home, 'daemon.json')), { code: 'ENOENT' })
   const tool = (name: string, args: Record<string, unknown>, timeout?: number) => connection.call('mcpServer/tool/call', { threadId, server: 'logic_margin', tool: name, arguments: args }, timeout)
   const listed = object(await tool('list_reviews', { state: 'all' }))
   assert.ok(Array.isArray(listed.content))
   assert.notEqual(listed.isError, true)
+  const status = () => execute(goBinary, ['server', 'status'], { env, timeout: 15000 }).then(value => object(JSON.parse(value.stdout)))
+  const running = await status()
+  assert.equal(running.running, true)
+  const url = String(running.url)
   const created = await fetch(`${url}/api/review-sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ review: sampleReview }) })
   assert.equal(created.status, 201)
   const sessionId = String(object(await created.json()).id)
-  return { ...connection, url, daemon, threadId, tool, sessionId }
+  return { ...connection, url, status, pid: Number(running.pid), threadId, tool, sessionId }
 }
 
-test('real Codex discovers HTTP MCP and reports a crashed backend', { skip, timeout: 35000 }, async t => {
+test('real Codex loads a moved bundled plugin, starts lazily and recovers after a lost call', { skip, timeout: 45000 }, async t => {
   const service = await setup(t)
   const pending = service.tool('wait_review', { session_id: service.sessionId }, 20000).then(value => ({ kind: 'result', value }), error => ({ kind: 'error', message: String(error) }))
   await service.tool('list_reviews', {})
   await delay(100)
   const killedAt = Date.now()
-  service.daemon.kill('SIGKILL')
+  assert.ok(Number.isInteger(service.pid) && service.pid > 0)
+  process.kill(service.pid, 'SIGKILL')
   const outcome = await Promise.race([pending, delay(8000).then(() => ({ kind: 'no-response' }))])
   t.diagnostic(`real Codex crash observation: ${outcome.kind} after ${Date.now() - killedAt}ms`)
   assert.notEqual(outcome.kind, 'no-response', 'Codex did not report a crashed backend within 8 seconds')
   if (outcome.kind === 'result' && 'value' in outcome) assert.equal(object(outcome.value).isError, true)
+  const recovered = object(await service.tool('list_reviews', {}))
+  assert.notEqual(recovered.isError, true)
+  assert.notEqual((await service.status()).pid, service.pid)
+  const saved = object(await service.tool('get_review', { session_id: service.sessionId }))
+  assert.notEqual(saved.isError, true)
   await service.call('thread/loaded/list', {})
   assert.ok(!service.methods.includes('turn/start'))
   assert.ok(!service.notifications.some(method => method === 'turn/started'))
 })
 
-test('real Codex waits beyond its default timeout without generating a model turn', { skip, timeout: 100000 }, async t => {
+test('bundled MCP keeps waiting beyond the Codex 300-second default without a model turn', { skip, timeout: 350000 }, async t => {
   const service = await setup(t)
   const began = Date.now()
   let ended = false
-  const pending = service.tool('wait_review', { session_id: service.sessionId }, 85000).then(value => { ended = true; return value })
-  const result = pending.then(value => ({ value }), error => ({ error }))
-  await delay(65000)
+  const result = service.tool('wait_review', { session_id: service.sessionId }, 330000).then(value => ({ value }), error => ({ error })).then(value => { ended = true; return value })
+  await delay(310000)
   assert.equal(ended, false, 'wait_review returned before the human submitted a review')
   const finish = await fetch(`${service.url}/api/review-sessions/${service.sessionId}/finish`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'approval', expectedVersion: 1 }) })
   assert.equal(finish.status, 200)
@@ -153,27 +192,31 @@ test('real Codex waits beyond its default timeout without generating a model tur
   assert.ok(Array.isArray(returned.content))
   const text = returned.content.map(object).filter(value => value.type === 'text').map(value => String(value.text)).join('\n')
   assert.equal(object(JSON.parse(text)).approved, true)
-  assert.ok(Date.now() - began >= 65000)
+  assert.ok(Date.now() - began >= 310000)
   assert.ok(!service.methods.includes('turn/start'))
   assert.ok(!service.notifications.some(method => method === 'turn/started'))
   t.diagnostic(`real Codex held one tool call for ${Date.now() - began}ms; no turn/start was sent`)
 })
 
 
-test('real Codex setup preserves unrelated TOML and is idempotent', { skip, timeout: 30000 }, async t => {
+test('server setup remains a start alias and leaves Codex configuration untouched', { skip, timeout: 30000 }, async t => {
   const directory = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-real-config-'))
-  t.after(() => rm(directory, { recursive: true, force: true }))
-  const codexHome = join(directory, 'codex')
+  const codexHome = join(directory, 'codex'), home = join(directory, 'daemon-home')
+  const env = { ...process.env, CODEX_HOME: codexHome, LOGIC_MARGIN_HOME: home, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions') }
+  t.after(async () => {
+    await execute(goBinary, ['server', 'stop'], { env, timeout: 15000 })
+    await rm(directory, { recursive: true, force: true })
+  })
   await mkdir(codexHome)
   const config = join(codexHome, 'config.toml')
-  await writeFile(config, '# Preserve this comment\nmodel = "preserved-test-model"\n[mcp_servers.kept]\nurl = "http://127.0.0.1:50124/mcp"\n')
-  const service = await startGo({ dataDir: join(directory, 'sessions') })
-  t.after(() => service.stop())
-  const run = () => execute(goBinary, ['server', 'setup'], { cwd: directory, timeout: 15000,
-    env: { ...process.env, CODEX_HOME: codexHome, LOGIC_MARGIN_HOME: service.home, LOGIC_MARGIN_DATA_DIR: join(directory, 'sessions') } })
-  assert.equal(JSON.parse((await run()).stdout).mcp.toolTimeoutSec, 86400)
-  const first = await readFile(config, 'utf8')
-  for (const value of ['# Preserve this comment', 'model = "preserved-test-model"', '[mcp_servers.kept]', '[mcp_servers.logic_margin]', 'tool_timeout_sec = 86400']) assert.ok(first.includes(value))
-  assert.equal(JSON.parse((await run()).stdout).mcp.reloadRequired, true)
-  assert.equal(await readFile(config, 'utf8'), first)
+  const original = '# Preserve this comment\nmodel = "preserved-test-model"\n[mcp_servers.kept]\nurl = "http://127.0.0.1:50124/mcp"\n'
+  await writeFile(config, original)
+  const run = () => execute(goBinary, ['server', 'setup'], { cwd: directory, timeout: 15000, env })
+  const first = object(JSON.parse((await run()).stdout))
+  assert.equal(first.managed, true)
+  assert.equal(first.mcp, undefined)
+  assert.equal(await readFile(config, 'utf8'), original)
+  const again = object(JSON.parse((await run()).stdout))
+  assert.equal(again.url, first.url)
+  assert.equal(await readFile(config, 'utf8'), original)
 })

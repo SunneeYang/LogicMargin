@@ -18,7 +18,9 @@ func TestTimedOutWrapperDoesNotKeepDescendantPipesOrProcesses(t *testing.T) {
 	pidFile := filepath.Join(t.TempDir(), "child-pid")
 	program := fmt.Sprintf("sleep 60 & child=$!; printf '%%s' \"$child\" > '%s'; wait", strings.ReplaceAll(pidFile, "'", "'\\''"))
 	started := time.Now()
-	_, err := Configure(context.Background(), "http://127.0.0.1:50123/mcp", "0.8.7", Options{Command: []string{"/bin/sh", "-c", program}, Timeout: 150 * time.Millisecond})
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	_, err := RunCommand(ctx, t.TempDir(), os.Environ(), []string{"/bin/sh", "-c", program})
 	if err == nil {
 		t.Fatal("wrapper unexpectedly completed")
 	}

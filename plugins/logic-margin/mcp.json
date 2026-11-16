@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "logic_margin": {
+      "command": "sh",
+      "args": [
+        "./skills/logic-margin/scripts/logic-margin.sh",
+        "mcp"
+      ],
+      "cwd": ".",
+      "env_vars": [
+        "LOGIC_MARGIN_HOME",
+        "LOGIC_MARGIN_DATA_DIR"
+      ],
+      "startup_timeout_sec": 300,
+      "tool_timeout_sec": 86400
+    }
+  }
+}

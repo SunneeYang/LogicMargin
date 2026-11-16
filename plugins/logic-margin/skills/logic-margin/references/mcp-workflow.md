@@ -18,24 +18,20 @@
 
 状态恢复分支：
 
-- `running: true` 且 `compatible: true`：复用原后台，检查宿主 MCP 地址与返回的 `mcpUrl` 一致，再做只读调用。
-- 没有登记后台，或后台不可达且 `processRunning: false`：安全启动时用 `server start`，沿用已有 home、dataDir、端口和会话。新评审的网页访问范围先按主技能确认。
+- `running: true` 且 `compatible: true`：复用原后台。stdio 核对当前插件安装与 home；HTTP 客户端核对地址与返回的 `mcpUrl` 一致，再做只读调用。
+- 没有登记后台，或后台不可达且 `processRunning: false`：stdio 的下一次只读 `list_reviews` 会安全启动后台，沿用已有 home、dataDir、端口和会话。HTTP 客户端用 `server start` 恢复原后台。新评审的网页访问范围先按主技能确认。
 - `processRunning: true` 但不健康、身份不匹配或端口占用：保留现场并报告诊断，不凭一次超时杀进程、删登记或启动第二个写入者。
 - `compatible: false`：核对实际版本与数据备份，按已有安装/更新授权处理；不能把版本冲突当作握手故障或擅自替换正在使用的后台。
 
-## Codex 注册与有界恢复
+## Codex 随包注册与有界恢复
 
-首次确需注册且后台兼容时执行：
+安装并启用插件后，Codex 从 `.codex-plugin/plugin.json` 的 `mcpServers: "./mcp.json"` 加载根目录 stdio 配置。`mcp.json` 的 `cwd: "."` 按插件根目录解析，启动入口使用包内相对路径，`tool_timeout_sec: 86400` 保留 24 小时工具等待。正常连接不向用户级配置写入绝对 `command`；更新器也不迁移程序路径。插件安装目录变化后，重载使宿主解析新入口，已有 stdio 进程不会自行切换版本。 `server setup` 仅保留为 `server start` 的兼容别名，启动或复用后台，不再读写 Codex 配置。
 
-```sh
-"$LM_CLI" server setup
-```
+旧版全局 `mcp_servers.logic_margin` 可能与随包服务器并存。切换时先备份当前 Codex 配置，核对该入口的 URL/命令、实际后台与原评审目录，确认属于此安装后仅移除或禁用这一入口；保留其他 MCP 配置。把原启停、工具审批和长等待策略沿用到宿主支持的插件作用域，不能因迁移重新启用原先禁用的服务或放宽审批。入口归属不明时保留并诊断，不按文件名猜测后覆盖。自定义 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR` 需通过宿主支持的环境配置沿用。
 
-它启动或复用后台，通过短暂的 `codex app-server` 配置进程，仅更新当前 `CODEX_HOME` 的 `mcp_servers.logic_margin.url` 和 `tool_timeout_sec`；默认 86400 秒，保留更长值及无关配置。同名服务指向别处、已禁用或配置不兼容时报告冲突，不覆盖。
+通过宿主重载插件或重连一次，再实际调用只读 `list_reviews`。宿主没有该能力或仍握手失败时，说明后台与 MCP 各自状态；后台健康兼容就按下节走原生 CLI，不因工具装载问题丢弃评审或反复要求用户重开会话。来源校验、参数错误和轮次冲突按业务错误处理，不当作连接故障。
 
-核对 `mcpUrl`、`mcp.serverName` 和 `mcp.toolTimeoutSec`。`reloadRequired: true` 时，用宿主提供的重载/重连动作尝试一次，再实际调用 `list_reviews`。宿主没有该能力或仍握手失败时，说明 HTTP 与 MCP 各自状态；后台健康兼容就按下节走原生 CLI，不因工具装载问题丢弃评审或反复要求用户重开会话。来源校验、参数错误和轮次冲突按业务错误处理，不当作连接故障。
-
-MCP 正常时使用其评审工具。`wait_review` 在工具内长轮询和 SSE 保活，不调用模型；86400 秒仍受宿主、网络与进程限制。正常等待人工提交不属于故障。
+MCP 正常时使用其评审工具。stdio 初始化和工具目录查询不启动 HTTP 后台；每次实际工具调用核对后台身份与版本，在安全停止时启动。后台故障后，下一次工具调用可恢复它；已发出的操作不自动重放，响应丢失按下节先查状态。关闭 stdio 连接不停止共享后台。`wait_review` 在工具内持续等待和保活，不调用模型；工具超时为 24 小时，仍受宿主取消、网络与进程状态影响。正常等待人工提交不属于故障。
 
 ## MCP 不可用时的 CLI 回退
 

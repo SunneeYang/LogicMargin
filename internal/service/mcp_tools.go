@@ -173,7 +173,7 @@ func (tool reviewTool) arguments(raw json.RawMessage) ([]string, error) {
 	return args, nil
 }
 
-func registerReviewTools(server *mcp.Server, serverURL string) {
+func registerReviewTools(server *mcp.Server, resolveURL func(context.Context) (string, error)) {
 	for _, tool := range reviewTools {
 		server.AddTool(&mcp.Tool{Name: tool.name, Description: tool.description, InputSchema: tool.schema(), Annotations: &mcp.ToolAnnotations{
 			ReadOnlyHint: tool.readOnly, IdempotentHint: tool.idempotent, DestructiveHint: &tool.destructive, OpenWorldHint: new(bool),
@@ -184,7 +184,11 @@ func registerReviewTools(server *mcp.Server, serverURL string) {
 			}
 			var stdout bytes.Buffer
 			if err = ctx.Err(); err == nil {
-				err = agent.Run(ctx, append(args, "--url", serverURL), &stdout, io.Discard, agent.Options{URL: serverURL, ConsumeSubmission: false})
+				serverURL, resolveErr := resolveURL(ctx)
+				err = resolveErr
+				if err == nil {
+					err = agent.Run(ctx, append(args, "--url", serverURL), &stdout, io.Discard, agent.Options{URL: serverURL, ConsumeSubmission: false})
+				}
 			}
 			text := trimJS(stdout.String())
 			if err != nil {

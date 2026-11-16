@@ -120,7 +120,7 @@ codex plugin marketplace add SunneeYang/LogicMargin --ref main --sparse .agents/
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Codex checks out the plugin directories. Their `.sh` / `.ps1` launchers download the native ZIP for your platform from the official GitHub Release, pinned to the plugin version, and verify its SHA-256 before running it. Start a new agent session in the project you want to review:
+Codex checks out the plugin directories. On macOS/Linux, the bundled MCP entry runs the `sh` launcher, which downloads the native ZIP from the official GitHub Release, pinned to the plugin version, and verifies its SHA-256 before running it. For automatic MCP registration on Windows, use the platform ZIP below; the PowerShell launcher remains available for CLI use. Start a new agent session in the project you want to review:
 
 ```text
 $logic-margin:logic-margin
@@ -128,7 +128,7 @@ Start a logic review for the current feature. Focus on whether failures
 can still deduct a fee, and wait for my feedback.
 ```
 
-The agent starts one background process for HTTP MCP, the review API, and the bundled web UI. On first use, `server setup` registers its local MCP address and long tool timeout in Codex; reconnect or reload MCP in your host and verify that its tools are available. The agent then reads the sources, prepares the diagram, and gives you a review link. Later reviews reuse the same process. Your business project does not need LogicMargin's npm dependencies.
+The plugin bundles its stdio MCP registration: `.codex-plugin/plugin.json` references root `mcp.json`, whose paths resolve from the installed plugin directory. Its `tool_timeout_sec` is 86400 (24 hours); no global executable-path registration is needed. Reload the plugin and verify a read-only tool call. The agent uses one shared background process for the review API, bundled web UI, and optional HTTP MCP. Initialization and tool discovery do not start the background process; each tool call checks it and starts it when safely stopped. If it exits, the next call can restore it without replaying an operation already sent. Closing the stdio connection leaves the shared background running. The agent then reads the sources, prepares the diagram, and gives you a review link. Your business project does not need LogicMargin's npm dependencies.
 
 Before updating an existing installation, identify its managed service with `server status`, stop the verified old instance with `server stop`, and back up the actual session directory. Then ask your agent to run:
 
@@ -137,9 +137,9 @@ codex plugin marketplace upgrade logic-margin-local
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, load the new skill and CLI path, restart the service, and reconnect MCP; use `server setup` if registration needs repair. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
+Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, reload the plugin so Codex resolves the relative entry from its new installation directory, and restart the verified managed service when its version changes. For an older global `mcp_servers.logic_margin` registration, back up the config and remove or disable only the entry confirmed to belong to LogicMargin, preserving its policy before switching to the bundled server. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, use [Release v0.9.18](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.18). Choose `logic-margin-agent-0.9.18-TARGET.zip` and its `.zip.sha256`:
+For installation without Git, choose `logic-margin-agent-VERSION-TARGET.zip` and its `.zip.sha256` from [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases), replacing `VERSION` with the required version. Bundled MCP registration starts in 0.9.19; until that version is published, use a locally built ZIP from the matching source. Older release archives do not contain this change.
 
 | Platform | TARGET |
 | --- | --- |

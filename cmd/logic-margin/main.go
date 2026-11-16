@@ -15,13 +15,14 @@ import (
 
 	"logicmargin/internal/agent"
 	"logicmargin/internal/daemon"
-	"logicmargin/internal/mcpconfig"
 	"logicmargin/internal/service"
 	"logicmargin/internal/ui"
 	"logicmargin/internal/update"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-var version = "0.9.18"
+var version = "0.9.19"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -93,6 +94,16 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if len(args) > 0 && args[0] == "mcp" {
+		if len(args) != 1 {
+			return errors.New("用法：mcp（stdio 懒启动入口）")
+		}
+		server := service.NewMCP(version, func(ctx context.Context) (string, error) {
+			value, err := daemon.Ensure(ctx, daemon.Options{Version: version, Command: []string{executable}, RequireMCP: true})
+			return value.URL, err
+		})
+		return server.Run(ctx, &mcp.StdioTransport{})
+	}
 	if len(args) > 0 && args[0] == "server" {
 		if len(args) < 2 {
 			return errors.New("用法：server start/setup [--host HOST] [--port PORT] | server status | server stop")
@@ -131,13 +142,6 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 				return err
 			}
 			result := map[string]any{"url": value.URL, "managed": value.Managed, "mcpUrl": value.URL + "/mcp"}
-			if action == "setup" {
-				configured, err := mcpconfig.Configure(ctx, value.URL+"/mcp", version, mcpconfig.Options{})
-				if err != nil {
-					return err
-				}
-				result["mcp"] = configured
-			}
 			return output(out, result)
 		}
 	}
@@ -145,7 +149,7 @@ func run(ctx context.Context, args []string, out, errOut io.Writer) error {
 		if err := agent.Run(ctx, []string{"--help"}, out, errOut, agent.Options{ConsumeSubmission: true}); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintln(out, "\n  server start [--host HOST] [--port PORT]\n  server setup [--host HOST] [--port PORT]  (register HTTP MCP in this Codex home)\n  server status\n  server stop\n\nOne daemon serves HTTP MCP, review API and embedded UI. CLI commands exit when complete.")
+		_, err := fmt.Fprintln(out, "\n  server start [--host HOST] [--port PORT]\n  server setup [--host HOST] [--port PORT]  (alias of server start; MCP is bundled with the plugin)\n  mcp  (stdio; start shared daemon on tool call)\n  server status\n  server stop\n\nOne daemon serves HTTP MCP, review API and embedded UI. CLI commands exit when complete.")
 		return err
 	}
 	opts := agent.Options{ConsumeSubmission: true, ResolveURL: func(ctx context.Context) (string, error) {
