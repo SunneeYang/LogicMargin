@@ -38,7 +38,8 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target =
   const plugin = join(root, 'plugins/logic-margin')
   const { version } = JSON.parse(await readFile(join(plugin, 'plugin.json'), 'utf8'))
   const packageVersion = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).version
-  if (!/^\d+\.\d+\.\d+$/.test(version) || packageVersion !== version) throw new Error('Go 程序与插件版本必须一致')
+  const codexVersion = JSON.parse(await readFile(join(plugin, '.codex-plugin/plugin.json'), 'utf8')).version
+  if (!/^\d+\.\d+\.\d+$/.test(version) || packageVersion !== version || codexVersion !== version) throw new Error('Go 程序与插件版本必须一致')
   const temporary = await mkdtemp(join(process.env.CODEX_AGENT_TMP ?? tmpdir(), 'logic-margin-go-package-'))
   try {
     const name = `logic-margin-agent-${version}-${target}`
@@ -49,10 +50,14 @@ export async function packageAgent(outputDir = join(root, 'artifacts'), target =
     await mkdir(dirname(binary), { recursive: true })
     await buildGo(target, binary)
     if (!target.startsWith('win32-')) await chmod(binary, 0o755)
-    for (const path of ['plugin.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references',
+    for (const path of ['plugin.json', '.codex-plugin', 'mcp.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/agents', 'skills/logic-margin/references',
       'skills/logic-margin/scripts/logic-margin.sh', 'skills/logic-margin/scripts/logic-margin.ps1']) {
       await cp(join(plugin, path), join(stagedPlugin, path), { recursive: true })
     }
+    const mcp = JSON.parse(await readFile(join(stagedPlugin, 'mcp.json'), 'utf8'))
+    mcp.mcpServers.logic_margin.command = `./skills/logic-margin/scripts/${executable}`
+    mcp.mcpServers.logic_margin.args = ['mcp']
+    await writeFile(join(stagedPlugin, 'mcp.json'), JSON.stringify(mcp, null, 2) + '\n')
     await chmod(join(stagedPlugin, 'skills/logic-margin/scripts/logic-margin.sh'), 0o755)
     const notices = join(stagedPlugin, 'THIRD_PARTY_NOTICES.md')
     await writeFile(notices, await readFile(notices, 'utf8') + await goNotices(target))

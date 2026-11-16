@@ -5,7 +5,7 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 # LogicMargin 逻辑评审
 
-在当前开发工程工作。LogicMargin 的一个后台进程同时提供 HTTP MCP、评审 API 和网页；源码修改、测试和 Git 操作仍由原 Agent 在授权工作区完成。
+在当前开发工程工作。Codex 从兼容清单引用的根 `mcp.json` 加载 stdio MCP，以插件根目录解析相对入口，按需启动或复用 LogicMargin 共享后台；后台提供评审 API、网页和兼容 HTTP MCP。源码修改、测试和 Git 操作仍由原 Agent 在授权工作区完成。
 
 用户要求安装、检查或更新插件时，读取 [插件安装与更新](references/plugin-updates.md)，核对实际安装结果后报告。首次连接、工具缺失或连接故障时，读取 [连接、恢复与 CLI 回退](references/mcp-workflow.md)。
 
@@ -17,7 +17,7 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 ## 建立连接
 
-将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）。启动器校验并运行与插件固定版本匹配的 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`。
+将本技能目录下 `scripts/` 中实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 直接使用 `logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 的 CLI 使用 `logic-margin.sh`（macOS/Linux）或 `logic-margin.ps1`（Windows）；macOS/Linux 自动 MCP 入口使用 `sh` 和相对脚本，Windows 自动注册使用平台 ZIP。启动器校验并运行与插件固定版本匹配的 Go 程序，用户无需安装 Node.js 或 Go。PowerShell 将下文 `"$LM_CLI"` 换成 `& $LM_CLI`。
 
 首次连接或恢复先做独立于 MCP 的检查：
 
@@ -25,9 +25,9 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 "$LM_CLI" server status
 ```
 
-按 [连接与恢复](references/mcp-workflow.md) 核对服务身份、版本、原端口和数据目录；仅在确认可安全启动时执行 `server start`，复用已运行的兼容后台。再在当前宿主实际调用只读 `list_reviews`，优先传入已知 `context`，成功返回才确认当前 MCP 链路可用。工具名已列出、HTTP 健康或存在 `mcpUrl` 都不能代替这次调用。
+按 [连接与恢复](references/mcp-workflow.md) 核对服务身份、版本、原端口和数据目录，再在当前宿主实际调用只读 `list_reviews`，优先传入已知 `context`。stdio 每次工具调用会核对后台，安全停止时自动启动；初始化和工具目录查询不启动后台。成功返回才确认当前 MCP 链路可用，工具名已列出、HTTP 健康或存在 `mcpUrl` 都不能代替这次调用。
 
-Codex 首次尚未注册时执行 `server setup`；它只更新当前 Codex home 的 LogicMargin 地址和工具超时。需要重载时用宿主提供的重连动作尝试一次，再做只读调用。握手或工具装载仍失败而后台健康兼容时，在原任务授权内自动使用 [CLI 回退](references/mcp-workflow.md#mcp-不可用时的-cli-回退) 继续同一评审，等待使用 `wait SESSION_ID --no-consume`，实际读完反馈后再领取。保留原 session 和已处理游标，说明当前使用的通道及宿主等待限制。
+Codex 安装并启用插件后加载随包 MCP，保留 24 小时工具等待，不向全局配置写入程序路径。旧版全局 `mcp_servers.logic_margin` 按连接参考备份并确认归属后，仅移除或禁用原入口，沿用原工具审批与长等待策略。需要重载时用宿主提供的重连动作尝试一次，再做只读调用。握手或工具装载仍失败而后台健康兼容时，在原任务授权内自动使用 [CLI 回退](references/mcp-workflow.md#mcp-不可用时的-cli-回退) 继续同一评审，等待使用 `wait SESSION_ID --no-consume`，实际读完反馈后再领取。保留原 session 和已处理游标，说明当前使用的通道及宿主等待限制。
 
 MCP 始终限本机。网页按前节确认的访问范围配置监听和 `public_url`；链接与实际监听必须匹配，`public_url` 本身不会开放网络。启动器/发行附件错误、版本或身份冲突按连接参考诊断，写请求响应丢失时先核对已保存状态再决定是否重试。
 

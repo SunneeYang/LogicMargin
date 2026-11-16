@@ -198,13 +198,20 @@ func mcpFailure(w http.ResponseWriter, status int, message string, code int) {
 	_ = json.NewEncoder(w).Encode(review.Object{"jsonrpc": "2.0", "id": nil, "error": review.Object{"code": code, "message": message}})
 }
 
-func (s *Server) configureMCP() {
-	s.mcpConnections = map[string]*mcpConnection{}
+// NewMCP shares one tool contract across HTTP and lazy stdio connections.
+func NewMCP(version string, resolveURL func(context.Context) (string, error)) *mcp.Server {
 	// shortcut: SDK v1.8.0 omits 2024-10-07; add verified compatibility if those retired clients are still needed.
-	s.mcp = mcp.NewServer(&mcp.Implementation{Name: "logic-margin", Version: s.opts.Version}, &mcp.ServerOptions{
+	server := mcp.NewServer(&mcp.Implementation{Name: "logic-margin", Version: version}, &mcp.ServerOptions{
 		GetSessionID:              func() string { return rand.Text() },
 		SupportedProtocolVersions: legacyProtocolVersions[:4],
 	})
+	registerReviewTools(server, resolveURL)
+	return server
+}
+
+func (s *Server) configureMCP() {
+	s.mcpConnections = map[string]*mcpConnection{}
+	s.mcp = NewMCP(s.opts.Version, func(context.Context) (string, error) { return s.URL, nil })
 	s.mcp.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
 			if method != "tools/call" {
@@ -234,7 +241,6 @@ func (s *Server) configureMCP() {
 			return result, err
 		}
 	})
-	registerReviewTools(s.mcp, s.URL)
 	s.mcpHTTP = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.mcp }, &mcp.StreamableHTTPOptions{
 		MaxRequestBodyBytes: maxBodyBytes, PropagateRequestCancellation: true,
 	})

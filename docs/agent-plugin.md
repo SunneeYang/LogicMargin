@@ -1,6 +1,6 @@
 # LogicMargin agent 插件
 
-插件包含审查技能、HTTP MCP、评审 API、网页和 CLI。一个常驻后台进程同时提供 `/mcp`、`/api` 与内嵌网页；CLI 只在启动、配置和恢复时短暂运行。安装后可在其他工程使用，无需在业务工程安装 npm 依赖或启动 Vite。
+插件包含审查技能、MCP、评审 API、网页和 CLI。兼容清单 `.codex-plugin/plugin.json` 引用根目录 `mcp.json` 随包注册 stdio MCP，入口路径相对安装后的插件根目录解析；实际工具调用按需启动或复用一个共享后台，后台提供 `/api`、内嵌网页和兼容 HTTP MCP 的 `/mcp`。安装后可在其他工程使用，无需在业务工程安装 npm 依赖或启动 Vite。
 
 0.9.18 默认使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。原生程序运行时不依赖 Node.js、Go、Bun 或 npm；源码开发与构建需要 Node.js 和 Go。DSH 宿主仍需其支持的 Node.js 环境和 pnpm，见 [DSH 安装说明](deepseek-harness.md)。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
 
@@ -10,7 +10,7 @@
 
 ## 在线安装与更新
 
-需要 Git、支持 `plugin` 命令的 Codex，以及首次启动时到 GitHub Releases 的网络连接。macOS/Linux 下载启动器需要 `curl`、`unzip` 与 `shasum` 或 `sha256sum`；Windows 使用 PowerShell。无需安装本工程的 npm 依赖或手动克隆仓库：
+需要 Git、支持 `plugin` 命令的 Codex，以及首次启动时到 GitHub Releases 的网络连接。Git 方式的自动 MCP 入口使用 macOS/Linux `sh` 启动器，还需要 `curl`、`unzip` 与 `shasum` 或 `sha256sum`。Windows 自动注册请使用下文的平台 ZIP；PowerShell 启动器保留为 CLI 入口。无需安装本工程的 npm 依赖或手动克隆仓库：
 
 ```sh
 codex plugin marketplace add SunneeYang/LogicMargin --ref main --sparse .agents/plugins --sparse plugins/logic-margin
@@ -77,37 +77,41 @@ Windows 用实际的 `logic-margin-agent-0.9.18-win32-x64` 目录，包含空格
 http://review-host.example:5173/?session=<sessionId>
 ```
 
-插件在 Agent 所在执行环境调用 CLI；安装不复制真实评审数据。首次使用还需注册下面的本机 HTTP MCP，正常评审随后通过 MCP 完成。
+插件在 Agent 所在执行环境调用 CLI；安装不复制真实评审数据。启用插件后由宿主加载随包 MCP，实际调用只读工具成功后再开始正常评审。
 
 ## 升级与数据连续性
+
+随包 MCP 注册从 0.9.19 开始。该版本尚未公开发布时，使用对应源码生成的本地 ZIP；历史发行包不包含本次改动。
 
 0.8.x Node 服务与 0.9.18 Go 服务使用兼容的保存格式，但必须保持同一数据目录只有一个后台写入者。升级不需要删除会话、归档或重新创建评审：
 
 1. 记录实际 `LOGIC_MARGIN_HOME`、`LOGIC_MARGIN_DATA_DIR`、端口和原 session ID。用已安装入口的 `server status` 核对登记实例、健康身份和版本；默认数据是 `~/.logic-margin/sessions`，自定义目录以实际服务记录为准。
 2. 用 `server stop` 停止身份核验通过的旧受管实例，确认进程已退出，再备份实际会话目录。新版原生 CLI 也可检查和停止登记的旧实例。身份不匹配、进程仍存活但不健康或端口归属不明时保留现场诊断；不能按端口猜进程并强杀，也不能删登记文件绕过单写保护。
 3. 更新 Git 插件或下载、校验并注册新版平台 ZIP。保留原 home、会话数据和端口；不要让旧 Node 与新 Go 同时写同一目录。新会话或重载技能后重新定位 `LM_CLI`。
-4. 用新版入口 `server start` 启动，再检查 `server status` 的版本、健康和 MCP 地址。需要首次注册或修复配置时用 `server setup`；原宿主按返回结果重载/重连 MCP，核实工具实际可用。
+4. 通过原宿主重载插件和 MCP，从新安装的插件根目录解析随包相对入口。用新版入口 `server start` 沿用原端口与数据，再检查 `server status` 的版本和健康。实际调用只读 `list_reviews`，核实工具可用；无需把新版程序路径写进全局 MCP 配置。
 5. 通过 `get_review` 读取原 session ID，核对目的、轮次与未完成反馈后继续。待处理的等待调用可能因停服结束；更新、重启或连接恢复都不代表评审通过。
 
 保持原浏览器访问地址也能保留该地址下的草稿和待同步操作；浏览器数据不会随插件搬迁。备份与恢复针对实际会话目录，不删除 `sessions` 来完成升级。旧 Node 源码入口已移除，兼容性由固定历史 fixture 验证。
 
+网页更新器更新插件与后台，MCP 入口随插件材料由宿主重新解析，不再迁移或刷新全局命令路径。安装完成、后台健康和原宿主连接分别核实；已有 MCP 进程仍需重载，后台重启不会替原会话完成重连。
+
 ## 单进程后台与 MCP 连接
 
-将实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 使用 `plugins/logic-margin/skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用技能目录内的 `scripts/logic-margin.sh` 或 `scripts/logic-margin.ps1`。macOS/Linux 保留文件执行权限，直接调用：
+兼容清单 `.codex-plugin/plugin.json` 以 `mcpServers: "./mcp.json"` 引用根目录配置。根 `mcp.json` 的 `cwd: "."` 按插件根目录解析，启动入口使用包内相对路径；`tool_timeout_sec: 86400` 保留 24 小时工具等待。当前 Codex 0.169 使用这一兼容格式以保留长等待配置。安装或更新插件后重载一次，实际调用只读 `list_reviews` 成功才确认当前 MCP 链路可用。正常连接不写用户级 `mcp_servers.logic_margin.command`，也不需要运行配置进程。
+
+CLI 用于后台管理与诊断。将实际入口的绝对路径记为 `LM_CLI`：平台 ZIP 使用 `plugins/logic-margin/skills/logic-margin/scripts/logic-margin`（Windows 为 `logic-margin.exe`）；Git marketplace 使用技能目录内的 `scripts/logic-margin.sh` 或 `scripts/logic-margin.ps1`。macOS/Linux 保留文件执行权限，直接检查：
 
 ```sh
-"$LM_CLI" server setup
+"$LM_CLI" server status
 ```
 
-PowerShell 将 `$LM_CLI` 设为实际 `.exe` 或 `.ps1` 路径，用 `& $LM_CLI server setup` 调用，包含空格的路径也适用。以下 shell 示例均按对应方式调用，不在前面加 `node`。
+PowerShell 用 `& $LM_CLI server status`，包含空格的路径也适用。需要预先配置网页监听时使用 `server start`；正常 stdio 工具调用会按需启动后台。
 
-`server setup` 先启动或复用唯一后台，再用短暂的 `codex app-server` 配置进程，通过 Codex 原生 API 注册当前 `CODEX_HOME` 用户配置中的 `mcp_servers.logic_margin.url` 与 `tool_timeout_sec`。默认超时为 86400 秒，已有更长值保留；同名配置指向不同服务、已禁用或不兼容时拒绝覆盖。其他 MCP 和无关配置保持原值，配置进程不调用模型，完成后退出。该步骤要求 PATH 中可调用 `codex`。
+旧版全局 `mcp_servers.logic_margin` 可能与随包服务器并存。按 [连接与迁移参考](../plugins/logic-margin/skills/logic-margin/references/mcp-workflow.md#codex-随包注册与有界恢复) 备份、确认归属并仅清理原入口，同时沿用原启停、工具审批与长等待策略；其他 MCP 配置保持原值。自定义 `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR` 也需在宿主支持的环境配置中沿用，避免切到另一份登记或数据。
 
-核对输出的 `mcpUrl` 与 `mcp` 对象。`reloadRequired: true` 表示仍需原宿主重载或重连 MCP；确认 `start_review`、`wait_review` 等工具实际可调用后才开始评审。安装成功、后台健康、配置写入和工具加载分别核实，不把其中一个当作其余步骤完成。
+后续评审不必重复写配置。stdio 的初始化与工具目录查询不启动 HTTP 后台；每次实际工具调用先核对后台身份和版本，安全停止时按原 home、数据目录和端口启动。多个客户端共用一个后台；后台退出后，下一次工具调用可恢复它，已经发出的操作不会自动重放。关闭 stdio 连接不停止共享后台，网页仍可访问。HTTP MCP 保留给现有客户端与 DSH；无需前端开发服务。
 
-后续评审用 `server start` 检查并复用后台，不必重复写配置。后台服务多个 Agent 与评审，CLI 退出后网页仍可访问。MCP 在同一端口通过 Streamable HTTP 连接，没有常驻 stdio 桥、独立监听进程或前端开发服务。
-
-正常流程使用 MCP 的 `start_review`、`wait_review`、`acknowledge_review`、`revise_review` 等工具。长等待发生在工具内部，普通批注保存与连接保活不调用模型。调用仍受 Codex 配置和宿主连接层期限限制；服务退出后的完整恢复流程见 [代理评审流程](https://github.com/SunneeYang/LogicMargin/blob/main/docs/agent-workflow.md#中断和恢复)。
+正常流程使用 MCP 的 `start_review`、`wait_review`、`acknowledge_review`、`revise_review` 等工具。长等待发生在工具内部，普通批注保存与连接保活不调用模型。随包工具超时为 24 小时，调用仍受宿主取消、网络与进程状态影响；服务退出后的完整恢复流程见 [代理评审流程](https://github.com/SunneeYang/LogicMargin/blob/main/docs/agent-workflow.md#中断和恢复)。
 
 ## Tailscale 与服务管理
 
@@ -121,7 +125,7 @@ PowerShell 将 `$LM_CLI` 设为实际 `.exe` 或 `.ps1` 路径，用 `& $LM_CLI 
 
 随后在 MCP 的 `public_url` 使用分享地址 `http://review-host.example:5173`。MCP 路由始终只接受本机连接，即使网页/API 开放到私有网络；MCP 与需核验的源码工作区位于同一机器。另一台机器上的 Agent 可显式用原生 CLI 的兼容命令 `--url` 连接评审 API，但不是远程 MCP。`public_url` / CLI `--public-url` 只改变分享链接，不开放监听；显式 API 地址不会迁移或覆盖数据。
 
-同一入口提供 `server status`、`server stop`。状态包含版本兼容、进程存活与 MCP 地址；实例身份、健康和版本匹配才复用，关闭通过实例令牌验证。启动锁避免多个 Agent 启动多个写入者。MCP 失败后先用 CLI 检查后台，再经宿主重连一次并实际调用只读 `list_reviews`；健康兼容后台上的持续握手故障自动走 [安全 CLI 回退](../plugins/logic-margin/skills/logic-margin/references/mcp-workflow.md#mcp-不可用时的-cli-回退)，等待带 `--no-consume`。确认进程已退出才 `server start`；进程仍在但不健康、身份不符或端口冲突时保留现场并诊断。版本不兼容按升级流程处理。新建或首次打开评审前依实际设备与网络确认访问范围；同一会话恢复沿用已核实的选择。优雅停服会明确结束待处理调用，强制崩溃后的发现时机仍由客户端断线处理与超时决定。
+同一入口提供 `server status`、`server stop`。状态包含版本兼容、进程存活与 MCP 地址；实例身份、健康和版本匹配才复用，关闭通过实例令牌验证。启动锁避免多个 Agent 启动多个写入者。MCP 失败后先用 CLI 检查后台：stdio 的下一次只读调用可在安全停止时恢复后台；宿主连接故障则重连一次并实际调用只读 `list_reviews`。健康兼容后台上的持续握手故障自动走 [安全 CLI 回退](../plugins/logic-margin/skills/logic-margin/references/mcp-workflow.md#mcp-不可用时的-cli-回退)，等待带 `--no-consume`。进程仍在但不健康、身份不符或端口冲突时保留现场并诊断；版本不兼容按升级流程处理。新建或首次打开评审前依实际设备与网络确认访问范围；同一会话恢复沿用已核实的选择。优雅停服会明确结束待处理调用，强制崩溃后的发现时机仍由客户端断线处理与超时决定。
 
 ## 它会怎样工作
 
@@ -185,7 +189,7 @@ npm run package:agent -- --target win32-x64
 
 ## 维护者发布
 
-同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、Codex 插件 `plugin.json`、DSH 插件 `package.json` 和 `cmd/logic-margin/main.go` 默认版本为 0.9.18，再准备发布：
+同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、Codex 插件根 `plugin.json` 与 `.codex-plugin/plugin.json`、DSH 插件 `package.json` 和 `cmd/logic-margin/main.go` 默认版本为 0.9.18，再准备发布：
 
 ```sh
 npm run release:agent -- v0.9.18
@@ -196,6 +200,6 @@ npm run test:release
 
 推送 tag 与创建 GitHub Release 分别按用户授权执行。跨平台构建、原生运行、CI 完成和附件实际可下载是不同结果；以实际检查和 Release 附件为准，本地打包不代表已发布。维护时同时检查仓库启动器与 ZIP 内的技能说明，确保两条入口描述一致。
 
-这是面向有本地执行能力的 Agent 的技能与 HTTP MCP 插件；ChatGPT 网页端不能仅靠 ZIP 启动本机程序。网页和评审 API 供可信本机或私有网络使用，尚未实现账号、权限或多人协作；含本机文件操作的 MCP 额外限制为回环连接。
+这是面向有本地执行能力的 Agent 的技能与 MCP 插件；ChatGPT 网页端不能仅靠 ZIP 启动本机程序。网页和评审 API 供可信本机或私有网络使用，尚未实现账号、权限或多人协作；含本机文件操作的 MCP 额外限制为回环连接。
 
-格式依据：[OpenAI 插件打包文档](https://developers.openai.com/plugins/build/plugins) 与 [Codex marketplace 命令](https://learn.chatgpt.com/docs/developer-commands#codex-plugin-marketplace)。本包采用 portable `plugin.json`，在线分发通过 Git marketplace，离线分发通过 Release ZIP；未上架 OpenAI 公共插件目录。
+格式依据：[OpenAI 插件打包文档](https://developers.openai.com/plugins/build/plugins) 与 [Codex marketplace 命令](https://learn.chatgpt.com/docs/developer-commands#codex-plugin-marketplace)。本包以 `.codex-plugin/plugin.json` 兼容清单注册技能与 MCP，根 `plugin.json` 保存运行时版本元数据；在线分发通过 Git marketplace，离线分发通过 Release ZIP；未上架 OpenAI 公共插件目录。

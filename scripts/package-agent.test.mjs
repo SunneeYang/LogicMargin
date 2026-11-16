@@ -55,10 +55,18 @@ before(async () => {
     assert.equal(await readFile(`${archive}.sha256`, 'utf8'), `${sha256(await readFile(archive))}  ${archive.split(/[\\/]/).at(-1)}\n`)
     const runtimeVersion = await execute(packagedCli, ['--version'])
     assert.equal(runtimeVersion.stdout.trim(), version, 'Native runner must match the plugin version used for downloads and cache keys')
-    for (const path of ['plugin.json', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/scripts/logic-margin.sh', 'skills/logic-margin/scripts/logic-margin.ps1',
+    for (const path of ['plugin.json', '.codex-plugin/plugin.json', 'skills/logic-margin/SKILL.md', 'skills/logic-margin/scripts/logic-margin.sh', 'skills/logic-margin/scripts/logic-margin.ps1',
       ...(await readdir(new URL('skills/logic-margin/references/', plugin))).map(name => `skills/logic-margin/references/${name}`)]) {
       assert.deepEqual(await readFile(join(packagedRoot, 'plugins/logic-margin', path)), await readFile(new URL(path, plugin)), `${path} must be shipped unchanged`)
     }
+    const manifest = JSON.parse(await readFile(join(packagedRoot, 'plugins/logic-margin/.codex-plugin/plugin.json'), 'utf8'))
+    assert.equal(manifest.version, version)
+    assert.equal(manifest.mcpServers, './mcp.json')
+    const mcp = JSON.parse(await readFile(join(packagedRoot, 'plugins/logic-margin/mcp.json'), 'utf8')).mcpServers.logic_margin
+    assert.equal(mcp.command, `./skills/logic-margin/scripts/${executable}`)
+    assert.deepEqual(mcp.args, ['mcp'])
+    assert.equal(mcp.cwd, '.')
+    assert.equal(mcp.tool_timeout_sec, 86400)
     const notices = await readFile(join(packagedRoot, 'plugins/logic-margin/THIRD_PARTY_NOTICES.md'), 'utf8')
     assert.ok(notices.startsWith(await readFile(new URL('THIRD_PARTY_NOTICES.md', plugin), 'utf8')))
     for (const dependency of ['@lezer/common', '@lezer/javascript', '@lezer/lr', '@lezer/highlight', 'github.com/dop251/goja', 'github.com/modelcontextprotocol/go-sdk', 'Go standard library and runtime']) {

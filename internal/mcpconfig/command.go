@@ -21,7 +21,7 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// RunCommand reuses the platform process-tree cleanup used by Codex configuration.
+// RunCommand bounds output and cleans up the command process tree on exit.
 func RunCommand(ctx context.Context, directory string, env, command []string) ([]byte, error) {
 	if len(command) == 0 {
 		return nil, errors.New("missing_command")
