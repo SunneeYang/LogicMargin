@@ -1,20 +1,20 @@
 # DeepSeek Harness 适配
 
-LogicMargin 的 DSH 插件启动或复用原生 Go 服务，接入 DSH 官方 MCP Client，并注册 `logic-margin` 技能。流程图、源码核验、固定 B/R、意见领取与多轮复核沿用同一后端。
+LogicMargin 的 DSH 插件启动或复用原生 Go 服务，通过 HTTP MCP 接入 DSH 官方 MCP Client，并注册 `logic-margin` 技能。流程图、源码核验、固定 B/R、意见领取与多轮复核沿用同一后端。
 
-当前兼容基线为 **DSH `0.2.2-rc.1`、LogicMargin `0.9.18`**。当前 master 文档中的 `mcpManager` 不存在于该发布包；本适配使用双方共有的异步插件接口，不能据此承诺其他 DSH 版本兼容。
+宿主接口兼容基线沿用 **DSH `0.2.2-rc.1`**，本次 LogicMargin 包版本为 **`0.9.19`**。下方保留的历史发行验收记录不代替 0.9.19 的独立验收。当前 master 文档中的 `mcpManager` 不存在于该发布包；本适配使用双方共有的异步插件接口，不能据此承诺其他 DSH 版本兼容。
 
 ## 从 npm 安装（推荐）
 
-[`dsh-plugin-logicmargin@0.9.18`](https://www.npmjs.com/package/dsh-plugin-logicmargin/v/0.9.18) 已公开发布。使用 DSH 支持的 Node.js 环境，并确保 `pnpm` 在 PATH 中；`dsh plugin` 会把包管理命令转发给 pnpm，命令形式见 [DSH 官方 CLI 参考](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.md)。
+从 [npm 包主页](https://www.npmjs.com/package/dsh-plugin-logicmargin) 安装 registry 当前的 `latest`。使用 DSH 支持的 Node.js 环境，并确保 `pnpm` 在 PATH 中；`dsh plugin` 会把包管理命令转发给 pnpm，命令形式见 [DSH 官方 CLI 参考](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/reference/README.md)。
 
 将 `YOUR_PROFILE` 换成实际使用的 profile：
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@0.9.18 --save-exact --registry=https://registry.npmjs.org
+dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@latest --save-exact --registry=https://registry.npmjs.org
 ```
 
-命令从官方 npm registry 安装固定版本。安装公开包无需 npm 发布账号或 DeepSeek 模型账号登录，也无需克隆或构建 LogicMargin。
+命令从官方 npm registry 解析当时的 `latest`，并将解析结果保存为固定版本，不会在后台自动升级。需要锁定本次版本时，确认 registry 已有该版本后把 `@latest` 换成 `@0.9.19`。GitHub Release 与 npm 发布分别核实；安装公开包无需 npm 发布账号或 DeepSeek 模型账号登录，也无需克隆或构建 LogicMargin。
 
 重载该插件/profile，核对技能 `logic-margin`，再实际调用只读 `mcp__logic_margin__list_reviews` 确认 MCP 链路可用。之后在待评审工程中使用技能读取真实来源、整理评审并给出页面链接。安装成功、技能被发现、MCP 可调用需要分别确认。
 
@@ -24,11 +24,13 @@ Web profile 可用 `dsh --profile YOUR_PROFILE --host 127.0.0.1 --port 0 --no-op
 
 ## GitHub tgz 安装（备用）
 
-从 [v0.9.18 Release](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.18) 下载 `dsh-plugin-logicmargin-0.9.18.tgz` 与同名 `.sha256`，核验后安装到同一个目标 profile：
+从最新 Release 的固定入口下载 [`dsh-plugin-logicmargin.tgz`](https://github.com/SunneeYang/LogicMargin/releases/latest/download/dsh-plugin-logicmargin.tgz) 和 [SHA-256 文件](https://github.com/SunneeYang/LogicMargin/releases/latest/download/dsh-plugin-logicmargin.tgz.sha256)，核验后安装到同一个目标 profile：
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.18.tgz
+dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin.tgz
 ```
+
+需要固定复现本次版本时，从 [v0.9.19 Release](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.19) 选择版本化的 `dsh-plugin-logicmargin-0.9.19.tgz` 与同名 `.sha256`。固定下载入口只在下载时选择最新发行，不会替已安装 profile 自动更新。
 
 安装后执行相同的重载、技能发现和只读 MCP 检查。直接安装 `plugins/deepseek-harness` 源码目录缺少打包时生成的资源，应使用 npm 包或完整 tgz。
 
@@ -38,7 +40,7 @@ dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.
 - 可选配置 `home` 为绝对路径，`port` 为 0–65535；0 表示可用端口。独立 home 隔离服务登记，默认数据位于 `<home>/sessions`。宿主显式传入 `LOGIC_MARGIN_DATA_DIR` 时沿用该值；已运行服务保留其登记的数据目录。变更目录前必须核对实际服务，不能只改环境变量就认为完成迁移。
 - DSH 使用 `server start`，**不要运行 Codex 专用 `server setup`**。不修改 Codex 的 MCP 配置。
 - 插件卸载撤销其工具、连接与技能，保留可能由其他宿主使用的后台及评审数据。
-- 更新 DSH 包时，在同一 profile 再执行上述 npm `add` 命令，把版本换成准备采用的已发布兼容版本，再重载。它也可将原 tgz 安装切换到 npm 来源；`--save-exact` 保持版本固定。网页一键更新目前针对 Codex，不能用它更新 DSH 包。升级原生服务前备份数据并核对实例，沿用原 home、端口与 session ID；不能由一个宿主擅自关闭其他宿主正在使用的服务。
+- 更新 DSH 包时，在同一 profile 再执行上述 npm `add` 命令解析最新发行，或换成准备采用的已发布兼容版本，再重载。它也可将原 tgz 安装切换到 npm 来源；`--save-exact` 保持版本固定。网页一键更新目前针对 Codex，不能用它更新 DSH 包。升级原生服务前备份数据并核对实例，沿用原 home、端口与 session ID；不能由一个宿主擅自关闭其他宿主正在使用的服务。
 
 本适配面向本机执行。MCP 与源码工程必须同机；Tailscale/局域网可分享网页，不能把远程 provider 的文件当成本机文件，也不开放远程 MCP。
 
@@ -56,7 +58,7 @@ dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.
 npm run package:dsh
 ```
 
-生成 `artifacts/dsh-plugin-logicmargin-0.9.18.tgz` 和同名 `.sha256`，包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。正式发行流水线将它与五个平台原生 ZIP 一起构建、核对版本和许可，生成 `SHA256SUMS` 后上传 GitHub Release；npm 发布和市场投稿仍分别执行。
+生成 `artifacts/dsh-plugin-logicmargin-0.9.19.tgz` 和同名 `.sha256`，包含入口、bundle patch、中英元数据、技能、MIT 许可和固定版本下载启动器，不含另一份 DSH、Go 编译器或原生程序。正式发行流水线将它与五个平台原生 ZIP 一起构建、核对版本和许可，生成 `SHA256SUMS` 后上传 GitHub Release；npm 发布和市场投稿仍分别执行。
 
 `agent-tmp-run` 是开发机的临时文件 harness，不是公共安装依赖；有本地 AGENTS 要求时按其规则包裹命令。
 
@@ -72,7 +74,7 @@ npm run test:dsh
 env \
   LOGIC_MARGIN_DSH_ROOT=/absolute/path/to/node_modules/@deepseek-ai/dsh \
   node scripts/dsh-integration.mjs \
-  artifacts/dsh-plugin-logicmargin-0.9.18.tgz \
+  artifacts/dsh-plugin-logicmargin-0.9.19.tgz \
   .scratch/dsh-web-integration.json
 ```
 
@@ -108,7 +110,7 @@ Desktop、浏览器交互、模型实际执行技能、Windows/Linux 本机运�
 
 ## 市场与账号
 
-1. **npm 分发**：[`dsh-plugin-logicmargin@0.9.18`](https://www.npmjs.com/package/dsh-plugin-logicmargin/v/0.9.18) 已发布，采用 [MIT](../LICENSE)。用户按本文安装命令即可使用公开包；npm 账号和发布权限由维护者在发布时使用。
+1. **npm 分发**：[包主页](https://www.npmjs.com/package/dsh-plugin-logicmargin)和 registry 的版本列表、`latest` 为准，采用 [MIT](../LICENSE)。用户按本文安装命令使用已公开的版本；GitHub 发行完成不代表相同版本已同步到 npm。npm 账号和发布权限由维护者在发布时使用。
 2. **社区目录**：按 [awesome-dsh-plugin 投稿规则](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)维护条目，核对 npm 包与源码仓库的关联；npm 发布不会自动完成目录收录。
 3. **Discover**：以实际配置的索引、条目和安装结果为准，不能用 npm 已发布代替指定 Discover 来源可发现、可安装的验收。
 4. **Official 清单 / GitHub topic**：都是独立入口，不等同于 npm 发布或社区审核。DeepSeek 模型账号登录用于模型鉴权，与这些分发入口独立。

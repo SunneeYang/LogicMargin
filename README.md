@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.18-2563eb?style=flat-square" alt="Version 0.9.18" /></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/version-0.9.19-2563eb?style=flat-square" alt="Version 0.9.19" /></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/runtime-Go-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go executable; no Node.js or Go installation needed" /></a>
   <a href="docs/agent-workflow.md"><img src="https://img.shields.io/badge/review-human--in--the--loop-7c3aed?style=flat-square" alt="Human review with coding agents" /></a>
 </p>
@@ -101,15 +101,17 @@ Structural focus is applied automatically for supported Go and JavaScript/TypeSc
 
 ## Quickstart
 
-**0.9.18 uses a Go executable with the web UI embedded. Codex and native ZIP users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. DSH uses its own supported Node.js environment and pnpm; source development and builds require Node.js and Go.
+**0.9.19 uses a Go executable with the web UI embedded. Codex and native ZIP users do not need Node.js, Go, Bun, or npm.** Online Codex installation requires Git and internet access to download the matching native release on first launch. DSH uses its own supported Node.js environment and pnpm; source development and builds require Node.js and Go.
 
 ### Use it with an agent
 
-For **DeepSeek Harness 0.2.2-rc.1**, install the published [npm package](https://www.npmjs.com/package/dsh-plugin-logicmargin/v/0.9.18) into the profile you use:
+For **DeepSeek Harness 0.2.2-rc.1**, install the [npm package](https://www.npmjs.com/package/dsh-plugin-logicmargin) into the profile you use:
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@0.9.18 --save-exact --registry=https://registry.npmjs.org
+dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@latest --save-exact --registry=https://registry.npmjs.org
 ```
+
+The command resolves `latest` at installation time and saves the resolved version; it does not enable background upgrades. To pin this version after it is available in npm, replace `@latest` with `@0.9.19`. GitHub and npm publication are separate steps.
 
 Reload the plugin/profile, then verify the `logic-margin` skill and its MCP tools. The plugin connects the same native service through DSH's official MCP Client. The [DSH guide](docs/deepseek-harness.md) covers updates and the GitHub tgz alternative. The commands below are specific to Codex.
 
@@ -139,7 +141,7 @@ codex plugin add logic-margin@logic-margin-local
 
 Keep the same `LOGIC_MARGIN_HOME` / `LOGIC_MARGIN_DATA_DIR`, port, and session IDs. After updating, reload the plugin so Codex resolves the relative entry from its new installation directory, and restart the verified managed service when its version changes. For an older global `mcp_servers.logic_margin` registration, back up the config and remove or disable only the entry confirmed to belong to LogicMargin, preserving its policy before switching to the bundled server. Review data stays separate from the plugin cache; do not delete it to upgrade. See the [upgrade steps](docs/agent-plugin.md#升级与数据连续性). The marketplace follows its registered ref; it does not poll for updates during a review.
 
-For installation without Git, choose `logic-margin-agent-VERSION-TARGET.zip` and its `.zip.sha256` from [GitHub Releases](https://github.com/SunneeYang/LogicMargin/releases), replacing `VERSION` with the required version. Bundled MCP registration starts in 0.9.19; until that version is published, use a locally built ZIP from the matching source. Older release archives do not contain this change.
+For installation without Git, choose `logic-margin-agent-0.9.19-TARGET.zip` and its `.zip.sha256` from [Release v0.9.19](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.19). Bundled MCP registration starts in 0.9.19; older release archives do not contain this change.
 
 | Platform | TARGET |
 | --- | --- |

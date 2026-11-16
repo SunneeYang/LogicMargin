@@ -5,7 +5,7 @@ description: 用 LogicMargin 将业务逻辑整理为可批注流程图，发起
 
 # LogicMargin 逻辑评审
 
-在当前开发工程工作。Codex 从兼容清单引用的根 `mcp.json` 加载 stdio MCP，以插件根目录解析相对入口，按需启动或复用 LogicMargin 共享后台；后台提供评审 API、网页和兼容 HTTP MCP。源码修改、测试和 Git 操作仍由原 Agent 在授权工作区完成。
+在当前开发工程工作。LogicMargin 共享后台提供评审 API 和网页；MCP 入口及后台启动方式按当前宿主的连接流程执行。源码修改、测试和 Git 操作仍由原 Agent 在授权工作区完成。
 
 用户要求安装、检查或更新插件时，读取 [插件安装与更新](references/plugin-updates.md)，核对实际安装结果后报告。首次连接、工具缺失或连接故障时，读取 [连接、恢复与 CLI 回退](references/mcp-workflow.md)。
 

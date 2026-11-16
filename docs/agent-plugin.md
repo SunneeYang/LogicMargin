@@ -2,7 +2,7 @@
 
 插件包含审查技能、MCP、评审 API、网页和 CLI。兼容清单 `.codex-plugin/plugin.json` 引用根目录 `mcp.json` 随包注册 stdio MCP，入口路径相对安装后的插件根目录解析；实际工具调用按需启动或复用一个共享后台，后台提供 `/api`、内嵌网页和兼容 HTTP MCP 的 `/mcp`。安装后可在其他工程使用，无需在业务工程安装 npm 依赖或启动 Vite。
 
-0.9.18 默认使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。原生程序运行时不依赖 Node.js、Go、Bun 或 npm；源码开发与构建需要 Node.js 和 Go。DSH 宿主仍需其支持的 Node.js 环境和 pnpm，见 [DSH 安装说明](deepseek-harness.md)。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
+0.9.19 使用 Go 原生程序，内嵌网页、HTTP MCP、评审 API、会话管理与 CLI。原生程序运行时不依赖 Node.js、Go、Bun 或 npm；源码开发与构建需要 Node.js 和 Go。DSH 宿主仍需其支持的 Node.js 环境和 pnpm，见 [DSH 安装说明](deepseek-harness.md)。按操作系统和架构分发五个 ZIP，旧 Node 通用 ZIP 不再是默认发行。
 
 网页“设置”使用居中窗口，分为“界面”“快捷键”和“版本与更新”。常用审查键位可录制、停用或恢复默认，保存范围与输入边界见[快捷键说明](keyboard-shortcuts.md)。版本页可读取运行中原生服务版本，手动检查官方稳定版，并在服务本机一键更新已有 Codex 插件与 Go 服务。远程页面只能检查；详细信任、备份与失败恢复边界见 [网页本机更新](local-updates.md)。
 
@@ -28,7 +28,7 @@ codex plugin marketplace upgrade logic-margin-local --json
 codex plugin add logic-margin@logic-margin-local --json
 ```
 
-先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上的插件版本；若要求固定版本，首次注册时将 `--ref main` 改为 `--ref v0.9.18`，之后更新仍保持该 tag。启动器的下载版本始终固定为当前插件版本，不使用浮动的 latest。
+先核对 upgrade 返回的 `errors` 为空，再安装并核对返回的 `version` 与 `installedPath`。`upgrade` 只刷新 marketplace，第二步才更新实际安装。此路径跟随 `main` 上的插件版本；若要求固定版本，首次注册时将 `--ref main` 改为 `--ref v0.9.19`，之后更新仍保持该 tag。启动器的下载版本始终固定为当前插件版本，不使用浮动的 latest。
 
 Codex 会移除旧版本缓存。更新后通过原宿主重新加载技能，按新版 `installedPath` 定位入口；旧 `LM_CLI` 路径可能已失效。安装成功与后台切换分别验证，恢复步骤见下文。
 
@@ -36,7 +36,7 @@ Codex 会移除旧版本缓存。更新后通过原宿主重新加载技能，�
 
 ## ZIP 安装（无需 Git）
 
-从 [GitHub Release v0.9.18](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.18) 下载匹配平台的 `logic-margin-agent-0.9.18-TARGET.zip` 与同名 `.zip.sha256`：
+从 [GitHub Release v0.9.19](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.19) 下载匹配平台的 `logic-margin-agent-0.9.19-TARGET.zip` 与同名 `.zip.sha256`：
 
 | 平台 | TARGET |
 | --- | --- |
@@ -46,22 +46,22 @@ Codex 会移除旧版本缓存。更新后通过原宿主重新加载技能，�
 | Linux x64 | `linux-x64` |
 | Windows x64 | `win32-x64` |
 
-例如 macOS ARM64 的附件是 `logic-margin-agent-0.9.18-darwin-arm64.zip` 和 `logic-margin-agent-0.9.18-darwin-arm64.zip.sha256`。每个包只包含对应平台的程序、内嵌网页和插件材料；解压后运行无需下载运行时。
+例如 macOS ARM64 的附件是 `logic-margin-agent-0.9.19-darwin-arm64.zip` 和 `logic-margin-agent-0.9.19-darwin-arm64.zip.sha256`。每个包只包含对应平台的程序、内嵌网页和插件材料；解压后运行无需下载运行时。
 
 在下载目录校验，下面以 macOS ARM64 为例；Linux 将 `shasum -a 256` 换成 `sha256sum` 并选对应文件：
 
 ```sh
-shasum -a 256 -c logic-margin-agent-0.9.18-darwin-arm64.zip.sha256
+shasum -a 256 -c logic-margin-agent-0.9.19-darwin-arm64.zip.sha256
 ```
 
-Windows PowerShell 用 `certutil -hashfile .\logic-margin-agent-0.9.18-win32-x64.zip SHA256`，与 `.zip.sha256` 内的摘要比较。一致后解压到持久位置，将 ZIP 顶层目录注册为 marketplace：
+Windows PowerShell 用 `certutil -hashfile .\logic-margin-agent-0.9.19-win32-x64.zip SHA256`，与 `.zip.sha256` 内的摘要比较。一致后解压到持久位置，将 ZIP 顶层目录注册为 marketplace：
 
 ```sh
-codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.18-darwin-arm64
+codex plugin marketplace add /absolute/path/to/logic-margin-agent-0.9.19-darwin-arm64
 codex plugin add logic-margin@logic-margin-local
 ```
 
-Windows 用实际的 `logic-margin-agent-0.9.18-win32-x64` 目录，包含空格的路径加引号。更新已有安装前先停止身份确认的旧后台、备份实际数据，步骤见下一节。
+Windows 用实际的 `logic-margin-agent-0.9.19-win32-x64` 目录，包含空格的路径加引号。更新已有安装前先停止身份确认的旧后台、备份实际数据，步骤见下一节。
 
 开始新的 agent 会话，使用：
 
@@ -81,7 +81,7 @@ http://review-host.example:5173/?session=<sessionId>
 
 ## 升级与数据连续性
 
-随包 MCP 注册从 0.9.19 开始。该版本尚未公开发布时，使用对应源码生成的本地 ZIP；历史发行包不包含本次改动。
+随包 MCP 注册从 0.9.19 开始。0.9.18 及更早发行包不包含该能力，不能用旧附件替代当前版本的安装包。
 
 0.8.x Node 服务与 0.9.18 Go 服务使用兼容的保存格式，但必须保持同一数据目录只有一个后台写入者。升级不需要删除会话、归档或重新创建评审：
 
@@ -185,18 +185,18 @@ npm run package:agent -- --target linux-x64
 npm run package:agent -- --target win32-x64
 ```
 
-输出位于 `artifacts/logic-margin-agent-0.9.18-TARGET.zip`，不包含本机实际会话、浏览器草稿或私有评审材料。包内直接运行 `scripts/logic-margin` / `scripts/logic-margin.exe`，不依赖 marketplace 下载器。每个平台须分别做原生运行验收；五目标 `CGO_ENABLED=0` 交叉编译通过不等于目标系统已验收。历史迁移记录仅实际运行了 macOS ARM64，具体测试与兼容边界见 [Go 验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。
+输出位于 `artifacts/logic-margin-agent-0.9.19-TARGET.zip`，不包含本机实际会话、浏览器草稿或私有评审材料。包内直接运行 `scripts/logic-margin` / `scripts/logic-margin.exe`，不依赖 marketplace 下载器。每个平台须分别做原生运行验收；五目标 `CGO_ENABLED=0` 交叉编译通过不等于目标系统已验收。历史迁移记录仅实际运行了 macOS ARM64，具体测试与兼容边界见 [Go 验收](go-backend-validation.md) 和 [结构 diff 验收](structural-diff.md)。
 
 ## 维护者发布
 
-同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、Codex 插件根 `plugin.json` 与 `.codex-plugin/plugin.json`、DSH 插件 `package.json` 和 `cmd/logic-margin/main.go` 默认版本为 0.9.18，再准备发布：
+同步 `package.json`、`package-lock.json` 根版本与 `packages[""]` 版本、Codex 插件根 `plugin.json` 与 `.codex-plugin/plugin.json`、DSH 插件 `package.json` 和 `cmd/logic-margin/main.go` 默认版本为 0.9.19，再准备发布：
 
 ```sh
-npm run release:agent -- v0.9.18
+npm run release:agent -- v0.9.19
 npm run test:release
 ```
 
-发行目标是 GitHub tag `v0.9.18`，附件为五平台各一份 `logic-margin-agent-0.9.18-TARGET.zip`、一个 `dsh-plugin-logicmargin-0.9.18.tgz`、各自的 `.sha256` 和统一 `SHA256SUMS`。Git marketplace 的启动器按插件版本定位这些官方附件，校验后执行本平台程序；不将 Node 通用 ZIP 或开发 oracle 当成默认发布。DSH 可直接安装已发布的 npm 包 `dsh-plugin-logicmargin@0.9.18`，也可使用 GitHub tgz。发行流水线不自动发布 npm，社区目录与 Discover 收录仍分别核对，见 [DSH 分发说明](deepseek-harness.md#市场与账号)。
+发行目标是 GitHub tag `v0.9.19`，附件为五平台各一份 `logic-margin-agent-0.9.19-TARGET.zip`、一个 `dsh-plugin-logicmargin-0.9.19.tgz`、各自的 `.sha256` 和统一 `SHA256SUMS`，同时提供固定别名 `dsh-plugin-logicmargin.tgz` 与同名 `.sha256`。Git marketplace 的启动器按插件版本定位这些官方附件，校验后执行本平台程序；不将 Node 通用 ZIP 或开发 oracle 当成默认发布。DSH 可安装 registry 的 `dsh-plugin-logicmargin@latest`；需要固定 `@0.9.19` 时先确认 npm 已有该版本，也可使用 GitHub tgz。发行流水线不自动发布 npm，社区目录与 Discover 收录仍分别核对，见 [DSH 分发说明](deepseek-harness.md#市场与账号)。
 
 推送 tag 与创建 GitHub Release 分别按用户授权执行。跨平台构建、原生运行、CI 完成和附件实际可下载是不同结果；以实际检查和 Release 附件为准，本地打包不代表已发布。维护时同时检查仓库启动器与 ZIP 内的技能说明，确保两条入口描述一致。
 

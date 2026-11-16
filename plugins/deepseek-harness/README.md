@@ -1,22 +1,24 @@
 # LogicMargin for DeepSeek Harness
 
-Connect source-backed logic diagrams, saved code diffs, and human review feedback to **DSH 0.2.2-rc.1**. This thin host plugin uses DSH's official MCP Client and filesystem skill provider. It starts or reuses LogicMargin's native Go service; users do not install Go or a second Node runtime.
+Connect source-backed logic diagrams, saved code diffs, and human review feedback to **DSH 0.2.2-rc.1**. This thin host plugin uses DSH's official MCP Client over HTTP MCP and its filesystem skill provider. It starts or reuses LogicMargin's native Go service; users do not install Go or a second Node runtime.
 
-The published [npm package](https://www.npmjs.com/package/dsh-plugin-logicmargin/v/0.9.18) includes fixed-version native download launchers and the `logic-margin` skill. DSH needs its supported Node.js environment and pnpm on PATH. Installing the public package does not require an npm publisher account or a DeepSeek model-account login.
+The [npm package](https://www.npmjs.com/package/dsh-plugin-logicmargin) includes fixed-version native download launchers and the `logic-margin` skill. DSH needs its supported Node.js environment and pnpm on PATH. Installing the public package does not require an npm publisher account or a DeepSeek model-account login.
 
 ## Install from npm
 
 Replace `YOUR_PROFILE` with the profile you actually use:
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@0.9.18 --save-exact --registry=https://registry.npmjs.org
+dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@latest --save-exact --registry=https://registry.npmjs.org
 ```
 
 Reload the plugin/profile, verify the `logic-margin` skill, and verify `mcp__logic_margin__start_review` and `mcp__logic_margin__wait_review`. Use the skill in the original workspace. Installation alone is not proof that tools are loaded.
 
-The first activation downloads the matching official LogicMargin 0.9.18 release and verifies SHA-256. macOS/Linux need `curl`, `unzip`, and `shasum` or `sha256sum`; Windows uses PowerShell. Git and compilers are not required. Native availability matches the five LogicMargin targets: macOS ARM64/x64, Linux ARM64/x64, Windows x64.
+`@latest` resolves the registry version when `add` runs, and `--save-exact` saves that version. It does not enable background upgrades. To pin this version after it appears in npm, replace `@latest` with `@0.9.19`.
 
-Alternatively, download the tgz and its SHA-256 file from [GitHub Release v0.9.18](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.18), verify the checksum, and install it with `dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin-0.9.18.tgz`.
+The first activation downloads the official LogicMargin release pinned by the installed package version and verifies SHA-256. macOS/Linux need `curl`, `unzip`, and `shasum` or `sha256sum`; Windows uses PowerShell. Git and compilers are not required. Native availability matches the five LogicMargin targets: macOS ARM64/x64, Linux ARM64/x64, Windows x64.
+
+Alternatively, download [`dsh-plugin-logicmargin.tgz`](https://github.com/SunneeYang/LogicMargin/releases/latest/download/dsh-plugin-logicmargin.tgz) and its [SHA-256 file](https://github.com/SunneeYang/LogicMargin/releases/latest/download/dsh-plugin-logicmargin.tgz.sha256), verify the checksum, and install it with `dsh plugin --profile YOUR_PROFILE add /absolute/path/dsh-plugin-logicmargin.tgz`. For a fixed 0.9.19 archive, use the versioned tgz and sidecar from [Release v0.9.19](https://github.com/SunneeYang/LogicMargin/releases/tag/v0.9.19).
 
 The default reuses the same user's compatible local LogicMargin service. Optional plugin config fields are `home` (an absolute path) and `port` (0–65535). A separate home isolates the daemon registry; its data defaults to `<home>/sessions`, unless the host explicitly supplies `LOGIC_MARGIN_DATA_DIR`. Existing daemons retain their registered data directory. A conflicting or incompatible daemon fails explicitly; this plugin does not stop or replace it.
 
@@ -30,7 +32,7 @@ This package targets local execution: MCP and the source workspace must be on th
 
 Publishing to npm, adding a GitHub topic, submitting to a community catalog, and showing up in a chosen Discover index are separate actions. No DeepSeek model-account login is required to load this plugin or connect its local MCP.
 
-This package uses the MIT license included in `LICENSE`. Native ZIPs retain their third-party notices. The release workflow prepares the tgz, its SHA-256 file, and the five native ZIPs together. Version 0.9.18 is also published to npm; each future npm publication and market submission remains a separate release step.
+This package uses the MIT license included in `LICENSE`. Native ZIPs retain their third-party notices. The release workflow prepares the tgz, its SHA-256 file, and the five native ZIPs together. GitHub Release, npm publication and market submission remain separate release steps; check the registry before requesting a fixed npm version.
 
 ## Build from source
 
@@ -41,7 +43,7 @@ Maintainers can generate the distributable with `npm run package:dsh` from the r
 适配 DSH `0.2.2-rc.1`，可从 npm 安装：
 
 ```sh
-dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@0.9.18 --save-exact --registry=https://registry.npmjs.org
+dsh plugin --profile YOUR_PROFILE add dsh-plugin-logicmargin@latest --save-exact --registry=https://registry.npmjs.org
 ```
 
 将 `YOUR_PROFILE` 换成实际名称。DSH 需要其支持的 Node.js 和 PATH 中的 pnpm；安装公开包无需 npm 发布账号或 DeepSeek 模型账号登录。加载后启动或复用 Go 后台，接入官方 MCP Client，并注册 `logic-margin` 技能。重载后核对技能与工具；不要运行 Codex 专用 `server setup`。也可校验 GitHub Release 的 tgz 后安装；不需要自行构建，不直接安装源码目录。
